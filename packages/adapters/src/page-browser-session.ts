@@ -32,6 +32,9 @@ const CARD_FIELD_MISSING =
 const CARD_FIELD_AMBIGUOUS =
   "More than one field on the page takes this card detail. Pass its ref from browser_snapshot.";
 
+const PAY_TOKEN_MISSING =
+  "This checkout has no pay token field for this purchase's merchant. Take a fresh snapshot.";
+
 /** Saved usernames are typed only into these input types. Textareas stay out: a username is an input. */
 const USERNAME_INPUT_TYPES = new Set(["text", "email", "tel"]);
 
@@ -88,10 +91,11 @@ export class PageBrowserSession {
 
   snapshot(): BrowserSnapshotResult {
     const { elements, tree } = this.buildSnapshot();
+    const account = payTokenAccount(this.dom.window);
     return {
       url: this.url,
       title: this.title,
-      tree,
+      tree: account ? `${tree}\n${payTokenHint(account)}` : tree,
       elements,
     };
   }
@@ -114,8 +118,11 @@ export class PageBrowserSession {
         };
       }
       try {
-        if (action.kind === "fill" || action.kind === "type") this.checkFillOrigin(action);
-        this.applyAction(el ?? this.cardField(action), action);
+        if (action.kind === "pay_token") this.fillPayToken(action);
+        else {
+          if (action.kind === "fill" || action.kind === "type") this.checkFillOrigin(action);
+          this.applyAction(el ?? this.cardField(action), action);
+        }
       } catch (error) {
         const snap = this.snapshot();
         return {
@@ -144,7 +151,18 @@ export class PageBrowserSession {
     };
   }
 
-  private checkFillOrigin(action: Extract<BrowserActStep, { text: string }>): void {
+  private fillPayToken(action: Extract<BrowserActStep, { kind: "pay_token" }>): void {
+    this.checkFillOrigin({ ...action, field: "card" });
+    const win = this.dom.window;
+    if (payTokenAccount(win) !== action.merchantAccountId) throw new FillRefused(PAY_TOKEN_MISSING);
+    const input = win.document.querySelector(PAY_TOKEN_INPUT);
+    if (!(input instanceof win.HTMLInputElement)) throw new FillRefused(PAY_TOKEN_MISSING);
+    this.loginFilled.add(input);
+    input.value = action.text;
+    input.dispatchEvent(new win.Event("input", { bubbles: true }));
+  }
+
+  private checkFillOrigin(action: { origin?: string; field?: string }): void {
     const card = action.field === "card";
     if (!action.origin && !card) return;
     const page = new URL(this.url);
@@ -299,6 +317,26 @@ export class PageBrowserSession {
     }
     return { elements, tree: lines.join("\n") || "(no interactive elements)" };
   }
+}
+
+const PAY_TOKEN_INPUT = '.AiAgentPaymentSteering input[name="link_pay_token"]';
+
+/** The merchant account of the one pay token block a checkout shows, as the live helper reads it. */
+function payTokenAccount(win: DomWindow): string | null {
+  const blocks = [...win.document.querySelectorAll(".AiAgentPaymentSteering")].filter((block) =>
+    block.querySelector('input[name="link_pay_token"]'),
+  );
+  if (blocks.length !== 1) return null;
+  const block = blocks[0]!;
+  const holder = block.matches("[data-stripe-merchant-account]")
+    ? block
+    : block.querySelector("[data-stripe-merchant-account]");
+  const account = holder?.getAttribute("data-stripe-merchant-account") ?? "";
+  return /^acct_[A-Za-z0-9]{1,64}$/.test(account) ? account : null;
+}
+
+function payTokenHint(account: string): string {
+  return `This checkout accepts a pay token: merchantAccountId "${account}".`;
 }
 
 function isIgnored(win: DomWindow, el: DomElement): boolean {

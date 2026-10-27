@@ -1,6 +1,7 @@
 """Offline protocol/error regressions for the live browser helper."""
 import importlib.machinery
 import importlib.util
+import json
 from pathlib import Path
 import struct
 import os
@@ -88,6 +89,32 @@ class CardBrowser:
                 self.typed, self.kept = "", None
             return None
         return True
+
+
+PAY_TOKEN = "lpt_fake_secret_token"
+
+
+class PayTokenBrowser(CardBrowser):
+    """A merchant page whose pay token block is in the page or in a frame it shows."""
+
+    def __init__(self, main_account=None, frame_account="acct_fake123", accepted=True, **kwargs):
+        super().__init__(**kwargs)
+        self.main_account, self.frame_account, self.accepted = main_account, frame_account, accepted
+        self.handed = []
+
+    def call(self, method, params=None, *, session_id=None, timeout_s=30.0):
+        if method == "Runtime.callFunctionOn":
+            self.sent.append((method, params, session_id))
+            self.handed.append((params["arguments"][0]["value"], session_id, params["executionContextId"]))
+            if self.on_focus:
+                self.on_focus(self)
+            return {"result": {"value": self.accepted}}
+        return super().call(method, params, session_id=session_id, timeout_s=timeout_s)
+
+    def evaluate(self, expression, in_frame):
+        if "payTokenAccount()" in expression:
+            return self.frame_account if in_frame else self.main_account
+        return super().evaluate(expression, in_frame)
 
 
 def urlsplit_origin(url):
@@ -449,6 +476,70 @@ class PageBrowserTest(unittest.TestCase):
                 result = helper.snapshot(browser.client, "page")
             self.assertEqual(result["tree"], f"Checkout\n{line}")
             self.assertNotIn("frames", result)
+
+    def test_snapshot_names_the_merchant_account_of_a_pay_token_checkout(self):
+        for browser, account in ((PayTokenBrowser(), "acct_fake123"),
+                                 (PayTokenBrowser(main_account="acct_main1", frame_account=None), "acct_main1"),
+                                 (PayTokenBrowser(frame_url="https://checkout.pci.shopifyinc.com/card"), None),
+                                 (PayTokenBrowser(frame_account=None), None)):
+            with self.subTest(frame=browser.frame_url), patch.object(helper, "wait_for_settle", return_value=True), \
+                    patch.object(helper, "ensure_helpers"):
+                tree = helper.snapshot(browser.client, "page")["tree"]
+            if account:
+                self.assertTrue(tree.endswith(helper.pay_token_hint(account)), tree)
+            else:
+                self.assertNotIn("pay token", tree)
+
+    def pay_token_fill(self, browser, account="acct_fake123", origin=MERCHANT):
+        with patch.object(helper, "ensure_helpers"), patch.object(helper, "snapshot", return_value={"ok": True}):
+            return helper.act(browser.client, "page", [
+                {"kind": "pay_token", "text": PAY_TOKEN, "origin": origin, "merchantAccountId": account},
+            ])
+
+    def test_pay_token_goes_to_the_stripe_frame_block_as_an_argument_only(self):
+        browser = PayTokenBrowser()
+        self.assertEqual(self.pay_token_fill(browser), {"ok": True, "completed": 1})
+        self.assertEqual(browser.handed, [(PAY_TOKEN, "frame-session", 2)])
+        self.assertNotIn(PAY_TOKEN, "".join(browser.evaluated))
+        self.assertNotIn(PAY_TOKEN, json.dumps([params for method, params, _ in browser.sent
+                                                if method != "Runtime.callFunctionOn"]))
+
+    def test_pay_token_goes_to_the_page_itself_when_its_block_is_there(self):
+        browser = PayTokenBrowser(main_account="acct_fake123", frame_account=None)
+        self.assertEqual(self.pay_token_fill(browser), {"ok": True, "completed": 1})
+        self.assertEqual(browser.handed, [(PAY_TOKEN, "page", 1)])
+        self.assertNotIn("Target.setAutoAttach", [method for method, _, _ in browser.sent])
+
+    def test_pay_token_refuses_other_merchants_frames_and_sites(self):
+        for browser, kwargs, error in (
+            (PayTokenBrowser(frame_account="acct_other"), {}, helper.PAY_TOKEN_MISSING),
+            (PayTokenBrowser(frame_url="https://checkout.pci.shopifyinc.com/card"), {}, helper.PAY_TOKEN_MISSING),
+            (PayTokenBrowser(owned=False), {}, helper.PAY_TOKEN_MISSING),
+            (PayTokenBrowser(top_origin="https://evil.example.test"), {}, helper.NOT_ON_MERCHANT),
+            (PayTokenBrowser(), {"origin": "http://shop.example.test"}, "only be filled on HTTPS"),
+        ):
+            with self.subTest(frame=browser.frame_url, kwargs=kwargs):
+                result = self.pay_token_fill(browser, **kwargs)
+                self.assertEqual(result["ok"], False)
+                self.assertEqual(result["uncertain"], False)
+                self.assertIn(error, result["error"])
+                self.assertEqual(browser.handed, [])
+
+    def test_pay_token_reports_a_checkout_that_did_not_take_it_without_the_token(self):
+        result = self.pay_token_fill(PayTokenBrowser(accepted=False))
+        self.assertEqual(result["ok"], False)
+        self.assertIn("didn't take the pay token", result["error"])
+        self.assertNotIn(PAY_TOKEN, json.dumps(result))
+
+    def test_pay_token_steps_need_their_token_origin_and_account_and_no_ref(self):
+        for step in ({"kind": "pay_token", "text": PAY_TOKEN, "origin": MERCHANT},
+                     {"kind": "pay_token", "text": "", "origin": MERCHANT, "merchantAccountId": "acct_1"},
+                     {"kind": "pay_token", "ref": "e1", "text": PAY_TOKEN, "origin": MERCHANT,
+                      "merchantAccountId": "acct_1"}):
+            with self.subTest(step=step), patch.object(helper, "ensure_helpers") as ensure:
+                with self.assertRaisesRegex(RuntimeError, "pay token needs"):
+                    helper.act(Mock(), "session", [step])
+                ensure.assert_not_called()
 
     def test_key_events_press_printable_characters_and_insert_the_rest(self):
         self.assertEqual(helper.key_event("6"),

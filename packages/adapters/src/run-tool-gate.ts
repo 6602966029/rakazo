@@ -27,7 +27,7 @@ import { approvalEffectKey, toolEffectIdempotencyKey } from "@rakazo/core/node/a
 import { runSecretKind } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import type { FleetCardSummary } from "./approval-ask.js";
-import { buildApprovalAskBlock, MAX_FETCH_URL_LENGTH } from "./approval-ask.js";
+import { buildApprovalAskBlock, MAX_FETCH_URL_LENGTH, SITE_SENDING_TOOLS } from "./approval-ask.js";
 import {
   claimApprovedEffect,
   claimIntendedEffect,
@@ -150,10 +150,12 @@ export async function gateToolCall(
     );
   const connectorProviders = ctx.tools.connectedPlugins.map((plugin) => plugin.provider);
   const connectorKind = connectorKindFromToolName(name, connectorProviders);
-  const fetchUrl = name === "web_fetch" ? normalizedHttpUrl(String(args.url ?? "")) : undefined;
+  // paid_request with only a purchase id sends the request its approval already named.
+  const sendsToSite =
+    SITE_SENDING_TOOLS.has(name) && (name === "web_fetch" || args.url !== undefined);
+  const fetchUrl = sendsToSite ? normalizedHttpUrl(String(args.url ?? "")) : undefined;
   const fetchSite = fetchUrl ? urlSite(fetchUrl) : undefined;
-  if (name === "web_fetch" && !fetchSite)
-    return { result: { error: "url must be an http(s) URL" } };
+  if (sendsToSite && !fetchSite) return { result: { error: "url must be an http(s) URL" } };
   if (fetchUrl && fetchUrl.length > MAX_FETCH_URL_LENGTH)
     return { result: { error: `url must be at most ${MAX_FETCH_URL_LENGTH} characters` } };
   // The card, the stored effect and the request all use the URL the gate checked.

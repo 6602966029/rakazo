@@ -102,6 +102,15 @@ CARD_FIELD_MISSING = "No field for this card detail was found on the page. Pass 
 CARD_FIELD_AMBIGUOUS = "More than one field on the page takes this card detail, so nothing was typed."
 PAYMENT_FRAME_HINT = "Card fields are in a payment frame: use fill_card without ref."
 
+# A Stripe checkout that takes a wallet pay token in place of a card marks it with a hidden block
+# naming the merchant account, in the page or in Stripe's own frame.
+PAY_TOKEN_FRAME_ORIGIN = "https://js.stripe.com"
+PAY_TOKEN_MISSING = "This checkout has no pay token field for this purchase's merchant. Take a fresh snapshot."
+
+
+def pay_token_hint(account: str) -> str:
+    return f'This checkout accepts a pay token: merchantAccountId "{account}".'
+
 
 def payment_frame_origin(url: Any) -> bool:
     try:
@@ -690,6 +699,25 @@ EVAL_HELPERS = r"""
         frames: Boolean(document.querySelector("iframe,frame")),
       };
     },
+    payTokenAccount() {
+      const blocks = [...document.querySelectorAll(".AiAgentPaymentSteering")]
+        .filter((block) => block.querySelector('input[name="link_pay_token"]'));
+      if (blocks.length !== 1) return null;
+      const holder = blocks[0].matches("[data-stripe-merchant-account]") ? blocks[0]
+        : blocks[0].querySelector("[data-stripe-merchant-account]");
+      const account = holder?.getAttribute("data-stripe-merchant-account") || "";
+      return /^acct_[A-Za-z0-9]{1,64}$/.test(account) ? account : null;
+    },
+    // The checkout swaps in the wallet's saved card when it sees the token through the native setter.
+    setPayToken(token) {
+      const inputs = document.querySelectorAll('.AiAgentPaymentSteering input[name="link_pay_token"]');
+      if (inputs.length !== 1) return false;
+      const el = inputs[0];
+      loginFilled.add(el);
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(el, String(token));
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      return el.value === String(token);
+    },
     findCard(token) {
       const found = cardFields(String(token));
       cardTarget = found.length === 1 ? found[0] : null;
@@ -1188,12 +1216,20 @@ def frame_owner_visible(client: CdpClient, session_id: str, backend_node_id: int
     return result.get("result", {}).get("value") is True
 
 
-def card_frames_shown(client: CdpClient, session_id: str) -> bool:
-    try:
-        return any(eval_json(client, frame_session, "window.__rakazoPageBrowser.hasCardField()", context_id=world)
-                   for frame_session, _, world in payment_frames(client, session_id))
-    except Exception:  # noqa: BLE001
-        return False
+def frame_eval(client: CdpClient, frames: list[tuple[str, str, int]], expression: str) -> list[Any]:
+    """`expression` in each frame, with None for a frame that failed."""
+    results = []
+    for frame_session, _, world in frames:
+        try:
+            results.append(eval_json(client, frame_session, expression, context_id=world))
+        except Exception:  # noqa: BLE001
+            results.append(None)
+    return results
+
+
+def pay_token_frames(client: CdpClient, frames: list[tuple[str, str, int]]) -> list[tuple[str, str, int]]:
+    return [frame for frame, origin in zip(frames, frame_eval(client, frames, "location.origin"))
+            if origin == PAY_TOKEN_FRAME_ORIGIN]
 
 
 def snapshot(client: CdpClient, session_id: str) -> dict[str, Any]:
@@ -1202,9 +1238,21 @@ def snapshot(client: CdpClient, session_id: str) -> dict[str, Any]:
     data = eval_json(client, session_id, "window.__rakazoPageBrowser.snapshot()")
     if not isinstance(data, dict):
         raise RuntimeError("snapshot returned non-object")
+    tree = str(data.get("tree") or "")
+    account = eval_json(client, session_id, "window.__rakazoPageBrowser.payTokenAccount()")
     if data.pop("frames", False):
-        data["tree"] = str(data.get("tree") or "") + "\n" + (
-            PAYMENT_FRAME_HINT if card_frames_shown(client, session_id) else "Embedded frames require desktop tools.")
+        try:
+            frames = payment_frames(client, session_id)
+        except Exception:  # noqa: BLE001
+            frames = []
+        card_shown = any(frame_eval(client, frames, "window.__rakazoPageBrowser.hasCardField()"))
+        tree += "\n" + (PAYMENT_FRAME_HINT if card_shown else "Embedded frames require desktop tools.")
+        accounts = [found for found in frame_eval(client, pay_token_frames(client, frames),
+                                                  "window.__rakazoPageBrowser.payTokenAccount()") if found]
+        account = account or (accounts[0] if len(accounts) == 1 else None)
+    if isinstance(account, str):
+        tree += "\n" + pay_token_hint(account)
+    data["tree"] = tree
     return {"ok": True, **data, **({} if settled else {"loading": True})}
 
 
@@ -1225,15 +1273,8 @@ def find_card_field(client: CdpClient, session_id: str, main_frame_id: str, toke
     return matches[0]
 
 
-def fill_card(client: CdpClient, session_id: str, step: dict[str, Any]) -> None:
-    """Type a card detail with trusted input into the field the page or its payment frame marks for it.
-
-    Before every key the top page must still be the merchant's document, the frame its payment
-    provider's, and the field focused, so a navigation between finding the field and typing refuses.
-    """
-    origin, text = step["origin"], step["text"]
-    if step["cardField"] == "expiry":
-        text = "".join(char for char in text if char.isalnum())
+def merchant_check(client: CdpClient, session_id: str, origin: str) -> Any:
+    """A check that the top page is still the document it was on now, and on the merchant's origin."""
     if not origin.startswith("https://"):
         raise Refused("A card can only be filled on HTTPS. "
                       "Open the merchant's checkout with browser_navigate, then fill again.")
@@ -1246,7 +1287,55 @@ def fill_card(client: CdpClient, session_id: str, step: dict[str, Any]) -> None:
 
     if not on_merchant():
         raise Refused(NOT_ON_MERCHANT)
-    field_session, frame_id, world = find_card_field(client, session_id, main_frame["id"],
+    on_merchant.main_frame_id = main_frame["id"]  # type: ignore[attr-defined]
+    return on_merchant
+
+
+def fill_pay_token(client: CdpClient, session_id: str, step: dict[str, Any]) -> None:
+    """Hand an approved pay token to the merchant account's hidden block, in the page or Stripe's frame.
+
+    The token is passed as a call argument, never in script source or the result, and only once the
+    top page is still the merchant's and the block names the purchase's merchant account.
+    """
+    on_merchant = merchant_check(client, session_id, step["origin"])
+    account = step["merchantAccountId"]
+    lookup = "window.__rakazoPageBrowser.payTokenAccount()"
+    targets = []
+    if eval_json(client, session_id, lookup) == account:
+        targets.append((session_id, on_merchant.main_frame_id, client.context_id))
+    else:
+        frames = pay_token_frames(client, payment_frames(client, session_id))
+        targets = [frame for frame, found in zip(frames, frame_eval(client, frames, lookup)) if found == account]
+    if len(targets) != 1:
+        raise Refused(PAY_TOKEN_MISSING)
+    target_session, _, world = targets[0]
+    if not on_merchant() or (target_session != session_id and eval_json(
+            client, target_session, "location.origin", context_id=world) != PAY_TOKEN_FRAME_ORIGIN):
+        raise Refused(NOT_ON_MERCHANT)
+    try:
+        result = client.call("Runtime.callFunctionOn", {
+            "functionDeclaration": "function (token) { return window.__rakazoPageBrowser.setPayToken(token); }",
+            "executionContextId": world,
+            "arguments": [{"value": step["text"]}],
+            "returnByValue": True,
+        }, session_id=target_session)
+    except Exception:  # noqa: BLE001
+        raise RuntimeError("The pay token could not be handed to the checkout.") from None
+    if result.get("exceptionDetails") or (result.get("result") or {}).get("value") is not True:
+        raise Refused("The checkout didn't take the pay token. Take a fresh snapshot before trying again.")
+
+
+def fill_card(client: CdpClient, session_id: str, step: dict[str, Any]) -> None:
+    """Type a card detail with trusted input into the field the page or its payment frame marks for it.
+
+    Before every key the top page must still be the merchant's document, the frame its payment
+    provider's, and the field focused, so a navigation between finding the field and typing refuses.
+    """
+    text = step["text"]
+    if step["cardField"] == "expiry":
+        text = "".join(char for char in text if char.isalnum())
+    on_merchant = merchant_check(client, session_id, step["origin"])
+    field_session, frame_id, world = find_card_field(client, session_id, on_merchant.main_frame_id,
                                                      CARD_AUTOCOMPLETE[step["cardField"]])
     in_frame = field_session != session_id
     frame_navigations = client.navigations(field_session, frame_id)
@@ -1303,8 +1392,14 @@ def act(client: CdpClient, session_id: str, actions: list[dict[str, Any]]) -> di
     if not actions or len(actions) > 24:
         raise RuntimeError("Expected 1 to 24 actions")
     for step in actions:
-        if not isinstance(step, dict) or step.get("kind") not in ("click", "fill", "type", "upload"):
+        if not isinstance(step, dict) or step.get("kind") not in ("click", "fill", "type", "upload", "pay_token"):
             raise RuntimeError("Invalid browser action")
+        if step["kind"] == "pay_token":
+            if (step.get("ref") is not None or not isinstance(step.get("text"), str) or not step["text"]
+                    or not isinstance(step.get("origin"), str)
+                    or not isinstance(step.get("merchantAccountId"), str)):
+                raise RuntimeError("A pay token needs its text, origin and merchant account, and no ref")
+            continue
         if step.get("ref") is None and step.get("kind") == "fill" and step.get("field") == "card":
             if step.get("cardField") not in CARD_AUTOCOMPLETE:
                 raise RuntimeError("A card fill without a ref needs its card field")
@@ -1338,6 +1433,12 @@ def act(client: CdpClient, session_id: str, actions: list[dict[str, Any]]) -> di
                     snap = {"uncertain": True}
                 return {"uncertain": False, **snap, "ok": False, "completed": completed,
                         "error": "Stale element ref. Take a fresh snapshot."}
+            if kind == "pay_token":
+                uncertain = True
+                fill_pay_token(client, session_id, step)
+                completed += 1
+                uncertain = False
+                continue
             if ref is None:
                 uncertain = True
                 fill_card(client, session_id, step)

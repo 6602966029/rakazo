@@ -522,6 +522,12 @@ app.post("/computers/:id/browser", async (c) => {
                 paths: z.array(z.string().min(1).max(1024)).min(1).max(10),
                 roots: z.array(z.string().min(1).max(1024)).max(2).optional(),
               }),
+              z.object({
+                kind: z.literal("pay_token"),
+                text: z.string().min(1).max(4096),
+                origin: z.string().url().max(2048),
+                merchantAccountId: z.string().min(1).max(128),
+              }),
               z
                 .object({
                   kind: z.enum(["fill", "type"]),
