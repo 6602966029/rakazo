@@ -40,5 +40,5 @@ export type PurchaseRequestInput = z.infer<typeof PurchaseRequestInput>;
 export const PurchaseIdInput = z.object({ id: z.string().trim().min(1).max(100) }).strict();
 
 /** Card fields browser_act fill_card types; the bot never sees their values. */
-export const PURCHASE_CARD_FIELDS = ["number", "cvc"] as const;
+export const PURCHASE_CARD_FIELDS = ["number", "expiry", "cvc", "postal_code"] as const;
 export type PurchaseCardField = (typeof PURCHASE_CARD_FIELDS)[number];

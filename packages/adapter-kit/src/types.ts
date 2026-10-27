@@ -1,6 +1,7 @@
 import type {
   CacheCapabilities as ConnectionCacheCapabilities,
   ConnectionCatalogItem,
+  PurchaseCardField,
   SandboxKind,
 } from "@rakazo/contracts";
 
@@ -1039,6 +1040,14 @@ export type BrowserActStep =
        * an approved purchase's card detail. A card fill always carries `origin`.
        */
       field?: "username" | "password" | "card";
+    }
+  | {
+      kind: "fill";
+      ref?: undefined;
+      text: string;
+      origin: string;
+      field: "card";
+      cardField: PurchaseCardField;
     };
 
 export interface BrowserActRequest {

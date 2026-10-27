@@ -125,6 +125,44 @@ it.each([
     "a card fill without the merchant's origin",
     { kind: "fill", ref: "e1", text: "4242424242424242", field: "card" },
   ],
+  [
+    "a card fill without its ref or card field",
+    { kind: "fill", text: "4242424242424242", origin: "https://shop.example.test", field: "card" },
+  ],
+  [
+    "a ref-less fill that is not a card",
+    {
+      kind: "fill",
+      text: "fake-password-1",
+      origin: "https://login.example.test",
+      field: "password",
+      cardField: "number",
+    },
+  ],
+  [
+    "a ref-less card type",
+    {
+      kind: "type",
+      text: "4242424242424242",
+      origin: "https://shop.example.test",
+      field: "card",
+      cardField: "number",
+    },
+  ],
+  [
+    "a ref-less card fill without the merchant's origin",
+    { kind: "fill", text: "4242424242424242", field: "card", cardField: "number" },
+  ],
+  [
+    "an unknown card field",
+    {
+      kind: "fill",
+      text: "4242",
+      origin: "https://shop.example.test",
+      field: "card",
+      cardField: "track2",
+    },
+  ],
 ])("rejects %s", async (_, action) => {
   const response = await supervisorApp.request("/computers/computer-login/browser", {
     method: "POST",
@@ -181,6 +219,16 @@ it.each([
     { text: "fake-password-1", origin: "https://login.example.test", field: "password" },
   ],
   ["card", { text: "4242424242424242", origin: "https://shop.example.test", field: "card" }],
+  [
+    "ref-less card",
+    {
+      ref: undefined,
+      text: "4242424242424242",
+      origin: "https://shop.example.test",
+      field: "card",
+      cardField: "number",
+    },
+  ],
 ])("sends a %s fill only over stdin, never in the helper's arguments", async (_, fill) => {
   const actions = [{ kind: "fill", ref: "e1", ...fill }];
   const response = await supervisorApp.request("/computers/computer-login/browser", {

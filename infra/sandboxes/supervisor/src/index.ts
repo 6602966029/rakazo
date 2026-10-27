@@ -525,10 +525,11 @@ app.post("/computers/:id/browser", async (c) => {
               z
                 .object({
                   kind: z.enum(["fill", "type"]),
-                  ref: z.string().min(1).max(200),
+                  ref: z.string().min(1).max(200).optional(),
                   text: z.string().max(32_000),
                   origin: z.string().url().max(2048).optional(),
                   field: z.enum(["username", "password", "card"]).optional(),
+                  cardField: z.enum(["number", "expiry", "cvc", "postal_code"]).optional(),
                 })
                 // The field decides which input types the helper accepts for a saved login or card.
                 .refine((step) => !step.origin || step.field, "A saved login fill needs its field")
@@ -536,6 +537,13 @@ app.post("/computers/:id/browser", async (c) => {
                 .refine(
                   (step) => step.field !== "card" || step.origin,
                   "A card fill needs its origin",
+                )
+                .refine(
+                  (step) =>
+                    step.cardField
+                      ? step.kind === "fill" && step.field === "card" && !step.ref
+                      : Boolean(step.ref),
+                  "A fill needs either its ref or, for a card, its card field",
                 ),
             ]),
           )

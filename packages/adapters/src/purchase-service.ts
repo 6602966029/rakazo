@@ -42,7 +42,7 @@ const NEXT: Record<string, string> = {
   needs_action:
     "The user must finish a step in their wallet at approvalUrl. You are woken when it changes.",
   approved:
-    'Type the card on merchantUrl with browser_act fill_card (field "number", then "cvc"), passing this purchase id. Type the expiry and billing details yourself.',
+    "Type the card on merchantUrl with browser_act fill_card for each card field the checkout shows (number, expiry, cvc, postal_code), passing this purchase id. Type the cardholder name and address yourself.",
   denied: "The user declined. Do not retry unless they ask.",
   expired: "The approval request expired. Ask the user before requesting again.",
   canceled: "The purchase was canceled.",
@@ -85,13 +85,15 @@ function providerError(error: unknown) {
   throw error;
 }
 
-function walletDeps(deps: PurchaseDeps, provider: PaymentWalletProvider): PaymentWalletDeps {
+type WalletStoreDeps = Pick<PurchaseDeps, "prisma" | "secretStore">;
+
+function walletDeps(deps: WalletStoreDeps, provider: PaymentWalletProvider): PaymentWalletDeps {
   return { prisma: deps.prisma, secretStore: deps.secretStore, paymentWallet: provider };
 }
 
 /** Load a purchase's live status from the wallet, failing like the provider does. */
 export async function fetchPurchase(
-  deps: PurchaseDeps,
+  deps: WalletStoreDeps,
   provider: PaymentWalletProvider,
   purchase: Purchase,
   context: AdapterContext,
@@ -276,10 +278,28 @@ export async function resolvePurchaseCardFill(
     botId: purchase.botId,
     signal: AbortSignal.timeout(30_000),
   };
+  const origin = new URL(purchase.merchantUrl).origin;
+  if (field === "expiry" || field === "postal_code") {
+    let card: PurchaseCardSummary | undefined;
+    try {
+      const snapshot = await fetchPurchase(deps, provider, purchase, context);
+      if (snapshot.status === "approved") card = snapshot.card;
+    } catch (error) {
+      return providerError(error);
+    }
+    if (!card) return { error: "The purchase is not approved. Check purchase_status." };
+    // Typed fills keep only the digits; a field filled directly gets the slash it expects.
+    const text =
+      field === "expiry"
+        ? `${String(card.expMonth).padStart(2, "0")}/${String(card.expYear % 100).padStart(2, "0")}`
+        : (card.billingAddress?.postalCode?.trim() ?? "");
+    if (!text) return { error: "This card has no billing postal code." };
+    return { text, origin, redactions: [] };
+  }
   let secret: Awaited<ReturnType<PaymentWalletProvider["revealCard"]>>;
   try {
     secret = await withPaymentWalletCredential(
-      { prisma: deps.prisma, secretStore: deps.secretStore, paymentWallet: provider },
+      walletDeps(deps, provider),
       { userId: purchase.userId, spaceId: purchase.spaceId },
       (credential) => provider.revealCard(credential, purchase.remoteId, context),
     );
@@ -302,11 +322,7 @@ export async function resolvePurchaseCardFill(
     if (!saved.count)
       await deleteSecretBestEffort(deps.secretStore, stored.ciphertext, { recordId });
   }
-  return {
-    text,
-    origin: new URL(purchase.merchantUrl).origin,
-    redactions: cardRedactionForms(secret.number),
-  };
+  return { text, origin, redactions: cardRedactionForms(secret.number) };
 }
 
 /** A card number as pages show it: as given, digits only, and in groups of four. */
