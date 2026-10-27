@@ -404,12 +404,9 @@ export async function threadSnapshot(
             }),
           ]);
           const run = pickPrimaryPrivateActiveRun(activeRuns) ?? busyOrFailed;
-          // A failed run is only the thread's word while it is still the newest
-          // terminal run; otherwise a stale failure would resurface in the
-          // composer error strip on every load, forever. Instead of comparing
-          // timestamps (equal createdAt values reverse under gt/gte), ask for
-          // the newest terminal run under the same deterministic ordering and
-          // check whether it is this failure.
+          // A failure only surfaces while it is still the newest terminal run, or a stale
+          // failure would reappear on every load. Compare by ordering, not timestamps:
+          // equal createdAt values reverse under gt/gte.
           const newestTerminal =
             run?.status === "failed"
               ? await tx.run.findFirst({
@@ -569,7 +566,6 @@ function pickPrimaryPrivateActiveRun<T extends { status: string }>(
   );
 }
 
-/** Latest terminal by end time (completedAt, else createdAt), then createdAt, then id. */
 function pickLatestTerminalRun<T extends { id: string; createdAt: Date; completedAt: Date | null }>(
   runs: T[],
 ): T | null {

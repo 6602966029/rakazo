@@ -619,9 +619,7 @@ export function modelsRoutes(ctx: RouterContext) {
                 },
               );
               if (existing.length === 0) return;
-              // Credentials belong to the account, not the space — disconnecting
-              // removes them everywhere, matching voice.disconnect. Their own models
-              // go with them.
+              // Credentials are account-wide, so disconnecting removes them from every Space.
               await tx.userModelCredential.deleteMany({
                 where: { userId: context.actor.userId, id: { in: ids } },
               });

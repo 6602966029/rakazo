@@ -19,7 +19,6 @@ const live = params.get("phase") === "live";
 
 const USER_TEXT = "Find a free slot on Tuesday.";
 const REPLY_TEXT = "Tuesday at 2 pm is free.";
-const WORKING_NOTE = "The morning slot clashes with a standup, so checking the afternoon.";
 const STEP_LABELS = [
   "Open calendar",
   "Read events",
@@ -31,11 +30,17 @@ const STEP_LABELS = [
   "Check conflicts",
 ];
 
-// A finished run keeps what the bot wrote between tool calls with its steps, not in the reply.
+const NOTE_TEXT = "Anna is free all Tuesday afternoon.";
+
 const stepsBlock: MessageBlock = {
   kind: "steps",
-  steps: STEP_LABELS.map((label) => ({ label, count: 1 })),
-  ...(live ? {} : { durationMs: 12_400, notes: [WORKING_NOTE] }),
+  steps: STEP_LABELS.map((label) => ({
+    label,
+    count: 1,
+    // A finished reply keeps what the bot wrote before a step on that step.
+    ...(!live && label === "Check conflicts" ? { note: NOTE_TEXT } : {}),
+  })),
+  ...(live ? {} : { durationMs: 12_400 }),
 };
 
 const createdAt = "2026-08-16T00:00:01.000Z";

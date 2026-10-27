@@ -21,7 +21,6 @@ export const IMAGE_RETURNING_COMPUTER_TOOLS = new Set([
 
 export const MODEL_CANNOT_SEE_MESSAGE = "This bot's model cannot see; pick a vision-capable model.";
 
-/** Return whether a model id is explicitly enabled for image input on a connection. */
 export function modelIdSupportsImages(
   modelIds: readonly string[] | undefined,
   modelId: string | null | undefined,
@@ -81,10 +80,7 @@ export function resolveModelRefForVisionCheck(
 }
 
 /**
- * Whether the selected model accepts image input, per the Pi model catalog's
- * declared `input` modalities. Unknown models are treated as text-only.
- * The `scripted` placeholder is resolved the same way Pi does (env default /
- * GPT-5.6 Luna fallback) before the catalog check. An explicit connection capability
+ * Unknown models are treated as text-only. An explicit connection capability
  * override is honored for OpenAI-compatible models.
  */
 export function modelAcceptsImageInput(
@@ -125,7 +121,6 @@ export function knownModelImageInput(provider: string, modelId: string): boolean
   return model ? model.input.includes("image") : undefined;
 }
 
-/** Whether the model the runtime would call for this choice declares image input. */
 export function runtimeModelAcceptsImages(provider: string, modelId: string): boolean {
   return Boolean(resolveRuntimeModel({ provider, id: modelId }).model?.input.includes("image"));
 }

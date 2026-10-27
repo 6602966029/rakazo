@@ -4065,7 +4065,7 @@ describe("stopThreadRuns", () => {
       }),
     ]);
     // The terminal seqs sit above every deleted progress seq, so max(seq) never
-    // rewinds below an applied cursor — the freeze regression.
+    // rewinds below an applied cursor.
     expect(Math.max(...created.map((data) => data.seq as number))).toBeGreaterThan(1);
     expect(writes.lastIndexOf("event.create")).toBeLessThan(writes.indexOf("event.deleteMany"));
     expect(transaction.event.deleteMany).toHaveBeenCalledWith({

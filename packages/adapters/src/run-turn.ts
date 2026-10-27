@@ -16,6 +16,7 @@ import {
   redactSecrets,
   TAKEOVER_COMPUTER_PENDING_STATE,
   userRunError,
+  withoutLastToolStepNotes,
 } from "@rakazo/core";
 import { recordUsage } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
@@ -51,9 +52,10 @@ import {
   canPublishDurableNarration,
   flushPendingTools,
   flushProgress,
-  foldReplyWorkingText,
+  nextProgressNonce,
   publishMidTurnNarration,
   recordExplicitNoResponse,
+  showNarrationStatus,
   tryFlushPendingTools,
 } from "./run-progress.js";
 import {
@@ -76,7 +78,8 @@ import {
   clampUserProgressMessage,
   extractNarrationText,
   finalBlocksAfterMidTurnProgress,
-  userProgressClientNonce,
+  STEERING_RESET_MIN_GAP_MS,
+  STEERING_RESETS_MAX_PER_RUN,
 } from "./user-progress.js";
 
 type RuntimeEvent<T extends AgentRuntimeEvent["type"]> = Extract<AgentRuntimeEvent, { type: T }>;
@@ -107,6 +110,8 @@ export async function consumeRunEvents(
       await streamText(ctx, event);
     } else if (event.type === "turn") {
       reply.assistantTurnBreakPending = true;
+    } else if (event.type === "steered") {
+      await onSteered(ctx, event);
     } else if (event.type === "progress") {
       await streamProgress(ctx, event);
     } else if (event.type === "ask") {
@@ -178,6 +183,8 @@ async function runLeaseLost(ctx: RunContext) {
 async function streamText(ctx: RunContext, event: RuntimeEvent<"text">) {
   const { reply } = ctx.state;
   reply.assistantTurnText += event.text;
+  if (event.text) reply.narrationStatusShowing = false;
+  reply.textSinceLastStep += event.text;
   if (reply.assistantTurnBreakPending && event.text) {
     reply.assistantTurnBreakPending = false;
     const separator = assistantTurnSeparator(reply.assembled, event.text);
@@ -203,6 +210,8 @@ async function streamProgress(ctx: RunContext, event: RuntimeEvent<"progress">) 
   const { reply } = ctx.state;
   ctx.state.toolCallStreak = { key: undefined, count: 0 };
   if (run.trigger === "routine" || isBackgroundRunTrigger(run.trigger)) return;
+  // The bot's own note stays the working line until it writes again.
+  if (event.activity && reply.narrationStatusShowing) return;
   // Flush batched text deltas first so an activity line cannot land
   // ahead of text the model streamed before the tool call.
   if (reply.pendingProgress) {
@@ -228,6 +237,54 @@ async function streamProgress(ctx: RunContext, event: RuntimeEvent<"progress">) 
       ...(event.activity ? { activity: true } : {}),
     },
   });
+}
+
+/**
+ * The run's person wrote while the bot worked. What the bot wrote before that is posted as
+ * its own message instead of running on into the reply to them, and the interim-message
+ * budget starts again: the first note may answer them at once. Webhooks, external chats and
+ * other members stay on the normal budget, and the restart is capped so a stream of messages
+ * can't lift it.
+ */
+async function onSteered(ctx: RunContext, event: RuntimeEvent<"steered">) {
+  const { deps, run } = ctx;
+  const { reply } = ctx.state;
+  reply.assistantTurnBreakPending = true;
+  const now = Date.now();
+  if (
+    !event.fromRunUser ||
+    reply.steeringResets >= STEERING_RESETS_MAX_PER_RUN ||
+    now - reply.lastSteeringResetAt < STEERING_RESET_MIN_GAP_MS
+  )
+    return;
+  reply.steeringResets += 1;
+  reply.lastSteeringResetAt = now;
+  await flushProgress(ctx);
+  const before = extractNarrationText(reply.messageSegments, reply.currentTextSegment);
+  const text = redactSecrets(before.text, ctx.secrets).trim();
+  if (text && runPromotesMidTurnNarration(run.trigger)) {
+    reply.messageSegments = before.remaining;
+    reply.currentTextSegment = "";
+    reply.workingNotes.length = 0;
+    reply.assembled = "";
+    reply.hasStreamedText = false;
+    reply.pendingProgress = "";
+    reply.redactor.skip();
+    await publishMessage(
+      deps,
+      run,
+      "bot",
+      [{ kind: "text", text }],
+      undefined,
+      nextProgressNonce(ctx),
+    );
+    reply.midTurnUserTexts.push(text);
+    reply.publishedMidTurnUserMessage = true;
+  }
+  reply.progressBudgetStart = reply.midTurnProgressCount;
+  reply.turnStartedAtMs = now;
+  reply.steeringReplyPending = true;
+  reply.narrationStatusShowing = false;
 }
 
 async function pauseForAnswer(ctx: RunContext, event: RuntimeEvent<"ask">) {
@@ -287,8 +344,7 @@ async function pauseForTakeover(ctx: RunContext, event: RuntimeEvent<"takeover">
   // Publish pending narration as tagged mid-turn progress so reconciliation
   // does not treat pre-takeover text as the delegated final result.
   await publishMidTurnNarration(ctx);
-  // After a tool call the remaining text is working, which stays with the steps.
-  if (reply.assembled.trim() && !reply.messageSegments.some((block) => block.kind === "steps")) {
+  if (reply.assembled.trim()) {
     const narration = clampUserProgressMessage(redactSecrets(reply.assembled, ctx.secrets));
     if (narration && canPublishDurableNarration(ctx)) {
       await publishMessage(
@@ -297,7 +353,7 @@ async function pauseForTakeover(ctx: RunContext, event: RuntimeEvent<"takeover">
         "bot",
         [{ kind: "text", text: narration }],
         undefined,
-        userProgressClientNonce(run.id, reply.midTurnProgressCount++),
+        nextProgressNonce(ctx),
       );
       reply.midTurnUserTexts.push(narration);
       reply.publishedMidTurnUserMessage = true;
@@ -353,11 +409,13 @@ async function onToolCalled(ctx: RunContext, event: RuntimeEvent<"tool">): Promi
   // Preserve event ordering when the throttle still holds recent narration: the
   // client must see that text before the tool call it describes.
   await flushProgress(ctx);
-  // Promote streamed narration into a durable, replyable chat message before
-  // tools continue, so long turns do not look stalled and stay replyable.
-  if (event.name !== "message_user") {
-    await publishMidTurnNarration(ctx);
-  }
+  // Queued first so the text written before this call becomes its note.
+  reply.pendingToolNames.push(event.name);
+  const heldNote = event.name === "message_user" ? undefined : await publishMidTurnNarration(ctx);
+  // A step without a note of its own replaces the earlier one in the live view, so its status
+  // lines show again.
+  if (!heldNote) reply.narrationStatusShowing = false;
+  reply.textSinceLastStep = "";
   reply.assistantTurnBreakPending = true;
   await deps.events.append({
     spaceId: run.spaceId,
@@ -367,7 +425,7 @@ async function onToolCalled(ctx: RunContext, event: RuntimeEvent<"tool">): Promi
     runId,
     payload: { name: event.name, executionId: event.executionId },
   });
-  reply.pendingToolNames.push(event.name);
+  await showNarrationStatus(ctx, heldNote);
   tryFlushPendingTools(reply);
   const loopGuard = advanceToolCallLoopGuard(ctx.state.toolCallStreak, event.name, event.args);
   ctx.state.toolCallStreak = loopGuard.streak;
@@ -571,6 +629,25 @@ export async function completeRun(ctx: RunContext) {
   // model supplies none, unless it chose silence or already delivered that text.
   // Persisting peer results here also lets outcome delivery retry after completion.
   recordExplicitNoResponse(reply, reply.lastDiscardedMidTurnNarration);
+  // When nothing follows the last step, the notes since the last interim message are the reply.
+  if (
+    !isBackgroundRunTrigger(run.trigger) &&
+    !ctx.state.handedOff &&
+    !reply.explicitNoResponse &&
+    reply.workingNotes.length > 0 &&
+    !reply.textSinceLastStep.trim()
+  ) {
+    flushPendingTools(reply);
+    reply.messageSegments = withoutLastToolStepNotes(
+      reply.messageSegments,
+      reply.workingNotes.length,
+    );
+    const notes = reply.workingNotes.join("\n\n");
+    const separator = assistantTurnSeparator(reply.assembled, notes);
+    reply.assembled += separator + notes;
+    reply.currentTextSegment += separator + notes;
+  }
+  // Runs that hold their narration back keep only the last held-back preview.
   if (
     !isBackgroundRunTrigger(run.trigger) &&
     !ctx.state.handedOff &&
@@ -583,7 +660,6 @@ export async function completeRun(ctx: RunContext) {
     reply.currentTextSegment = reply.assembled;
   }
   flushPendingTools(reply);
-  foldReplyWorkingText(reply);
   // Silent-allowed runs can choose an explicit NO_RESPONSE or finish empty.
   // Other runs still drop a stray sentinel at the edges of a real reply.
   const silentReply = ctx.allowSilentEmptyRun
@@ -592,10 +668,7 @@ export async function completeRun(ctx: RunContext) {
   let completionBlocks = silentReply.blocks;
   if (!silentReply.assembled || isBackgroundRunTrigger(run.trigger)) {
     // Mid-turn progress already posted durable chat messages; skip the empty
-    // "…" fallback so we do not add a junk final bubble. Delegated bot_message
-    // runs still return via botMessageOutcomeFromMidTurn below (status when
-    // only progress was posted, result when a final reply exists). Exact
-    // NO_RESPONSE finals are treated as empty before this fallback runs.
+    // "…" fallback so we do not add a junk final bubble.
     completionBlocks = completionMessageSegments(completionBlocks, {
       allowSilentEmpty: ctx.allowSilentEmptyRun || reply.publishedMidTurnUserMessage,
       emptyResponseText: ctx.emptyResponseText,

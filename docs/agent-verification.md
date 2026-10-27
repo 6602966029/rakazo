@@ -355,18 +355,11 @@ The `verbosity-meaning-v4` judge then grades meaning: the reply gives the
 requested outcome without contradicting the case facts, leads with it, does not
 narrate its process or correct itself, and has no recap, unrequested advice, or
 closing offer after a successful answer. One short sentence about a recovered
-error, and one short next step after a failure, are allowed. It runs only after the deterministic checks pass and is
-calibrated against reviewed examples of direct answers, narrated work,
+error, and one short next step after a failure, are allowed. It runs only
+after the deterministic checks pass and is calibrated against reviewed examples of direct answers, narrated work,
 self-correction, closing offers, invented causes, and short-but-wrong replies.
 Owner-trusted writes are pre-approved through approval rules; the outage case
 turns off web and computer fallbacks so it grades how the failure is reported.
-
-On Claude Haiku 5.5 under the stricter v3 rubric, the previous product code
-passed 9 of 18 trials with replies averaging 50 visible words, three of which
-narrated between tool calls; the bubble rule and reply guidance passed 12 of 18
-at 38 words with no narration. Under the v4 rubric the new code passes 14 of 18
-at 39 words. The remaining failures are long
-outage reports that list each failed lookup and speculate about the cause.
 
 ### Long conversation and cost evals
 

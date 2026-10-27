@@ -53,6 +53,7 @@ import {
 } from "../lib/app-badge";
 import { mobileTokens, resolveMobileAppearance } from "../lib/appearance";
 import { AvatarViewportScope, createAvatarViewport } from "../lib/avatar-life";
+import { isPaywallShown } from "../lib/billing";
 import { createInboxBot } from "../lib/create-inbox-bot";
 import { useHeaderHeightIfAny } from "../lib/floating-header";
 import { useForegroundPoll } from "../lib/foreground-poll";
@@ -234,9 +235,10 @@ function Home({ embedded, onSelectSpace }: InboxPaneProps & { embedded: boolean 
               generation === currentSessionGeneration() &&
               apiBase === currentApiBase() &&
               billing.funding !== undefined &&
-              !billing.access
+              !billing.access &&
+              !isPaywallShown()
             )
-              router.push("/billing");
+              router.push("/paywall");
           })
           .catch(() => undefined);
       }

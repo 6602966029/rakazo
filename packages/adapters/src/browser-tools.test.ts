@@ -689,7 +689,7 @@ describe("browser tools", () => {
     [
       "an unsupported kind",
       [{ kind: "press", ref: "e1" }],
-      "browser_act action 0 needs kind: click, fill, type, upload, fill_secret",
+      "browser_act action 0 needs kind: click, fill, type, upload, fill_secret, fill_card, fill_pay_token",
     ],
     ["no actions", [], "browser_act requires at least one action"],
     [

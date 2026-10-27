@@ -94,8 +94,8 @@ registerSessionDiskCache(() => void clearAppBadge());
 // Keep the splash up until the saved appearance applies, so the first frame isn't in the OS scheme.
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
-// Screens that take the whole window even when it is wide enough for the chat list beside them.
 const DIVIDER_GRAB_WIDTH = 24;
+// Screens that take the whole window even when it is wide enough for the chat list beside them.
 const FULL_WINDOW_ROUTES = new Set(["/sign-in", "/server", "/image", "/computer"]);
 
 /** On a wide window the chat list stays on the left and the stack shows the open chat beside it. */
@@ -369,6 +369,14 @@ function LayoutContent() {
                       }}
                     />
                     <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+                    <Stack.Screen
+                      name="paywall"
+                      options={{
+                        headerShown: false,
+                        presentation: "fullScreenModal",
+                        gestureEnabled: false,
+                      }}
+                    />
                     <Stack.Screen
                       name="(settings)"
                       options={{

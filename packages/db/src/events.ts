@@ -131,6 +131,11 @@ export interface ClaimedSteeringMessage {
   messageId: string;
   text: string;
   blocks: MessageBlock[];
+  /**
+   * Who sent it: the run's own person (in the app or a connected chat), another member of the
+   * chat, someone else in a connected chat, or a webhook.
+   */
+  origin: "user" | "member" | "messaging" | "webhook";
 }
 
 export interface FinalizeRunResult {
@@ -608,6 +613,7 @@ export async function claimSteering(
       select: {
         id: true,
         spaceId: true,
+        userId: true,
         trigger: true,
         sourceMessage: { select: { blocks: true } },
       },
@@ -665,11 +671,48 @@ export async function claimSteering(
       type: "run.steering.claimed",
       payload: { steeringIds: steering.map((item) => item.id), nextMessageSeq },
     });
+    // In a group chat the row's user is the bot's owner, not the sender, so the sender is
+    // matched by the address it wrote from.
+    const groupSenders = steering.flatMap((item) =>
+      (item.message.blocks as MessageBlock[]).filter((block) => block.kind === "channel_message"),
+    );
+    const ownAddresses = new Set(
+      groupSenders.length === 0
+        ? []
+        : (
+            await tx.messagingIdentity.findMany({
+              where: {
+                userId: run.userId,
+                OR: groupSenders.map((block) => ({
+                  provider: block.provider,
+                  address: block.fromAddress,
+                })),
+              },
+              select: { provider: true, address: true },
+            })
+          ).map((identity) => `${identity.provider}:${identity.address}`),
+    );
+    const sentByRunPerson = (item: (typeof steering)[number]) => {
+      const group = (item.message.blocks as MessageBlock[]).find(
+        (block) => block.kind === "channel_message",
+      );
+      return group
+        ? ownAddresses.has(`${group.provider}:${group.fromAddress}`)
+        : item.userId === run.userId;
+    };
     return steering.map((item) => ({
       id: item.id,
       messageId: item.messageId,
       text: blocksToAgentHistoryText(item.message.blocks as MessageBlock[]),
       blocks: item.message.blocks as MessageBlock[],
+      origin:
+        item.originTrigger === "webhook"
+          ? ("webhook" as const)
+          : sentByRunPerson(item)
+            ? ("user" as const)
+            : item.originTrigger === "messaging"
+              ? ("messaging" as const)
+              : ("member" as const),
     }));
   });
 }
@@ -1223,13 +1266,17 @@ export async function pauseRunForInput(
       runId: input.runId,
       payload: { messageId: message.id, role: "bot", blocks: input.blocks },
     });
+    const run = await tx.run.findUnique({
+      where: { id: input.runId },
+      select: { userId: true },
+    });
     const waitingEvent = await appendEventInTransaction(tx, {
       spaceId: input.spaceId,
       threadId: input.threadId,
       botId: input.botId,
       type: "run.waiting_input",
       runId: input.runId,
-      payload: {},
+      payload: run?.userId ? { userId: run.userId } : {},
     });
     await tx.event.deleteMany({ where: { runId: input.runId, type: "thread.progress" } });
     const continuationRunId = await createPendingSteeringRun(tx, input);
@@ -1427,12 +1474,9 @@ export async function finalizeComputerControlRelease(
     });
     if (!bot?.thread) return { threadId: null, seq: null, runId };
 
-    // The card lives on the run thread. A group run is not the bot's own thread.
-    // Computer row is already locked above. Lock the thread after that, before
-    // reading the card. Chat send (#1406) commits its thread lock in
-    // sendUserMessage / sendThreadMessage before it calls release, so it does
-    // not hold the thread while this transaction holds the computer. Keeping
-    // computer-then-thread matches that split and this function's existing order.
+    // The card lives on the run thread, which for a group run is not the bot's own thread.
+    // Lock it after the computer row: chat send releases its thread lock before it calls
+    // release, so computer-then-thread cannot deadlock against it.
     let runThreadId: string | null = null;
     if (input.runId) {
       const waiting = await tx.run.findUnique({
@@ -1901,11 +1945,18 @@ export async function appendEventInTransaction(
   tx: Prisma.TransactionClient,
   input: AppendEventInput,
 ) {
-  const thread = await tx.thread.update({
-    where: { id: input.threadId },
-    data: { nextEventSeq: { increment: 1 } },
-    select: { nextEventSeq: true },
-  });
+  const thread = await tx.thread
+    .update({
+      where: { id: input.threadId },
+      data: { nextEventSeq: { increment: 1 } },
+      select: { nextEventSeq: true },
+    })
+    .catch((error: unknown) => {
+      // Deleting the bot or space cascades the thread and its runs away under
+      // in-flight work; that run has no history left to write to.
+      if (input.runId && isRecordNotFound(error)) throw new RunHistoryWriteError();
+      throw error;
+    });
   // run.cancelled is appended after the run row already reads cancelled, so it
   // asserts the terminal status where every other event needs a writable run.
   let firstResponseAt: Date | null | undefined;
@@ -1941,6 +1992,10 @@ export async function appendEventInTransaction(
       ).count === 1,
   );
   return { ...event, firstResponse };
+}
+
+function isRecordNotFound(error: unknown): boolean {
+  return Boolean(error && typeof error === "object" && "code" in error && error.code === "P2025");
 }
 
 /** Timing metadata is returned by the transaction that recorded first output. */

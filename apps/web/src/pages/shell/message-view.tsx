@@ -226,7 +226,6 @@ export const MessageView = memo(function MessageView({
                     >
                       <ToolSteps
                         steps={block.steps}
-                        notes={block.notes}
                         currentIndex={isLive ? block.steps.length - 1 : undefined}
                         limit={isLive ? LIVE_TOOL_STEP_WINDOW : undefined}
                       />
@@ -279,7 +278,6 @@ export const MessageView = memo(function MessageView({
                 key={i}
                 live={isLive}
                 steps={block.steps}
-                notes={block.notes}
                 stepCount={toolStepCount(block.steps)}
                 durationMs={block.durationMs}
               />

@@ -1,5 +1,7 @@
 import { Plural, Trans } from "@lingui/react/macro";
+import { ChatMarkdown } from "@rakazo/chat-ui/web";
 import type { ThreadMessage } from "@rakazo/contracts";
+import { formatCompactDuration } from "@rakazo/core";
 import {
   Collapsible,
   CollapsibleContent,
@@ -7,7 +9,8 @@ import {
 } from "@rakazo/ui-web/components/ui/collapsible";
 import { ChevronRight } from "lucide-react";
 import type { ReactNode } from "react";
-import { formatToolActivityDuration, toolStepCount } from "../lib/tool-activity-view";
+import { Fragment } from "react";
+import { toolStepCount } from "../lib/tool-activity-view";
 
 type ToolStep = Extract<ThreadMessage["blocks"][number], { kind: "steps" }>["steps"][number];
 
@@ -16,13 +19,10 @@ export const LIVE_TOOL_STEP_WINDOW = 6;
 
 export function ToolSteps({
   steps,
-  notes,
   currentIndex,
   limit,
 }: {
   steps: readonly ToolStep[];
-  /** What the bot wrote while working, kept out of its reply. */
-  notes?: readonly string[];
   currentIndex?: number;
   /** Show only the last `limit` steps, with a count of the earlier ones above them. */
   limit?: number;
@@ -40,34 +40,32 @@ export function ToolSteps({
         const index = hidden + offset;
         const isCurrent = index === currentIndex;
         return (
-          <div key={index} className="flex min-w-0 items-center gap-2 leading-5">
-            <span
-              className={`text-[12px] ${isCurrent ? "text-warning" : "text-success"}`}
-              style={{ animation: isCurrent ? "rkPulse 1.2s ease-in-out infinite" : undefined }}
-            >
-              {isCurrent ? "◷" : "✓"}
-            </span>
-            <span
-              className={`min-w-0 flex-1 truncate text-[13px] ${
-                isCurrent ? "text-foreground" : "text-muted-foreground"
-              }`}
-              title={step.label}
-            >
-              {step.label}
-              {step.count > 1 ? ` ×${step.count}` : ""}
-            </span>
-          </div>
+          <Fragment key={index}>
+            {step.note ? (
+              <div className="py-1 text-[13px] text-foreground/75" data-testid="tool-step-note">
+                <ChatMarkdown>{step.note}</ChatMarkdown>
+              </div>
+            ) : null}
+            <div className="flex min-w-0 items-center gap-2 leading-5">
+              <span
+                className={`text-[12px] ${isCurrent ? "text-warning" : "text-success"}`}
+                style={{ animation: isCurrent ? "rkPulse 1.2s ease-in-out infinite" : undefined }}
+              >
+                {isCurrent ? "◷" : "✓"}
+              </span>
+              <span
+                className={`min-w-0 flex-1 truncate text-[13px] ${
+                  isCurrent ? "text-foreground" : "text-muted-foreground"
+                }`}
+                title={step.label}
+              >
+                {step.label}
+                {step.count > 1 ? ` ×${step.count}` : ""}
+              </span>
+            </div>
+          </Fragment>
         );
       })}
-      {notes?.map((note, index) => (
-        <p
-          key={`note-${index}`}
-          className="whitespace-pre-wrap pt-1 text-[13px] leading-5 text-muted-foreground"
-          data-testid="tool-note"
-        >
-          {note}
-        </p>
-      ))}
     </div>
   );
 }
@@ -87,7 +85,7 @@ export function ToolActivityDisclosure({
   durationMs?: number;
   children: ReactNode;
 }) {
-  const duration = formatToolActivityDuration(durationMs);
+  const duration = formatCompactDuration(durationMs);
   const toolCount = stepCount;
   return (
     <Collapsible
@@ -129,13 +127,11 @@ export function ToolActivityDisclosure({
 export function StandaloneToolActivity({
   live,
   steps,
-  notes,
   stepCount,
   durationMs,
 }: {
   live: boolean;
   steps: readonly ToolStep[];
-  notes?: readonly string[];
   stepCount: number;
   durationMs?: number;
 }) {
@@ -145,7 +141,6 @@ export function StandaloneToolActivity({
         <ToolActivityDisclosure live={live} stepCount={stepCount} durationMs={durationMs}>
           <ToolSteps
             steps={steps}
-            notes={notes}
             currentIndex={live ? steps.length - 1 : undefined}
             limit={live ? LIVE_TOOL_STEP_WINDOW : undefined}
           />
@@ -171,7 +166,6 @@ export function ToolOnlyNarration({
             key={i}
             live={live}
             steps={block.steps}
-            notes={block.notes}
             stepCount={toolStepCount(block.steps)}
             durationMs={block.durationMs}
           />

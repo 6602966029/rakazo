@@ -596,7 +596,6 @@ describe("the local cache of object-backed homes", () => {
     expect(await entries(path.join(root, "home-revisions"))).toEqual([]);
     expect(await entries(path.join(root, "staging"))).toEqual([]);
     expect(await (await otherHost()).readFile("bot-1", "notes/a.txt", context)).toBe("saved");
-    // The next read downloads it again.
     expect(await store.readFile("bot-1", "notes/a.txt", context)).toBe("saved");
   });
 

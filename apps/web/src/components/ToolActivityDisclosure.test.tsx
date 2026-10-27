@@ -177,6 +177,19 @@ describe("ToolSteps", () => {
     expect(fits).not.toContain("earlier");
     for (let i = 0; i < 9; i++) expect(all).toContain(`step-${i}<`);
   });
+
+  it("shows what the bot wrote before a step above it", () => {
+    const html = renderToStaticMarkup(
+      <ToolSteps
+        steps={[
+          { label: "Read calendar", count: 1 },
+          { label: "Save event", count: 1, note: "The meeting is with **Anna**." },
+        ]}
+      />,
+    );
+    expect(visibleText(html)).toBe("✓ Read calendar The meeting is with Anna . ✓ Save event");
+    expect(html).toContain("<strong>Anna</strong>");
+  });
 });
 
 describe("StandaloneToolActivity", () => {
@@ -229,14 +242,5 @@ describe("ToolOnlyNarration", () => {
     expect(html.match(/data-testid="tool-activity-line"/g)).toHaveLength(2);
     expect(visibleText(html)).toContain("Done 3 tools 12s");
     expect(html).not.toMatch(OPEN_TRIGGER);
-  });
-});
-
-describe("ToolSteps notes", () => {
-  it("lists the bot's working text after the tool rows", () => {
-    const html = renderToStaticMarkup(
-      <ToolSteps steps={[{ label: "Web search", count: 2 }]} notes={["No luck, trying again."]} />,
-    );
-    expect(visibleText(html)).toBe("✓ Web search ×2 No luck, trying again.");
   });
 });

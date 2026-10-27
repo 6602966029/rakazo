@@ -202,10 +202,15 @@ export const MessageBlock = z.discriminatedUnion("kind", [
   }),
   z.object({
     kind: z.literal("steps"),
-    steps: z.array(z.object({ label: z.string(), count: z.number().int().positive() })),
+    steps: z.array(
+      z.object({
+        label: z.string(),
+        count: z.number().int().positive(),
+        /** What the bot wrote just before this step, kept out of its reply. */
+        note: z.string().optional(),
+      }),
+    ),
     durationMs: z.number().int().nonnegative().optional(),
-    /** What the bot wrote between these tool calls: its working, shown only with the steps. */
-    notes: z.array(z.string()).optional(),
   }),
   z.object({
     kind: z.literal("subagent"),

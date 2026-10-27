@@ -21,7 +21,6 @@ import { isVitestRuntime } from "./test-runtime.js";
 
 type SdkSession = Awaited<ReturnType<Composio["create"]>>;
 
-/** The tool-router session surface the connector uses. */
 export type ComposioSession = Pick<
   SdkSession,
   "sessionId" | "toolkits" | "tools" | "execute" | "authorize"

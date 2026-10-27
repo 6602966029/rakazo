@@ -78,6 +78,12 @@ export const translateRunError: RunErrorTranslator = (message, values) => {
         message: "The model returned an unusable response. Try again.",
         values,
       });
+    case "The model hit its output limit before finishing its reply.":
+      return i18n._({
+        id: "The model hit its output limit before finishing its reply.",
+        message: "The model hit its output limit before finishing its reply.",
+        values,
+      });
     case "This model's context window is too small. Choose another model.":
       return i18n._({
         id: "This model's context window is too small. Choose another model.",
