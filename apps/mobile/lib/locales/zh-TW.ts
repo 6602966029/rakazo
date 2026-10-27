@@ -1114,4 +1114,7 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
     "使用小寫字母、數字、- 和 _，並以字母開頭。",
   "{variable} is reserved. Choose another name.": "{variable} 已被保留。請選擇其他名稱。",
   "Delete this Space's credentials?": "刪除此空間的憑證？",
+  "Copy username": "複製使用者名稱",
+  "Copy password": "複製密碼",
+  "Could not show the credential": "無法顯示憑證",
 };

@@ -1096,4 +1096,8 @@ export const NL_MESSAGES: Record<string, string> = {
   "{variable} is reserved. Choose another name.":
     "{variable} is gereserveerd. Kies een andere naam.",
   "Delete this Space's credentials?": "Inloggegevens van deze Space verwijderen?",
+  Show: "Tonen",
+  "Copy username": "Gebruikersnaam kopiëren",
+  "Copy password": "Wachtwoord kopiëren",
+  "Could not show the credential": "De gegevens tonen mislukt",
 };

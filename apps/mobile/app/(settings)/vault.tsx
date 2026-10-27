@@ -1,9 +1,12 @@
 import { MenuView } from "@expo/ui/community/menu";
-import type { BotSecretMetadata } from "@rakazo/contracts";
+import type { BotSecretMetadata, VaultRevealed } from "@rakazo/contracts";
+import { isIdentityConfirmationRequired } from "@rakazo/contracts";
+import * as Clipboard from "expo-clipboard";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Alert, ScrollView, StyleSheet, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useIdentityConfirmation } from "../../components/confirm-identity";
 import { LoadFailure } from "../../components/load-failure";
 import { SettingsGroup, SettingsRow } from "../../components/settings-group";
 import { VaultCredentialSheet } from "../../components/vault-credential-sheet";
@@ -17,11 +20,12 @@ import type { CredentialAuth, CredentialDestination } from "../../lib/vault";
 import { credentialDetail, readableCredential, withCredential } from "../../lib/vault";
 
 type ReadableCredential = BotSecretMetadata & { auth: CredentialAuth };
-type CredentialAction = "replace" | "remove";
+type CredentialAction = "show" | "replace" | "remove";
 
 /**
  * The credentials bots can use. Opened with a Space that keeps its own vault, it edits that
- * Space's credentials instead of the account's. Values are never read back.
+ * Space's credentials instead of the account's. Show reads one value back once the person confirms
+ * it's them; the value lives only in the native alert that shows it, never in this screen's state.
  */
 export default function Vault() {
   const { spaceId } = useLocalSearchParams<{ spaceId?: string }>();
@@ -41,6 +45,18 @@ export default function Vault() {
   const [sheet, setSheet] = useState<"add" | ReadableCredential | null>(null);
   // Counts changes, so a read that started before one never shows what it replaced.
   const changes = useRef(0);
+  // A value that arrives after the screen lost focus is dropped instead of shown.
+  const focused = useRef(false);
+  const { withIdentityConfirmation, identityDialog } = useIdentityConfirmation();
+
+  useFocusEffect(
+    useCallback(() => {
+      focused.current = true;
+      return () => {
+        focused.current = false;
+      };
+    }, []),
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -90,9 +106,42 @@ export default function Vault() {
     ]);
   }
 
+  async function show(name: string) {
+    setPending(true);
+    setError(null);
+    try {
+      const revealed = await withIdentityConfirmation(() => rpc("vault/reveal", { scope, name }));
+      if (focused.current) showRevealed(name, revealed);
+    } catch (err) {
+      // Dismissing the confirmation prompt is the person's choice, not a failure.
+      if (!isIdentityConfirmationRequired(err)) {
+        setError(errorText(err, t("Could not show the credential")));
+      }
+    } finally {
+      setPending(false);
+    }
+  }
+
+  function showRevealed(name: string, revealed: VaultRevealed) {
+    const copy = (text: string) => void Clipboard.setStringAsync(text).catch(() => undefined);
+    if ("value" in revealed) {
+      Alert.alert(name, revealed.value, [
+        { text: t("Copy"), onPress: () => copy(revealed.value) },
+        { text: t("Done"), style: "cancel" },
+      ]);
+      return;
+    }
+    Alert.alert(name, `${revealed.username}\n${revealed.password}`, [
+      { text: t("Copy username"), onPress: () => copy(revealed.username) },
+      { text: t("Copy password"), onPress: () => copy(revealed.password) },
+      { text: t("Done"), style: "cancel" },
+    ]);
+  }
+
   function runAction(credential: BotSecretMetadata, action: CredentialAction) {
     if (pending) return;
     const readable = readableCredential(credential);
+    if (action === "show" && readable) void show(credential.name);
     if (action === "replace" && readable) setSheet(readable);
     if (action === "remove") confirmRemove(credential.name);
   }
@@ -129,7 +178,10 @@ export default function Vault() {
                 key={credential.name}
                 actions={[
                   ...(readableCredential(credential)
-                    ? [{ id: "replace", title: t("Replace value") }]
+                    ? [
+                        { id: "show", title: t("Show") },
+                        { id: "replace", title: t("Replace value") },
+                      ]
                     : []),
                   { id: "remove", title: t("Remove"), attributes: { destructive: true } },
                 ]}
@@ -167,12 +219,13 @@ export default function Vault() {
           onSave={save}
         />
       ) : null}
+      {identityDialog}
     </SafeAreaView>
   );
 }
 
 function isCredentialAction(action: string): action is CredentialAction {
-  return action === "replace" || action === "remove";
+  return action === "show" || action === "replace" || action === "remove";
 }
 
 function createStyles() {

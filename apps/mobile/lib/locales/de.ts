@@ -1144,4 +1144,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "{variable} is reserved. Choose another name.":
     "{variable} ist reserviert. Wähle einen anderen Namen.",
   "Delete this Space's credentials?": "Zugangsdaten dieses Space löschen?",
+  Show: "Anzeigen",
+  "Copy username": "Benutzernamen kopieren",
+  "Copy password": "Passwort kopieren",
+  "Could not show the credential": "Zugangsdaten konnten nicht angezeigt werden",
 };
