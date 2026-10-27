@@ -325,6 +325,7 @@ export function normalizeRunError(
       signals,
     );
   if (
+    status !== 413 &&
     (status === 429 ||
       /rate[_ -]limit|too many requests|resource[_ ]?exhausted|request limit reached/i.test(
         signals,

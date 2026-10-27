@@ -352,7 +352,7 @@ describe("normalizeRunError", () => {
     it("treats a request over the plan's token window as too long", () => {
       expect(
         normalizeRunError(
-          '413: {"message":"Request too large for model `example/model` on tokens per minute (TPM): Limit 8000, Requested 9000."}',
+          '413: {"code":"rate_limit_exceeded","type":"tokens","message":"Request too large for model `fixture-model` on tokens per minute (TPM): Limit 2000, Requested 3000."}',
         ),
       ).toMatchObject({ kind: "context" });
     });
