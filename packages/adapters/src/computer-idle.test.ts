@@ -186,6 +186,29 @@ describe("sandbox idle", () => {
     expect(harness.sandbox.stop).toHaveBeenCalledOnce();
   });
 
+  it("claims past only the lease a run waiting for takeover holds, at its current fence", async () => {
+    const harness = idleHarness();
+    harness.prisma.computerExecutionLease.findMany.mockResolvedValue([
+      { runId: "waiting", fence: 3 },
+      { runId: "working", fence: 7 },
+    ]);
+    harness.prisma.run.findMany.mockImplementation(async ({ where }) =>
+      where.id ? [{ id: "waiting" }] : [],
+    );
+
+    await sleepComputerIfIdle(harness.deps, harness.computer.id);
+
+    expect(harness.prisma.computer.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          executionLeases: {
+            none: { expiresAt: { gt: expect.any(Date) }, NOT: [{ runId: "waiting", fence: 3 }] },
+          },
+        }),
+      }),
+    );
+  });
+
   it("claims the lease boundary before any checkpoint export", async () => {
     const harness = idleHarness();
     harness.prisma.computer.updateMany.mockResolvedValueOnce({ count: 0 });
