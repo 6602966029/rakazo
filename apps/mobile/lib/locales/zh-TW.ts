@@ -1185,4 +1185,8 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   "Your skills": "你的技能",
   Plugins: "外掛",
   Browse: "瀏覽",
+  "All spaces": "所有空間",
+  "Available in": "可用於",
+  "{count} spaces": "{count} 個空間",
+  "Remove from every space?": "要從所有空間中移除嗎？",
 };

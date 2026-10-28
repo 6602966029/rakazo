@@ -1169,4 +1169,8 @@ export const NL_MESSAGES: Record<string, string> = {
   "Your skills": "Jouw skills",
   Plugins: "Plug-ins",
   Browse: "Bladeren",
+  "All spaces": "Alle spaces",
+  "Available in": "Beschikbaar in",
+  "{count} spaces": "{count} spaces",
+  "Remove from every space?": "Uit alle spaces verwijderen?",
 };

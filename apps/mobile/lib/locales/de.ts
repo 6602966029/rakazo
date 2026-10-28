@@ -1177,4 +1177,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Your skills": "Deine Skills",
   Plugins: "Plugins",
   Browse: "Durchsuchen",
+  "All spaces": "Alle Spaces",
+  "Available in": "Verfügbar in",
+  "{count} spaces": "{count} Spaces",
+  "Remove from every space?": "Aus allen Spaces entfernen?",
 };

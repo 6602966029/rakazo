@@ -1208,4 +1208,8 @@ export const RU_MESSAGES: Record<string, string> = {
   "Your skills": "Ваши навыки",
   Plugins: "Плагины",
   Browse: "Обзор",
+  "All spaces": "Все пространства",
+  "Available in": "Доступно в",
+  "{count} spaces": "Пространств: {count}",
+  "Remove from every space?": "Удалить из всех пространств?",
 };

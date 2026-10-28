@@ -1201,4 +1201,8 @@ export const JA_MESSAGES: Record<string, string> = {
   "Your skills": "あなたのスキル",
   Plugins: "プラグイン",
   Browse: "参照",
+  "All spaces": "すべてのスペース",
+  "Available in": "利用できる場所",
+  "{count} spaces": "{count} 個のスペース",
+  "Remove from every space?": "すべてのスペースから削除しますか？",
 };

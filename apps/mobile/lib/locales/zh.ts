@@ -1165,4 +1165,8 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Your skills": "你的技能",
   Plugins: "插件",
   Browse: "浏览",
+  "All spaces": "所有空间",
+  "Available in": "可用于",
+  "{count} spaces": "{count} 个空间",
+  "Remove from every space?": "要从所有空间中移除吗？",
 };
