@@ -3922,6 +3922,11 @@ msgstr ""
 msgid "Needs an answer"
 msgstr ""
 
+#: src/components/McpServerHealthLine.tsx
+#: src/lib/user-error.ts
+msgid "Needs an OAuth client ID"
+msgstr "OAuth 클라이언트 ID가 필요합니다"
+
 #: src/pages/ActivityList.tsx
 msgid "Needs input"
 msgstr "입력 필요"

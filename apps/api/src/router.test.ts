@@ -17,6 +17,7 @@ import {
   IntegrationProviderSettings,
   LocalAgentHomeStore,
   listPiCatalog,
+  McpOAuthClientRequiredError,
   ModelSignInError,
   modelCredentialDto,
   parseModelSecret,
@@ -26,6 +27,7 @@ import {
 import type { Actor, Bot, ProductEvent } from "@rakazo/contracts";
 import {
   CONNECTOR_AUTH_UNAVAILABLE,
+  MCP_OAUTH_CLIENT_REQUIRED,
   MODEL_KEY_FORMAT_ERROR,
   REPLY_QUOTE_MAX_LENGTH,
 } from "@rakazo/contracts";
@@ -2151,6 +2153,7 @@ describe("MCP server health", () => {
     expect(listed?.health).toEqual({
       status: "error",
       message: "spawn npx ENOENT",
+      code: null,
       toolCount: null,
       checkedAt: "2026-10-21T10:00:00.000Z",
     });
@@ -2337,6 +2340,40 @@ describe("MCP server health", () => {
 
       expect(created.health.status).toBe("unknown");
       expect(h.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("asks for a client ID when the server cannot register one", async () => {
+      const h = harness({
+        row: baseRow({ transport: "streamable_http", endpoint: "https://mcp.example.test/mcp" }),
+      });
+      Object.assign(h.deps, {
+        mcpOAuth: {
+          ...(h.deps.mcpOAuth as object),
+          begin: vi.fn().mockRejectedValue(new McpOAuthClientRequiredError()),
+        },
+      });
+      const client = createRouterClient(createRouter(h.deps), {
+        context: {
+          actor: {
+            spaceId: "workspace-1",
+            userId: "owner-1",
+            email: "owner@rakazo.test",
+            isDeploymentOwner: true,
+          },
+        } as never,
+      });
+
+      await expect(
+        client.mcp.oauth.begin({
+          serverId: "server-1",
+          redirectUri: "http://127.0.0.1:5173/mcp/oauth/callback",
+        }),
+      ).rejects.toMatchObject({ code: MCP_OAUTH_CLIENT_REQUIRED });
+      (h.deps.prisma.mcpServer as unknown as { findMany: unknown }).findMany = vi.fn(async () => [
+        h.row(),
+      ]);
+      const [listed] = await client.mcp.servers.list();
+      expect(listed?.health).toMatchObject({ status: "error", code: MCP_OAUTH_CLIENT_REQUIRED });
     });
 
     it("probes the server once its OAuth session completes", async () => {

@@ -4,6 +4,7 @@ import { runContinueJob } from "@rakazo/adapter-kit";
 import {
   createPluginMarketplace,
   isTransientFetchError,
+  McpOAuthClientRequiredError,
   persistPreparedSecret,
   pluginPreviewDto,
   prepareApiInstall,
@@ -842,6 +843,13 @@ export function mcpRoutes(ctx: RouterContext) {
               userId: context.actor.userId,
             });
           } catch (error) {
+            if (error instanceof McpOAuthClientRequiredError) {
+              await recordMcpServerHealth(deps.prisma, input.serverId, {
+                status: "error",
+                message: error.message,
+              });
+              throw new ORPCError(error.code, { status: 400, message: error.message });
+            }
             throw new ORPCError("BAD_REQUEST", {
               message: error instanceof Error ? error.message : "Could not start MCP OAuth",
             });

@@ -1,8 +1,21 @@
 import type { McpServerHealth } from "@rakazo/contracts";
+import { MCP_OAUTH_CLIENT_REQUIRED } from "@rakazo/contracts";
 import type { PrismaClient } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 
 const HEALTH_MESSAGE_MAX = 2000;
+
+/** What the MCP SDK throws when an authorization server offers no dynamic client
+ * registration; only a client registered with it out of band can sign in. */
+export const MCP_DYNAMIC_REGISTRATION_UNSUPPORTED =
+  "Incompatible auth server: does not support dynamic client registration";
+
+/** Whether connecting failed because the server needs a pre-registered OAuth client. */
+export function needsMcpOAuthClient(error: unknown, depth = 0): boolean {
+  if (depth > 5 || !(error instanceof Error)) return false;
+  if (error.message.includes(MCP_DYNAMIC_REGISTRATION_UNSUPPORTED)) return true;
+  return needsMcpOAuthClient(error.cause, depth + 1);
+}
 
 /** A health observation to persist on an MCP server row. `checkedAt` defaults to now. */
 export type McpServerHealthUpdate = {
@@ -53,6 +66,10 @@ export function mcpServerHealthDto(row: {
   return {
     status: status ?? "unknown",
     message: row.healthMessage ?? null,
+    code:
+      status === "error" && row.healthMessage?.includes(MCP_DYNAMIC_REGISTRATION_UNSUPPORTED)
+        ? MCP_OAUTH_CLIENT_REQUIRED
+        : null,
     toolCount: row.healthToolCount ?? null,
     checkedAt: row.healthCheckedAt?.toISOString() ?? null,
   };

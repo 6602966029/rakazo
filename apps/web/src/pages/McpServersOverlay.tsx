@@ -1,6 +1,7 @@
 import { t } from "@lingui/core/macro";
 import { Trans, useLingui } from "@lingui/react/macro";
 import type { BotMcpServer, McpServer, McpTransport } from "@rakazo/contracts";
+import { MCP_OAUTH_CLIENT_REQUIRED } from "@rakazo/contracts";
 import { deriveMcpSlug, isRetryableError } from "@rakazo/core";
 import { fetchFresh, writeSaved } from "@rakazo/core/query";
 import {
@@ -41,7 +42,7 @@ import { McpServerHealthLine } from "../components/McpServerHealthLine";
 import { connectMcpOauth, MCP_OAUTH_CHANNEL, mcpOAuthRedirectUri } from "../lib/mcp-connect";
 import { useSpaceQueries } from "../lib/query";
 import { rpc } from "../lib/rpc";
-import { errorText } from "../lib/user-error";
+import { errorCode, errorText } from "../lib/user-error";
 
 /** How often the list is re-read while a server installs its package or is being tested. */
 const INSTALL_POLL_MS = 2500;
@@ -71,6 +72,11 @@ function oauthStatusText(server: McpServer): string | null {
   if (server.oauthStatus === "connected") return t`OAuth connected`;
   if (server.oauthStatus === "reconnect") return t`OAuth expired`;
   return server.hasSecret ? t`Credential saved` : null;
+}
+
+/** A server whose authorization server cannot register a client until the user enters one. */
+function needsOAuthClient(server: McpServer): boolean {
+  return server.health.code === MCP_OAUTH_CLIENT_REQUIRED && !server.oauthClientId;
 }
 
 function oauthActionLabel(server: McpServer, pending: boolean): string {
@@ -104,6 +110,9 @@ export function McpServersOverlay({
   const [oauthAuthorizationServer, setOauthAuthorizationServer] = useState("");
   const [oauthScope, setOauthScope] = useState("");
   const [oauthParams, setOauthParams] = useState("");
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [focusOAuthClient, setFocusOAuthClient] = useState(false);
+  const oauthClientIdInput = useRef<HTMLInputElement>(null);
   const [command, setCommand] = useState("");
   const [args, setArgs] = useState("");
   const [envRows, setEnvRows] = useState<EnvRow[]>(() => [emptyEnvRow()]);
@@ -211,6 +220,7 @@ export function McpServersOverlay({
     setOauthAuthorizationServer("");
     setOauthScope("");
     setOauthParams("");
+    setAdvancedOpen(false);
     setCommand("");
     setArgs("");
     setEnvRows([emptyEnvRow()]);
@@ -218,7 +228,7 @@ export function McpServersOverlay({
   }
 
   /** Stored values are never sent back to the client, so a blank one keeps what is stored. */
-  function startEditing(server: McpServer) {
+  function startEditing(server: McpServer, showOAuthClient = needsOAuthClient(server)) {
     resetForm();
     setError(null);
     setEditing(server);
@@ -233,7 +243,17 @@ export function McpServersOverlay({
       ...server.fileKeys.map((name) => ({ ...emptyEnvRow(), name, file: true })),
     ];
     if (rows.length > 0) setEnvRows(rows);
+    if (showOAuthClient) {
+      setAdvancedOpen(true);
+      setFocusOAuthClient(true);
+    }
   }
+
+  useEffect(() => {
+    if (!focusOAuthClient || !advancedOpen) return;
+    oauthClientIdInput.current?.focus();
+    setFocusOAuthClient(false);
+  }, [focusOAuthClient, advancedOpen]);
 
   async function saveServer() {
     if (transport === "stdio" && duplicateNames.size > 0) return;
@@ -322,6 +342,10 @@ export function McpServersOverlay({
         return;
       }
       const created = await rpc.mcp.servers.create(config);
+      // A remote server is checked in the background; wait for that check so a server
+      // that cannot work as entered says so now.
+      if (created.health.status === "unknown" && !created.health.checkedAt)
+        void testServer(created, false);
       // replace() overwrites the bot's whole list, so merge with what it already has.
       await Promise.all(
         selectedBotIds.map((botId) => {
@@ -368,8 +392,12 @@ export function McpServersOverlay({
       }
       setOauthPending((current) => (current === server.id ? null : current));
     } catch (err) {
-      setError(errorText(err, t`Could not start OAuth`));
       setOauthPending(null);
+      if (errorCode(err) === MCP_OAUTH_CLIENT_REQUIRED) {
+        startEditing(server, true);
+        void refresh().catch(() => undefined);
+      }
+      setError(errorText(err, t`Could not start OAuth`));
     }
   }
 
@@ -411,7 +439,7 @@ export function McpServersOverlay({
     }
   }
 
-  async function testServer(server: McpServer) {
+  async function testServer(server: McpServer, announce = true) {
     setError(null);
     setTestingIds((current) => new Set(current).add(server.id));
     try {
@@ -419,6 +447,7 @@ export function McpServersOverlay({
       await writeSaved(queryClient, serversOptions.queryKey, (current) =>
         (current ?? []).map((item) => (item.id === updated.id ? updated : item)),
       );
+      if (!announce) return;
       if (updated.health.status === "ok") {
         toast.success(t`${updated.name} is running`);
       } else if (updated.health.status === "error") {
@@ -548,6 +577,8 @@ export function McpServersOverlay({
                   </Field>
                 )}
                 <Disclosure
+                  open={advancedOpen}
+                  onOpenChange={setAdvancedOpen}
                   className="group rounded-xl border border-border"
                   summary={<Trans>Advanced</Trans>}
                   summaryClassName="w-full flex items-center justify-between px-3 py-2.5 text-sm text-foreground"
@@ -691,6 +722,7 @@ export function McpServersOverlay({
                         <Trans>OAuth client ID (optional)</Trans>
                       </FieldLabel>
                       <Input
+                        ref={oauthClientIdInput}
                         id="mcp-oauth-client-id"
                         autoComplete="off"
                         value={oauthClientId}
@@ -898,7 +930,8 @@ export function McpServersOverlay({
                           </div>
                         )}
                         <div className="mt-3 flex flex-wrap gap-2">
-                          {server.transport !== "stdio" || server.oauthClientId ? (
+                          {(server.transport !== "stdio" || server.oauthClientId) &&
+                          !needsOAuthClient(server) ? (
                             <>
                               <Button
                                 type="button"

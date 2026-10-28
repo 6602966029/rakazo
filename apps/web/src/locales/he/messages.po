@@ -3922,6 +3922,11 @@ msgstr ""
 msgid "Needs an answer"
 msgstr "ממתין לתשובה"
 
+#: src/components/McpServerHealthLine.tsx
+#: src/lib/user-error.ts
+msgid "Needs an OAuth client ID"
+msgstr "נדרש מזהה לקוח OAuth"
+
 #: src/pages/ActivityList.tsx
 msgid "Needs input"
 msgstr "ממתין לקלט"

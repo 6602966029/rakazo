@@ -1,4 +1,4 @@
-import { CONNECTOR_AUTH_UNAVAILABLE } from "@rakazo/contracts";
+import { CONNECTOR_AUTH_UNAVAILABLE, MCP_OAUTH_CLIENT_REQUIRED } from "@rakazo/contracts";
 import { MODEL_IMAGE_INPUT_ERROR } from "@rakazo/core";
 import { describe, expect, it } from "vitest";
 import { errorText, loadFailureKind } from "./user-error";
@@ -32,4 +32,11 @@ it("shows copy for an app whose auth is not set up, never the provider response"
   expect(errorText(error, "Could not connect")).toBe(
     "This app needs its own sign-in setup to connect.",
   );
+});
+
+it("asks for an OAuth client ID when the server cannot register one", () => {
+  const error = Object.assign(new Error("Incompatible auth server"), {
+    code: MCP_OAUTH_CLIENT_REQUIRED,
+  });
+  expect(errorText(error, "Could not sign in")).toBe("Needs an OAuth client ID");
 });
