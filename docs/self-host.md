@@ -1598,8 +1598,8 @@ checkout tracks, so a fork pulls what its own CI published. If the pull fails or
 the host instead; set `RAKAZO_DEPLOY_IMAGE=` (empty) to always build. This repository's images are public, so the
 host needs no registry login; for a private fork package, `docker login ghcr.io` as root with a
 token that can only read packages. The deploy
-starts each new API and web container beside the running one and stops the old one only once the
-new one is healthy, so a deploy does not take the site offline, then waits for
+starts each new API, web and worker container beside the running one and stops the old one only
+once the new one is healthy, so a deploy does not take the site offline or pause chat, then waits for
 `https://$RAKAZO_HOST/health` and rolls back on failure by restoring the image the previous
 containers ran. Old and new API containers serve together
 for a few seconds after migrations run, so a migration must keep working with the previous

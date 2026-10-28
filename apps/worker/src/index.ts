@@ -1,3 +1,4 @@
+import { hostname } from "node:os";
 import { setTimeout as sleep } from "node:timers/promises";
 import type { JobPublisher, JobWorkerHost } from "@rakazo/adapter-kit";
 import { ComposioConnector, IntegrationProviderSettings } from "@rakazo/adapters";
@@ -317,7 +318,8 @@ async function main() {
     artifacts,
     jobs,
     events,
-    workerId: process.pid.toString(),
+    // Deploys run the old and new worker side by side, and every container runs node as the same pid.
+    workerId: `${hostname()}:${process.pid}`,
     runtime,
     secretStore: secrets,
     memoryProviders,
