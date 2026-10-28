@@ -69,11 +69,17 @@ export function pluginSubmissionDto(row: SubmissionRow): PluginSubmission {
   };
 }
 
-/** The repository a submission is listed and installed under, without any ref it named. */
-function installedSource(source: string): string {
+/** The submitted repository in the form previews read, keeping the branch or commit it named. */
+function submittedSource(source: string): string {
   const ref = parsePluginSource(source);
   if (new URL(ref.gitUrl).hostname !== "github.com")
     throw new Error("Use a public GitHub repository");
+  return ref.gitUrl + (ref.ref ? `@${ref.ref}` : "") + (ref.subdir ? `#${ref.subdir}` : "");
+}
+
+/** The source installs are saved under: the repository and folder, without a ref. */
+function installedSource(source: string): string {
+  const ref = parsePluginSource(source);
   return ref.gitUrl + (ref.subdir ? `#${ref.subdir}` : "");
 }
 
@@ -122,7 +128,7 @@ export function pluginSubmissionRoutes(deps: {
     const { tested: _tested, ...input } = parsed.data;
     let source: string;
     try {
-      source = installedSource(input.source);
+      source = submittedSource(input.source);
     } catch (error) {
       return c.json(
         {
@@ -132,10 +138,11 @@ export function pluginSubmissionRoutes(deps: {
         400,
       );
     }
-    const data = { ...input, source, website: input.website ?? null };
-    // Resubmitting a plugin that is still waiting updates it rather than queueing it twice.
+    const email = input.email.toLowerCase();
+    const data = { ...input, email, source, website: input.website ?? null };
+    // The same author resubmitting while it waits updates theirs; anyone else's is kept apart.
     const pending = await deps.prisma.pluginSubmission.findFirst({
-      where: { source, status: "pending" },
+      where: { source, email, status: "pending" },
       select: { id: true },
     });
     const row = pending
@@ -178,6 +185,7 @@ export async function reviewPluginSubmission(
 ): Promise<PluginSubmission> {
   const row = await deps.prisma.pluginSubmission.findUnique({ where: { id: input.id } });
   if (!row) throw new ORPCError("NOT_FOUND", { message: "Submission not found" });
+  if (row.status !== "pending") throw new ORPCError("CONFLICT", { message: "Already reviewed" });
   let listing = {};
   if (input.decision === "approve") {
     // Approval lists the commit that was checked, the same way the other registries pin theirs.
@@ -194,6 +202,9 @@ export async function reviewPluginSubmission(
     if (preview.skipped.some((part) => part.kind !== "unsupported_field")) {
       throw new ORPCError("BAD_REQUEST", { message: "This plugin would only install in part" });
     }
+    if (!preview.skills.length && !preview.mcpServers.length) {
+      throw new ORPCError("BAD_REQUEST", { message: "This plugin has no skills or MCP servers" });
+    }
     const subdir = preview.source.subdir ? `#${preview.source.subdir}` : "";
     listing = {
       pinnedSource: `${preview.source.gitUrl}@${preview.resolvedSha}${subdir}`,
@@ -201,8 +212,9 @@ export async function reviewPluginSubmission(
       skillCount: preview.skills.length,
     };
   }
-  const updated = await deps.prisma.pluginSubmission.update({
-    where: { id: row.id },
+  // Another admin may have decided while the preview ran; only one decision lands and is emailed.
+  const decided = await deps.prisma.pluginSubmission.updateMany({
+    where: { id: row.id, status: "pending" },
     data: {
       ...listing,
       status: input.decision === "approve" ? "approved" : "rejected",
@@ -211,6 +223,8 @@ export async function reviewPluginSubmission(
       reviewedByUserId: reviewerId,
     },
   });
+  if (decided.count === 0) throw new ORPCError("CONFLICT", { message: "Already reviewed" });
+  const updated = await deps.prisma.pluginSubmission.findUniqueOrThrow({ where: { id: row.id } });
   sendLater(
     deps.email,
     pluginSubmissionReviewedEmail({
@@ -231,25 +245,32 @@ export async function approvedPluginEntries(
   const rows = await prisma.pluginSubmission.findMany({
     where: { status: "approved", pinnedSource: { not: null } },
     orderBy: { reviewedAt: "desc" },
-    distinct: ["source"],
   });
-  return rows.map((row) => ({
-    id: `${PLUGIN_REGISTRY}:${row.pinnedSource}`,
-    name: row.name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-|-$/g, ""),
-    displayName: row.name,
-    description: row.description,
-    keywords: [],
-    category: null,
-    logo: row.logo,
-    homepage: row.website,
-    domains: [],
-    registry: PLUGIN_REGISTRY,
-    source: row.pinnedSource!,
-    installedSource: row.source,
-    hasConnector: row.hasConnector,
-    skillCount: row.skillCount,
-  }));
+  const listed = new Set<string>();
+  return rows.flatMap((row) => {
+    const installed = installedSource(row.pinnedSource!);
+    if (listed.has(installed)) return [];
+    listed.add(installed);
+    return [
+      {
+        id: `${PLUGIN_REGISTRY}:${row.pinnedSource}`,
+        name: row.name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-|-$/g, ""),
+        displayName: row.name,
+        description: row.description,
+        keywords: [],
+        category: null,
+        logo: row.logo,
+        homepage: row.website,
+        domains: [],
+        registry: PLUGIN_REGISTRY,
+        source: row.pinnedSource!,
+        installedSource: installed,
+        hasConnector: row.hasConnector,
+        skillCount: row.skillCount,
+      },
+    ];
+  });
 }

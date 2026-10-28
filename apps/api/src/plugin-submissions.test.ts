@@ -28,8 +28,11 @@ function fakePrisma(users: Array<{ id: string; email: string; emailVerified: boo
   const rows: Row[] = [];
   const stamp = (data: Record<string, unknown>) => ({ reviewedAt: null, reason: null, ...data });
   const pluginSubmission = {
-    findFirst: async ({ where }: { where: { source: string; status: string } }) =>
-      rows.find((row) => row.source === where.source && row.status === where.status) ?? null,
+    findFirst: async ({ where }: { where: { source: string; email: string; status: string } }) =>
+      rows.find(
+        (row) =>
+          row.source === where.source && row.email === where.email && row.status === where.status,
+      ) ?? null,
     findUnique: async ({ where }: { where: { id: string } }) =>
       rows.find((row) => row.id === where.id) ?? null,
     create: async ({ data }: { data: Record<string, unknown> }) => {
@@ -42,10 +45,24 @@ function fakePrisma(users: Array<{ id: string; email: string; emailVerified: boo
       rows.push(row);
       return row;
     },
+    findUniqueOrThrow: async ({ where }: { where: { id: string } }) =>
+      rows.find((row) => row.id === where.id)!,
     update: async ({ where, data }: { where: { id: string }; data: Record<string, unknown> }) => {
       const row = rows.find((candidate) => candidate.id === where.id)!;
       Object.assign(row, data);
       return row;
+    },
+    updateMany: async ({
+      where,
+      data,
+    }: {
+      where: { id: string; status: string };
+      data: Record<string, unknown>;
+    }) => {
+      const row = rows.find((candidate) => candidate.id === where.id);
+      if (!row || row.status !== where.status) return { count: 0 };
+      Object.assign(row, data);
+      return { count: 1 };
     },
     findMany: async () => rows.filter((row) => row.status === "approved" && row.pinnedSource),
   };
@@ -79,14 +96,14 @@ function routes(prisma: never, email = new EmailEmulator()) {
 beforeEach(() => preview.mockReset());
 
 describe("public plugin submissions", () => {
-  it("stores the repository folder without its branch and emails the submitter and admins", async () => {
+  it("stores the repository, branch and folder and emails the submitter and admins", async () => {
     const { rows, prisma } = fakePrisma();
     const { submit, email } = routes(prisma);
     const response = await submit(valid);
     expect(response.status).toBe(201);
     expect(await response.json()).toEqual({ id: "sub-1", status: "pending" });
     expect(rows[0]).toMatchObject({
-      source: "https://github.com/acme/plugins#tickets",
+      source: "https://github.com/acme/plugins@main#tickets",
       website: null,
     });
     await vi.waitFor(() => expect(email.sent).toHaveLength(2));
@@ -109,6 +126,18 @@ describe("public plugin submissions", () => {
     // Admins hear about the first one only.
     await vi.waitFor(() => expect(email.sent).toHaveLength(3));
     expect(email.sent.filter((message) => message.to === "admin@example.test")).toHaveLength(1);
+  });
+
+  it("never lets someone else replace a pending submission", async () => {
+    const { rows, prisma } = fakePrisma();
+    const { submit } = routes(prisma);
+    await submit(valid);
+    const other = await submit({ ...valid, email: "someone@example.test", description: "Mine." });
+    expect(other.status).toBe(201);
+    expect(rows.map((row) => [row.email, row.description])).toEqual([
+      [valid.email, valid.description],
+      ["someone@example.test", "Mine."],
+    ]);
   });
 
   it.each([
@@ -204,6 +233,40 @@ describe("reviewing submissions", () => {
         skillCount: 2,
       }),
     ]);
+  });
+
+  it("refuses a plugin with nothing to install", async () => {
+    const { deps, rows } = await submitted();
+    preview.mockResolvedValue({
+      source: { gitUrl: "https://github.com/acme/plugins" },
+      resolvedSha: SHA,
+      mcpServers: [],
+      skills: [],
+      skipped: [],
+    });
+    await expect(
+      reviewPluginSubmission(deps, "admin-1", { id: "sub-1", decision: "approve" }),
+    ).rejects.toThrow("This plugin has no skills or MCP servers");
+    expect(rows[0]!.status).toBe("pending");
+  });
+
+  it("keeps the first decision when another admin decides during the preview", async () => {
+    const { deps, rows, email } = await submitted();
+    preview.mockImplementation(async () => {
+      rows[0]!.status = "rejected";
+      return {
+        source: { gitUrl: "https://github.com/acme/plugins" },
+        resolvedSha: SHA,
+        mcpServers: [],
+        skills: [{}],
+        skipped: [],
+      };
+    });
+    await expect(
+      reviewPluginSubmission(deps, "admin-1", { id: "sub-1", decision: "approve" }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(rows[0]!.status).toBe("rejected");
+    expect(email.sent).toHaveLength(0);
   });
 
   it("keeps a plugin that would install only in part pending", async () => {
