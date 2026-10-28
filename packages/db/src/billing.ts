@@ -151,15 +151,6 @@ export async function syncBillingSnapshot(
       where: { customerId, subscribedAt: null },
       data: { subscribedAt: startedAt },
     });
-    const fingerprint = snapshot.cardFingerprint;
-    const account = fingerprint
-      ? await prisma.billingAccount.findUnique({ where: { customerId } })
-      : null;
-    if (fingerprint && account)
-      await prisma.billingCardFingerprint.createMany({
-        data: [{ fingerprint, organizationId: account.organizationId }],
-        skipDuplicates: true,
-      });
   }
   if (written.count > 0) return true;
   return (await prisma.billingAccount.count({ where: { customerId } })) > 0;

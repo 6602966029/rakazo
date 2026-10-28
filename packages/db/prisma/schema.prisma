@@ -227,7 +227,6 @@ model Organization {
   billing      BillingAccount?
   modelCredits ModelCreditAccount?
   referralCode ReferralCode?
-  cardFingerprints BillingCardFingerprint[]
   referredBy   Referral?           @relation("ReferredOrganization")
   referrals    Referral[]          @relation("ReferrerOrganization")
 
@@ -257,18 +256,6 @@ model BillingAccount {
   @@map("billing_accounts")
 }
 
-/// Every card an organization has subscribed with, kept after it changes cards or cancels.
-model BillingCardFingerprint {
-  fingerprint    String
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdAt      DateTime     @default(now())
-
-  @@id([fingerprint, organizationId])
-  @@index([organizationId])
-  @@map("billing_card_fingerprints")
-}
-
 model ReferralCode {
   code           String       @id
   organizationId String       @unique
@@ -278,17 +265,14 @@ model ReferralCode {
   @@map("referral_codes")
 }
 
-/// Settled once, when the invited organization first subscribes: approved with a kind, or declined.
 model Referral {
   organizationId         String       @id
   organization           Organization @relation("ReferredOrganization", fields: [organizationId], references: [id], onDelete: Cascade)
   referrerOrganizationId String
   referrer               Organization @relation("ReferrerOrganization", fields: [referrerOrganizationId], references: [id], onDelete: Cascade)
-  createdAt              DateTime     @default(now())
-  /// `balance` or `credits`, chosen once before granting so retries pay the same way.
-  rewardKind             String?
+  cardFingerprint        String?      @unique
+  outcome                String?
   rewardedAt             DateTime?
-  declinedAt             DateTime?
 
   @@index([referrerOrganizationId])
   @@map("referrals")
