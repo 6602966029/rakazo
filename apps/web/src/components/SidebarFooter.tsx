@@ -254,7 +254,8 @@ export function SidebarFooter({
           <AppMarkStack marks={logos.slice(0, markCount)} ringClassName="ring-sidebar-accent" />
         </Button>
       ) : null}
-      {!mini ? (
+      {/* A waiting update takes this slot; Skills stays in the account menu meanwhile. */}
+      {!mini && !update.available ? (
         <IconTooltip label={t`Skills`}>
           <Button
             variant="outline"

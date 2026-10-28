@@ -551,6 +551,10 @@ msgstr ""
 msgid "Add fallback"
 msgstr "대체 모델 추가"
 
+#: src/components/LoginFields.tsx
+msgid "Add field"
+msgstr "필드 추가"
+
 #: src/components/ModelHeadersEditor.tsx
 msgid "Add header"
 msgstr "헤더 추가"
@@ -2675,10 +2679,6 @@ msgstr ""
 msgid "Enter a password"
 msgstr "비밀번호를 입력하세요"
 
-#: src/components/VaultSettings.tsx
-msgid "Enter a username and password"
-msgstr ""
-
 #: src/lib/user-error.ts
 msgid "Enter a valid email"
 msgstr "올바른 이메일을 입력하세요"
@@ -3031,6 +3031,10 @@ msgstr "샘플 듣기"
 msgid "Hi, this is how I'll sound when I read replies out loud."
 msgstr "안녕하세요. 답변을 소리 내어 읽을 때 이런 목소리로 들립니다."
 
+#: src/components/LoginFields.tsx
+msgid "Hidden"
+msgstr "숨김"
+
 #: src/components/VaultSettings.tsx
 msgid "Hide"
 msgstr "숨기기"
@@ -3299,6 +3303,10 @@ msgstr "유지됨"
 #: src/pages/RoutineEditor.tsx
 msgid "key"
 msgstr "key"
+
+#: src/components/LoginFields.tsx
+msgid "Label"
+msgstr "레이블"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Language"
@@ -4611,6 +4619,7 @@ msgstr "새로고침"
 
 #: src/components/ApprovalRulesSettings.tsx
 #: src/components/integrations/plugin-marketplace.tsx
+#: src/components/LoginFields.tsx
 #: src/components/VaultSettings.tsx
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/ModelRoleSettings.tsx
@@ -6120,6 +6129,7 @@ msgstr ""
 msgid "Using your API key. Free plan ends {freeUntil}."
 msgstr "내 API 키를 사용 중입니다. 무료 플랜이 {freeUntil}에 종료됩니다."
 
+#: src/components/LoginFields.tsx
 #: src/components/VaultSettings.tsx
 #: src/pages/McpServersOverlay.tsx
 msgid "Value"
