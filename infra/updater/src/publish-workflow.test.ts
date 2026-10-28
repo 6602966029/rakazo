@@ -170,6 +170,11 @@ describe("server image publish workflow", () => {
       expect(lock?.queue).toBeUndefined();
       expect(lock?.["cancel-in-progress"]).toBeUndefined();
     }
+    // Release prerequisites start with their run, so they reach these locks in push order and an
+    // older revision cannot replace a newer one that is already waiting.
+    for (const name of ["check", "test", "test-integration", "publish-server-image"]) {
+      expect(ci.jobs[name]?.needs, name).toBeUndefined();
+    }
   });
 
   it("keeps pull requests read-only and every action pinned to a commit", () => {
