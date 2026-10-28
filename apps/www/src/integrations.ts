@@ -14,7 +14,10 @@ const IntegrationSchema = z.object({
   actions: z.array(z.object({ name: z.string(), description: z.string(), readOnly: z.boolean() })),
 });
 
-const CatalogSchema = z.object({ version: z.literal(1), integrations: z.array(IntegrationSchema) });
+const CatalogSchema = z.object({
+  version: z.literal(1),
+  integrations: z.array(IntegrationSchema).min(1),
+});
 
 export type Integration = z.infer<typeof IntegrationSchema>;
 

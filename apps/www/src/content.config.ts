@@ -47,7 +47,7 @@ const docs = defineCollection({
       store.clear();
       for (const slug of DOCS_SLUGS) {
         const url = new URL(`../../../docs/${slug}.md`, import.meta.url);
-        const body = rewriteDocsLinks(await readFile(url, "utf8"));
+        const body = rewriteDocsLinks(await readFile(url, "utf8"), slug);
         store.set({ id: slug, data: {}, body, rendered: await renderMarkdown(body) });
         watcher?.add(url.pathname);
       }
