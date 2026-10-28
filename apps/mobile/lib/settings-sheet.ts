@@ -18,6 +18,7 @@ const settingsScreens = new Set([
   "language",
   "models",
   "plugin",
+  "plugin-submissions",
   "signup-survey",
   "skill",
   "skills",

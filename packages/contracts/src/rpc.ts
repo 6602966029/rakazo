@@ -108,6 +108,9 @@ import {
   PluginMarketplaceCatalogSchema,
   PluginPartSchema,
   PluginPreviewSchema,
+  PluginSubmissionReviewSchema,
+  PluginSubmissionSchema,
+  PluginSubmissionStatusSchema,
   REPLY_QUOTE_MAX_LENGTH,
   ReorderBotsInput,
   ROUTINE_MENTION_BATCH_MAX,
@@ -884,6 +887,12 @@ export const appContract = {
     catalog: oc
       .input(z.object({ query: z.string().trim().max(200).default("") }))
       .output(PluginMarketplaceCatalogSchema),
+    /** Admins only. */
+    submissions: oc
+      .input(z.object({ status: PluginSubmissionStatusSchema.default("pending") }))
+      .output(z.array(PluginSubmissionSchema)),
+    /** Admins only. Approving lists the plugin's current commit; the submitter is emailed either way. */
+    review: oc.input(PluginSubmissionReviewSchema).output(PluginSubmissionSchema),
   },
   capabilities: {
     list: oc.output(z.array(CapabilityInstallSchema)),

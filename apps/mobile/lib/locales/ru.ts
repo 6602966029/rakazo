@@ -1244,4 +1244,12 @@ export const RU_MESSAGES: Record<string, string> = {
     "Получайте бесплатный месяц за каждого друга, который начнёт пробный период.",
   "1 free month earned": "Получен 1 бесплатный месяц",
   "{count} free months earned": "Бесплатных месяцев получено: {count}",
+  "Plugin submissions": "Заявки на плагины",
+  "Submit a plugin": "Предложить плагин",
+  "Why reject {name}?": "Почему отклонить {name}?",
+  Reject: "Отклонить",
+  Reason: "Причина",
+  Testing: "Тестирование",
+  Approved: "Одобрено",
+  Rejected: "Отклонено",
 };

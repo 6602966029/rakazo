@@ -733,6 +733,9 @@ export default function Account() {
                 ? [{ title: t("Wallet"), href: "/wallet" } as const]
                 : []),
               { title: t("Integrations"), href: "/integrations" },
+              ...(me?.isAdmin
+                ? [{ title: t("Plugin submissions"), href: "/plugin-submissions" } as const]
+                : []),
               { title: t("Skills"), href: "/skills" },
               { title: t("Messaging"), href: "/messaging" },
               { title: t("AI data sharing"), href: "/ai-data-sharing" },

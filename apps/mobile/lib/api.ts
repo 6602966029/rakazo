@@ -1083,6 +1083,7 @@ export type MobileMe = Pick<
   | "hostCredentialSource"
   | "needsModel"
   | "isDeploymentOwner"
+  | "isAdmin"
   | "needsSignupSurvey"
   | "billingEnabled"
   | "paymentWalletProvider"

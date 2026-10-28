@@ -69,6 +69,7 @@ import {
   pluginCategories,
   pluginParams,
   pluginSite,
+  SUBMIT_PLUGIN_URL,
 } from "../../lib/plugin-marketplace";
 import { useSideInsets } from "../../lib/side-insets";
 import { errorText } from "../../lib/user-error";
@@ -1419,6 +1420,16 @@ export default function Integrations() {
                 ) : null}
 
                 {renderPlugins()}
+                {pluginsState !== "loading" ? (
+                  <NativeActionButton
+                    fill={false}
+                    label={t("Submit a plugin")}
+                    onPress={() => void Linking.openURL(SUBMIT_PLUGIN_URL)}
+                    prominence="quiet"
+                    size="compact"
+                    variant="text"
+                  />
+                ) : null}
               </>
             )}
           </>
