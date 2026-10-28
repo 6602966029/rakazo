@@ -1,8 +1,0 @@
-{
-  "files": [
-    {
-      "path": "AGENTS.md",
-      "description": "Repository rules every change must follow: product boundaries, UI copy, provider neutrality, migrations, tests, and PR hygiene."
-    }
-  ]
-}
