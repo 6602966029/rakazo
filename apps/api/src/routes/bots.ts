@@ -491,7 +491,12 @@ export function botsRoutes(ctx: RouterContext) {
             });
             await recordComputerRunEnd(deps.prisma, bot.computer, "stopped");
           }
-          return await repos.setBotComputer(context.actor, bot.id, input.mode);
+          const updated = await repos.setBotComputer(context.actor, bot.id, input.mode);
+          deps.analytics?.capture(context.actor.userId, {
+            name: "bot_setting_changed",
+            setting: "computer",
+          });
+          return updated;
         } catch (error) {
           throw mapSpaceLifecycleError(error);
         } finally {

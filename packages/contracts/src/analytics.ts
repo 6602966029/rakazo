@@ -36,6 +36,7 @@ export const AnalyticsBotSetting = z.enum([
   "auto_speak",
   "model",
   "thinking",
+  "computer",
   "team_chat",
   "cross_space",
   "fleet_management",
