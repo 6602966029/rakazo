@@ -252,7 +252,8 @@ export class McpOAuthServerMismatchError extends Error {
 /** The authorization server cannot register a client, so the user must enter one. */
 export class McpOAuthClientRequiredError extends Error {
   readonly code = MCP_OAUTH_CLIENT_REQUIRED;
-  constructor() {
+  /** @param revision The server revision the attempt used. */
+  constructor(readonly revision: number) {
     super(MCP_DYNAMIC_REGISTRATION_UNSUPPORTED);
     this.name = "McpOAuthClientRequiredError";
   }
@@ -1029,7 +1030,7 @@ export class McpOAuthBroker {
       }
     } catch (error) {
       if (error instanceof McpOAuthServerMismatchError) throw error;
-      if (needsMcpOAuthClient(error)) throw new McpOAuthClientRequiredError();
+      if (needsMcpOAuthClient(error)) throw new McpOAuthClientRequiredError(server.revision);
       if (!authorizationUrl) throw networkFetch.publicError(error, "Could not start MCP OAuth");
     } finally {
       await networkFetch.close().catch(() => undefined);

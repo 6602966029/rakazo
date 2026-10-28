@@ -2349,7 +2349,7 @@ describe("MCP server health", () => {
       Object.assign(h.deps, {
         mcpOAuth: {
           ...(h.deps.mcpOAuth as object),
-          begin: vi.fn().mockRejectedValue(new McpOAuthClientRequiredError()),
+          begin: vi.fn().mockRejectedValue(new McpOAuthClientRequiredError(1)),
         },
       });
       const client = createRouterClient(createRouter(h.deps), {
@@ -2369,6 +2369,9 @@ describe("MCP server health", () => {
           redirectUri: "http://127.0.0.1:5173/mcp/oauth/callback",
         }),
       ).rejects.toMatchObject({ code: MCP_OAUTH_CLIENT_REQUIRED });
+      expect(h.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: "server-1", revision: 1 } }),
+      );
       (h.deps.prisma.mcpServer as unknown as { findMany: unknown }).findMany = vi.fn(async () => [
         h.row(),
       ]);

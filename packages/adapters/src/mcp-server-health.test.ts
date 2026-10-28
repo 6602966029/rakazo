@@ -75,6 +75,12 @@ describe("recordMcpServerHealth", () => {
     });
   });
 
+  it("records only against the revision it is about, when given one", async () => {
+    const { prisma, updateMany } = fakePrisma();
+    await recordMcpServerHealth(prisma, "s", { status: "error", message: "x" }, 3);
+    expect(updateMany.mock.calls[0]![0].where).toEqual({ id: "s", revision: 3 });
+  });
+
   it("never touches the revision", async () => {
     const { prisma, updateMany } = fakePrisma();
     await recordMcpServerHealth(prisma, "s", { status: "ok", toolCount: 1 });

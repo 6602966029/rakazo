@@ -32,13 +32,16 @@ export async function recordMcpServerHealth(
   prisma: PrismaClient,
   serverId: string,
   update: McpServerHealthUpdate,
+  /** Only record it while the server still has this revision, so a result about old
+   * settings never replaces one about the current settings. */
+  revision?: number,
 ): Promise<void> {
   try {
     // updateMany so a server deleted mid-probe is a silent no-op. Only health columns are
     // written: `revision` stays put (a bump evicts live sessions). `updatedAt` is touched by
     // Prisma's @updatedAt, but nothing orders or version-checks on it (it is display-only).
     await prisma.mcpServer.updateMany({
-      where: { id: serverId },
+      where: { id: serverId, ...(revision === undefined ? {} : { revision }) },
       data: {
         healthStatus: update.status,
         healthMessage:

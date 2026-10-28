@@ -844,10 +844,12 @@ export function mcpRoutes(ctx: RouterContext) {
             });
           } catch (error) {
             if (error instanceof McpOAuthClientRequiredError) {
-              await recordMcpServerHealth(deps.prisma, input.serverId, {
-                status: "error",
-                message: error.message,
-              });
+              await recordMcpServerHealth(
+                deps.prisma,
+                input.serverId,
+                { status: "error", message: error.message },
+                error.revision,
+              );
               throw new ORPCError(error.code, { status: 400, message: error.message });
             }
             throw new ORPCError("BAD_REQUEST", {

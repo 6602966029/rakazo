@@ -342,10 +342,6 @@ export function McpServersOverlay({
         return;
       }
       const created = await rpc.mcp.servers.create(config);
-      // A remote server is checked in the background; wait for that check so a server
-      // that cannot work as entered says so now.
-      if (created.health.status === "unknown" && !created.health.checkedAt)
-        void testServer(created, false);
       // replace() overwrites the bot's whole list, so merge with what it already has.
       await Promise.all(
         selectedBotIds.map((botId) => {
@@ -363,6 +359,11 @@ export function McpServersOverlay({
       );
       await refresh();
       resetForm();
+      // A remote server is checked in the background; wait for that check so a server
+      // that cannot work as entered says so now. It starts after the refresh, whose read
+      // the test's cache write would otherwise cancel.
+      if (created.health.status === "unknown" && !created.health.checkedAt)
+        void testServer(created, false);
     } catch (err) {
       setError(errorText(err, editing ? t`Could not save` : t`Could not add MCP server`));
     } finally {
