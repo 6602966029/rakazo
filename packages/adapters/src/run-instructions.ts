@@ -415,22 +415,10 @@ export function threadContextForRun<T extends { id?: string; role: string }>(
     : { ...context, includeSemanticRecall: true };
 }
 
-/** Name, title, and description, skipping any part that is blank. */
-function publicProfile(
-  name: string,
-  title: string | null | undefined,
-  description: string,
-): string {
-  const trimmedTitle = title?.trim() ?? "";
-  const heading = trimmedTitle ? `${name}: ${trimmedTitle}` : name;
-  return description ? `${heading}\n${description}` : heading;
-}
-
 /** Profile fields the creation intro is asked to explain. Other runs keep the prior identity line. */
 export function runIdentityInstruction(
   bot: {
     name: string;
-    title?: string | null;
     description?: string | null;
     instructions?: string | null;
   },
@@ -440,7 +428,7 @@ export function runIdentityInstruction(
   const rawInstructions = bot.instructions ?? "";
   const instructions = rawInstructions.trim();
   if (trigger !== "created") {
-    const identity = publicProfile(bot.name, bot.title, description);
+    const identity = description ? `${bot.name}\n${description}` : bot.name;
     // Older bots saved one text as both fields; do not repeat it.
     if (!instructions || instructions === description) {
       return instructions ? rawInstructions : identity;
@@ -453,7 +441,6 @@ export function runIdentityInstruction(
   }
   return [
     `Name: ${bot.name.trim() || "(none)"}`,
-    `Title: ${(bot.title ?? "").trim() || "(none)"}`,
     `Description: ${description || "(none)"}`,
     instructions ? `Instructions:\n${instructions}` : "Instructions: (none)",
   ].join("\n");

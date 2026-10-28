@@ -22,7 +22,7 @@ export async function createInboxBot({
   const existing = await rpc("bots/list").catch(() => null);
   const isFirstBot = existing !== null && existing.length === 0;
   const bot = await rpc("bots/create", {
-    ...normalizeCreateBotProfile({ name: "New Bot", title: "", description: "" }),
+    ...normalizeCreateBotProfile({ name: "New Bot", description: "" }),
     notifyOnFinish: true,
     avatarSet: DEFAULT_NEW_BOT_AVATAR_SET,
     computerMode: "team",

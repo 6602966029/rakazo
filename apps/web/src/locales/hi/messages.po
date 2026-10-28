@@ -498,10 +498,6 @@ msgstr "चलाने के लिए कमांड जोड़ें"
 msgid "Add a file or folder to watch"
 msgstr "निगरानी के लिए फ़ाइल या फ़ोल्डर जोड़ें"
 
-#: src/pages/shell/bot-panel.tsx
-msgid "Add a label"
-msgstr "लेबल जोड़ें"
-
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Add a model in Settings to use this."
 msgstr ""
@@ -2667,10 +2663,6 @@ msgstr "संपादित करें"
 #: src/components/AskCard.tsx
 msgid "Edit first"
 msgstr "पहले संपादित करें"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Edit label"
-msgstr "लेबल संपादित करें"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Edit name"
@@ -5900,7 +5892,6 @@ msgid "Timing may differ"
 msgstr "समय अलग हो सकता है"
 
 #: src/pages/Board.tsx
-#: src/pages/shell/bot-panel.tsx
 msgid "Title"
 msgstr "शीर्षक"
 

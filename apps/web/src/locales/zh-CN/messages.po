@@ -498,10 +498,6 @@ msgstr "添加要运行的命令"
 msgid "Add a file or folder to watch"
 msgstr "添加要监视的文件或文件夹"
 
-#: src/pages/shell/bot-panel.tsx
-msgid "Add a label"
-msgstr "添加标签"
-
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Add a model in Settings to use this."
 msgstr "请在设置中添加模型后再使用。"
@@ -2667,10 +2663,6 @@ msgstr "编辑"
 #: src/components/AskCard.tsx
 msgid "Edit first"
 msgstr "先编辑"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Edit label"
-msgstr "编辑标签"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Edit name"
@@ -5900,7 +5892,6 @@ msgid "Timing may differ"
 msgstr "运行时间可能不同"
 
 #: src/pages/Board.tsx
-#: src/pages/shell/bot-panel.tsx
 msgid "Title"
 msgstr "标题"
 

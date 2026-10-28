@@ -498,10 +498,6 @@ msgstr "Adicione um comando para executar"
 msgid "Add a file or folder to watch"
 msgstr "Adicione um arquivo ou pasta para monitorar"
 
-#: src/pages/shell/bot-panel.tsx
-msgid "Add a label"
-msgstr "Adicionar um rótulo"
-
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Add a model in Settings to use this."
 msgstr ""
@@ -2667,10 +2663,6 @@ msgstr "Editar"
 #: src/components/AskCard.tsx
 msgid "Edit first"
 msgstr "Editar primeiro"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Edit label"
-msgstr "Editar rótulo"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Edit name"
@@ -5900,7 +5892,6 @@ msgid "Timing may differ"
 msgstr "O horário pode variar"
 
 #: src/pages/Board.tsx
-#: src/pages/shell/bot-panel.tsx
 msgid "Title"
 msgstr "Título"
 

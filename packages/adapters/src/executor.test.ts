@@ -54,10 +54,10 @@ const createRunExecutor = (deps: Parameters<typeof createExecutor>[0]) =>
 
 describe("bot tool permissions", () => {
   it("never lets self-edit change disabled tools alongside an allowed field", () => {
-    expect(parseUpdateBotPatch({ name: "Scout", disabledBuiltinTools: [] }, "Bot")).toEqual({
+    expect(parseUpdateBotPatch({ name: "Scout", disabledBuiltinTools: [] })).toEqual({
       patch: { name: "Scout" },
     });
-    expect(parseUpdateBotPatch({ disabledBuiltinTools: [] }, "Scout")).toHaveProperty("error");
+    expect(parseUpdateBotPatch({ disabledBuiltinTools: [] })).toHaveProperty("error");
   });
 
   it("filters history and app connection tools without widening the capability-gated selection", () => {
@@ -1199,49 +1199,49 @@ async function continuePinnedRoutineRun(plaintext: string, modelId: string) {
 
 describe("parseUpdateBotPatch", () => {
   it("treats a blank bot_id as omitted, as providers send it", () => {
-    expect(parseUpdateBotPatch({ name: "Scout", bot_id: "" }, "Chief")).toEqual({
+    expect(parseUpdateBotPatch({ name: "Scout", bot_id: "" })).toEqual({
       patch: { name: "Scout" },
     });
   });
 
   it("accepts notifyOnFinish on its own", () => {
-    expect(parseUpdateBotPatch({ notifyOnFinish: false }, "Chief")).toEqual({
+    expect(parseUpdateBotPatch({ notifyOnFinish: false })).toEqual({
       patch: { notifyOnFinish: false },
     });
-    expect(parseUpdateBotPatch({ notifyOnFinish: true }, "Chief")).toEqual({
+    expect(parseUpdateBotPatch({ notifyOnFinish: true })).toEqual({
       patch: { notifyOnFinish: true },
     });
   });
 
   it("accepts notify_on_finish as an alias", () => {
-    expect(parseUpdateBotPatch({ notify_on_finish: false }, "Chief")).toEqual({
+    expect(parseUpdateBotPatch({ notify_on_finish: false })).toEqual({
       patch: { notifyOnFinish: false },
     });
   });
 
   it("keeps name patches and notifyOnFinish together", () => {
-    expect(parseUpdateBotPatch({ name: "Scout", notifyOnFinish: false }, "Chief")).toEqual({
+    expect(parseUpdateBotPatch({ name: "Scout", notifyOnFinish: false })).toEqual({
       patch: { name: "Scout", notifyOnFinish: false },
     });
   });
 
   it("rejects a non-boolean notifyOnFinish", () => {
-    expect(parseUpdateBotPatch({ notifyOnFinish: "false" }, "Chief")).toEqual({
+    expect(parseUpdateBotPatch({ notifyOnFinish: "false" })).toEqual({
       error: "notifyOnFinish must be true or false.",
     });
   });
 
   it("requires at least one supported field", () => {
-    expect(parseUpdateBotPatch({}, "Chief")).toEqual({
+    expect(parseUpdateBotPatch({})).toEqual({
       error:
-        "Provide at least one of name, title, description, notifyOnFinish, color, artifact_id, or use_attached_image.",
+        "Provide at least one of name, description, notifyOnFinish, color, artifact_id, or use_attached_image.",
     });
   });
 
   it("leaves avatar-only args for the executor to resolve", () => {
-    expect(parseUpdateBotPatch({ color: "#8B5CF6" }, "Chief")).toEqual({ patch: {} });
-    expect(parseUpdateBotPatch({ artifact_id: "art-1" }, "Chief")).toEqual({ patch: {} });
-    expect(parseUpdateBotPatch({ use_attached_image: true }, "Chief")).toEqual({ patch: {} });
+    expect(parseUpdateBotPatch({ color: "#8B5CF6" })).toEqual({ patch: {} });
+    expect(parseUpdateBotPatch({ artifact_id: "art-1" })).toEqual({ patch: {} });
+    expect(parseUpdateBotPatch({ use_attached_image: true })).toEqual({ patch: {} });
   });
 });
 

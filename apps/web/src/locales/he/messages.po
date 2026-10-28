@@ -498,10 +498,6 @@ msgstr ""
 msgid "Add a file or folder to watch"
 msgstr ""
 
-#: src/pages/shell/bot-panel.tsx
-msgid "Add a label"
-msgstr "הוספת תווית"
-
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Add a model in Settings to use this."
 msgstr "כדי להשתמש בזה יש להוסיף מודל בהגדרות."
@@ -2667,10 +2663,6 @@ msgstr "עריכה"
 #: src/components/AskCard.tsx
 msgid "Edit first"
 msgstr "עריכה קודם"
-
-#: src/pages/shell/bot-panel.tsx
-msgid "Edit label"
-msgstr "עריכת תווית"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Edit name"
@@ -5900,7 +5892,6 @@ msgid "Timing may differ"
 msgstr "התזמון עשוי להשתנות"
 
 #: src/pages/Board.tsx
-#: src/pages/shell/bot-panel.tsx
 msgid "Title"
 msgstr "כותרת"
 
