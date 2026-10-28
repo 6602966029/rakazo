@@ -66,6 +66,12 @@ import {
   pluginSelection,
   ROW_HOVER,
 } from "../components/integrations/plugin-marketplace";
+import {
+  AvailabilityControl,
+  AvailabilityLabel,
+  reachesOtherSpaces,
+  useOwnSpaces,
+} from "../components/integrations/space-availability";
 import { connectedAppMarks } from "../lib/connected-apps";
 import { optionalCatalogFeedProbe } from "../lib/optional-catalog-feed";
 import { useSpaceQueries } from "../lib/query";
@@ -142,6 +148,8 @@ export function PluginsOverlay({
   const [authType, setAuthType] = useState<"none" | "bearer" | "header">("bearer");
   const [authName, setAuthName] = useState("x-api-key");
   const [pending, setPending] = useState<string | null>(null);
+  const [confirmingSource, setConfirmingSource] = useState<string | null>(null);
+  const spaceCount = useOwnSpaces().length;
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [sourceHint, setSourceHint] = useState<string | null>(null);
@@ -628,6 +636,11 @@ export function PluginsOverlay({
   }
 
   async function removeSource(install: CapabilityInstall) {
+    if (reachesOtherSpaces(install.availability, spaceCount) && confirmingSource !== install.id) {
+      setConfirmingSource(install.id);
+      return;
+    }
+    setConfirmingSource(null);
     setPending(install.id);
     setSourceError(null);
     try {
@@ -1330,6 +1343,7 @@ export function PluginsOverlay({
             </span>
           </span>
         </button>
+        <AvailabilityLabel availability={install.availability} />
         {signInNeeded ? (
           <Button variant="secondary" size="sm" onClick={() => openPlugin(selection)}>
             <Trans>Sign in</Trans>
@@ -1404,6 +1418,7 @@ export function PluginsOverlay({
                         )}
                       </span>
                     </span>
+                    <AvailabilityLabel availability={server.availability} />
                   </div>
                 ))}
               </div>
@@ -1425,15 +1440,29 @@ export function PluginsOverlay({
                             : "MCP"}{" "}
                         {source.source}
                       </span>
+                      <span className="mt-1 block">
+                        <AvailabilityControl
+                          kind="install"
+                          id={source.id}
+                          availability={source.availability}
+                          onChanged={refresh}
+                        />
+                      </span>
                     </span>
                     <Button
                       type="button"
-                      variant="secondary"
+                      variant={confirmingSource === source.id ? "destructive" : "secondary"}
                       size="sm"
                       disabled={pending === source.id}
                       onClick={() => void removeSource(source)}
                     >
-                      {pending === source.id ? <Trans>Removing…</Trans> : <Trans>Remove</Trans>}
+                      {pending === source.id ? (
+                        <Trans>Removing…</Trans>
+                      ) : confirmingSource === source.id ? (
+                        <Trans>Remove from every space?</Trans>
+                      ) : (
+                        <Trans>Remove</Trans>
+                      )}
                     </Button>
                   </div>
                 ))}

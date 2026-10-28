@@ -43,6 +43,12 @@ msgstr ""
 msgid "{0, plural, one {# skill} other {# skills}}"
 msgstr ""
 
+#. placeholder {0}: availability.spaceIds.length
+#. placeholder {0}: chosen.length
+#: src/components/integrations/space-availability.tsx
+msgid "{0, plural, one {# space} other {# spaces}}"
+msgstr ""
+
 #. placeholder {0}: pinned.length
 #: src/pages/model-settings/space-bots-model.tsx
 msgid "{0, plural, one {Switch # bot to the space default?} other {Switch # bots to the space default?}}"
@@ -400,6 +406,10 @@ msgstr "@{0}"
 msgid "${0} / month"
 msgstr "每月 ${0}"
 
+#: src/components/integrations/space-availability.tsx
+msgid "1 space"
+msgstr ""
+
 #: src/pages/shell/message-cards.tsx
 msgid "A bit of everything"
 msgstr "什麼都做一點"
@@ -642,6 +652,10 @@ msgstr "全部 ${0} 都用於模型用量。"
 #: src/pages/shell/agent-import.tsx
 msgid "All bots"
 msgstr "所有機器人"
+
+#: src/components/integrations/space-availability.tsx
+msgid "All spaces"
+msgstr ""
 
 #: src/pages/ActivityList.tsx
 msgid "All statuses"
@@ -916,6 +930,10 @@ msgstr "儲存例行任務後可用"
 #: src/components/ModelCredits.tsx
 msgid "Available credits"
 msgstr "可用額度"
+
+#: src/components/integrations/space-availability.tsx
+msgid "Available in"
+msgstr ""
 
 #: src/components/VaultSettings.tsx
 msgid "Available to shell commands as {commandVariable}"
@@ -1635,6 +1653,7 @@ msgstr "上下文長度限制"
 #: src/pages/Auth.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/shell/agent-import.tsx
+#: src/pages/shell/dialogs.tsx
 msgid "Continue"
 msgstr "繼續"
 
@@ -1722,6 +1741,10 @@ msgstr ""
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Could not change password"
 msgstr "無法修改密碼"
+
+#: src/components/integrations/space-availability.tsx
+msgid "Could not change where this is available"
+msgstr ""
 
 #: src/lib/model-connection-preflight.ts
 msgid "Could not check stored credentials."
@@ -2049,6 +2072,7 @@ msgstr "無法執行例行任務"
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
+#: src/pages/shell/dialogs.tsx
 #: src/pages/shell/use-space-roster.ts
 msgid "Could not save"
 msgstr "無法儲存"
@@ -4616,6 +4640,13 @@ msgstr "要移除 {secretName} 嗎？機器人將無法再使用它。"
 msgid "Remove change trigger"
 msgstr "移除變化觸發器"
 
+#: src/components/integrations/plugin-marketplace.tsx
+#: src/pages/KnowledgeSection.tsx
+#: src/pages/McpServersOverlay.tsx
+#: src/pages/PluginsOverlay.tsx
+msgid "Remove from every space?"
+msgstr ""
+
 #: src/pages/RoutineEditor.tsx
 msgid "Remove Git event"
 msgstr "移除 Git 事件"
@@ -6184,6 +6215,10 @@ msgstr "歡迎使用 Rakazo"
 #: src/pages/shell/dialogs.tsx
 msgid "What about its memories?"
 msgstr "它的記憶怎麼處理？"
+
+#: src/pages/shell/dialogs.tsx
+msgid "What can this space use?"
+msgstr ""
 
 #: src/components/SignupSurvey.tsx
 msgid "What do you most want Rakazo to help with?"

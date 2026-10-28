@@ -8,6 +8,12 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@rakazo/ui-web/componen
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, Plus } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import {
+  AvailabilityControl,
+  AvailabilityLabel,
+  reachesOtherSpaces,
+  useOwnSpaces,
+} from "../components/integrations/space-availability";
 import { SettingsSectionHeading } from "../components/SettingsSectionHeading";
 import { downloadArtifactBytes } from "../lib/artifact-open";
 import { useSpaceQueries } from "../lib/query";
@@ -331,6 +337,7 @@ export function AgentSkills() {
   const error = actionError ?? (listQuery.isError ? t`Could not load` : null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const selection = useRef(0);
+  const spaceCount = useOwnSpaces().length;
 
   async function refresh() {
     await fetchFresh(queryClient, list);
@@ -440,7 +447,10 @@ export function AgentSkills() {
                 >
                   {entry.name}
                 </span>
-                <SkillSourceBadge source={entry.source} />
+                <span className="flex shrink-0 items-center gap-2">
+                  <AvailabilityLabel availability={entry.availability} />
+                  <SkillSourceBadge source={entry.source} />
+                </span>
               </span>
               <span
                 className="mt-0.5 block truncate text-[12.5px] text-muted-foreground"
@@ -459,6 +469,20 @@ export function AgentSkills() {
                 {open.name}
               </div>
               <SkillSourceBadge source={open.source} />
+            </div>
+          ) : null}
+          {open?.source === "user" ? (
+            <div className="pb-2">
+              <AvailabilityControl
+                kind="skill"
+                id={open.id}
+                availability={open.availability}
+                onChanged={async () => {
+                  const fresh = await rpc.agentSkills.get({ skillId: open.id });
+                  setOpen(fresh);
+                  await refresh();
+                }}
+              />
             </div>
           ) : null}
           <Textarea
@@ -507,7 +531,15 @@ export function AgentSkills() {
                   confirmingDelete ? "bg-destructive/10 text-destructive" : "text-destructive"
                 }`}
               >
-                {confirmingDelete ? <Trans>Confirm delete</Trans> : <Trans>Delete</Trans>}
+                {confirmingDelete ? (
+                  reachesOtherSpaces(open.availability, spaceCount) ? (
+                    <Trans>Remove from every space?</Trans>
+                  ) : (
+                    <Trans>Confirm delete</Trans>
+                  )
+                ) : (
+                  <Trans>Delete</Trans>
+                )}
               </Button>
             ) : null}
           </div>
