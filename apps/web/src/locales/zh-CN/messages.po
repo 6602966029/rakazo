@@ -57,13 +57,13 @@ msgstr ""
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 msgid "{0, plural, one {Waiting for sign-in — the code expires in about # minute.} other {Waiting for sign-in — the code expires in about # minutes.}}"
-msgstr ""
+msgstr "{0, plural, one {正在等待登录，验证码大约 # 分钟后过期。} other {正在等待登录，验证码大约 # 分钟后过期。}}"
 
 #. placeholder {0}: Math.ceil(oauth.expiresInSeconds / 60)
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
 msgid "{0, plural, one {Waiting for sign-in — the link expires in about # minute.} other {Waiting for sign-in — the link expires in about # minutes.}}"
-msgstr ""
+msgstr "{0, plural, one {正在等待登录，链接大约 # 分钟后过期。} other {正在等待登录，链接大约 # 分钟后过期。}}"
 
 #. placeholder {0}: file.name
 #: src/pages/shell/use-composer-actions.ts
@@ -104,7 +104,7 @@ msgstr ""
 #. placeholder {0}: bot.name
 #: src/components/call/IncomingCall.tsx
 msgid "{0} is calling you"
-msgstr ""
+msgstr "{0} 正在呼叫你"
 
 #. placeholder {0}: updated.name
 #: src/pages/McpServersOverlay.tsx
@@ -144,7 +144,7 @@ msgstr ""
 #. placeholder {0}: bot.name
 #: src/pages/shell/computer-panel.tsx
 msgid "{0}'s screen"
-msgstr ""
+msgstr "{0} 的屏幕"
 
 #: src/lib/billing.ts
 msgid "{amount} / {period}"
@@ -204,7 +204,7 @@ msgstr "{header}，第 {index} 列"
 
 #: src/components/ToolActivityDisclosure.tsx
 msgid "{hidden, plural, one {+# earlier step} other {+# earlier steps}}"
-msgstr ""
+msgstr "{hidden, plural, one {+# 个更早的步骤} other {+# 个更早的步骤}}"
 
 #: src/lib/relative-time.ts
 msgid "{hours}h ago"
@@ -350,7 +350,7 @@ msgstr "剩余 {remaining}"
 
 #: src/pages/BillingSettingsPanel.tsx
 msgid "{seats, plural, one {# seat} other {# seats}}"
-msgstr ""
+msgstr "{seats, plural, one {# 个席位} other {# 个席位}}"
 
 #: src/components/ArtifactFileCard.tsx
 msgid "{size} B"
@@ -466,7 +466,7 @@ msgstr "{0} 的操作"
 
 #: src/pages/shell/shell-dialogs.tsx
 msgid "Actions for space"
-msgstr ""
+msgstr "工作区操作"
 
 #: src/pages/BillingSettingsPanel.tsx
 #: src/pages/RoutineEditor.tsx
@@ -488,7 +488,7 @@ msgstr "添加"
 #. placeholder {0}: bot.name
 #: src/pages/GroupPanel.tsx
 msgid "Add {0} to the group"
-msgstr ""
+msgstr "将 {0} 加入群组"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Add a command to run"
@@ -853,7 +853,7 @@ msgstr "参数"
 #: src/components/SidebarFooter.tsx
 #: src/pages/Artifacts.tsx
 msgid "Artifacts"
-msgstr ""
+msgstr "产物"
 
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Ask"
@@ -995,7 +995,7 @@ msgstr ""
 #: src/components/SidebarFooter.tsx
 #: src/pages/Board.tsx
 msgid "Board"
-msgstr ""
+msgstr "看板"
 
 #: src/pages/shell/computer-view.tsx
 #: src/pages/shell/use-computer.tsx
@@ -1076,24 +1076,24 @@ msgstr "内置"
 
 #: src/pages/shell/chat-header.tsx
 msgid "Call"
-msgstr ""
+msgstr "通话"
 
 #: src/components/call/VoiceChatCard.tsx
 msgid "Call back"
-msgstr ""
+msgstr "回拨"
 
 #. placeholder {0}: call.botName
 #: src/components/call/CallCard.tsx
 msgid "Call with {0}"
-msgstr ""
+msgstr "与 {0} 通话"
 
 #: src/components/call/VoiceChatCard.tsx
 msgid "Calling you…"
-msgstr ""
+msgstr "正在呼叫你…"
 
 #: src/components/call/CallCard.tsx
 msgid "Calling…"
-msgstr ""
+msgstr "正在呼叫…"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Calls"
@@ -1484,7 +1484,7 @@ msgstr "电脑已休眠"
 
 #: src/pages/shell/computer-view.tsx
 msgid "Computer is asleep. Open it to wake."
-msgstr ""
+msgstr "电脑已休眠。打开即可唤醒。"
 
 #: src/pages/shell/computer-overlay.tsx
 #: src/pages/shell/computer-view.tsx
@@ -1793,7 +1793,7 @@ msgstr "无法连接此语音提供方"
 
 #: src/pages/shell/use-computer.tsx
 msgid "Could not connect to the computer screen"
-msgstr ""
+msgstr "无法连接电脑屏幕"
 
 #: src/components/AccountAccess.tsx
 #: src/components/ConfirmIdentityDialog.tsx
@@ -2432,7 +2432,7 @@ msgstr "删除分组"
 #: src/pages/shell/shell-dialogs.tsx
 #: src/pages/SpaceSettingsPanel.tsx
 msgid "Delete space"
-msgstr ""
+msgstr "删除工作区"
 
 #: src/pages/SpaceSettingOverrides.tsx
 msgid "Delete this Space's credentials?"
@@ -2497,7 +2497,7 @@ msgstr "已禁用"
 
 #: src/components/composer/HoldToTalk.tsx
 msgid "Discard recording"
-msgstr ""
+msgstr "丢弃录音"
 
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/MemorySettingsOverlay.tsx
@@ -2713,7 +2713,7 @@ msgstr "环境变量：{names}"
 #: src/lib/roster-status.ts
 #: src/pages/shell/sidebar-roster.tsx
 msgid "Error"
-msgstr ""
+msgstr "出错"
 
 #: src/components/McpServerHealthLine.tsx
 msgid "Error details"
@@ -2870,7 +2870,7 @@ msgstr "文件或文件夹，每行一个"
 
 #: src/pages/GroupPanel.tsx
 msgid "Filter bots"
-msgstr ""
+msgstr "筛选 Bot"
 
 #: src/pages/Artifacts.tsx
 msgid "Filter by date"
@@ -3060,11 +3060,11 @@ msgstr "高"
 
 #: src/components/composer/HoldToTalk.tsx
 msgid "Hold to talk"
-msgstr ""
+msgstr "按住说话"
 
 #: src/components/composer/HoldToTalk.tsx
 msgid "Hold to talk, release to send"
-msgstr ""
+msgstr "按住说话，松开发送"
 
 #: src/lib/cron.ts
 msgid "hour"
@@ -3165,7 +3165,7 @@ msgstr "包含 API 密钥"
 
 #: src/components/call/VoiceChatCard.tsx
 msgid "Incoming call"
-msgstr ""
+msgstr "来电"
 
 #: src/pages/shell/bot-panel.tsx
 msgid "Inherit default"
@@ -3369,11 +3369,11 @@ msgstr ""
 #: src/components/call/CallCard.tsx
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Listening"
-msgstr ""
+msgstr "聆听"
 
 #: src/components/composer/HoldToTalk.tsx
 msgid "Listening…"
-msgstr ""
+msgstr "正在聆听…"
 
 #: src/pages/shell/transcript.tsx
 msgid "Load earlier messages"
@@ -3576,7 +3576,7 @@ msgstr "成员"
 #. placeholder {0}: selected.length
 #: src/pages/GroupPanel.tsx
 msgid "Members ({0})"
-msgstr ""
+msgstr "成员（{0}）"
 
 #: src/pages/KnowledgeSection.tsx
 #: src/pages/MemorySettingsOverlay.tsx
@@ -3675,11 +3675,11 @@ msgstr "最小化"
 
 #: src/pages/shell/sidebar-header.tsx
 msgid "Minimize bots"
-msgstr ""
+msgstr "最小化 Bot"
 
 #: src/components/call/CallCard.tsx
 msgid "Minimize call"
-msgstr ""
+msgstr "最小化通话"
 
 #: src/lib/cron.ts
 msgid "minute"
@@ -3692,7 +3692,7 @@ msgstr "分钟"
 
 #: src/components/call/VoiceChatCard.tsx
 msgid "Missed call"
-msgstr ""
+msgstr "未接来电"
 
 #: src/components/ApprovalRulesSettings.tsx
 msgid "Mode"
@@ -3768,7 +3768,7 @@ msgstr ""
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/shell/message-hover-actions.tsx
 msgid "More"
-msgstr ""
+msgstr "更多"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "More apps"
@@ -3800,7 +3800,7 @@ msgstr "静音"
 
 #: src/components/call/CallCard.tsx
 msgid "Muted"
-msgstr ""
+msgstr "已静音"
 
 #: src/components/teach/SkillDraftCard.tsx
 #: src/components/VaultSettings.tsx
@@ -3851,7 +3851,7 @@ msgstr "需要接管"
 #: src/lib/roster-status.ts
 #: src/pages/shell/computer-overlay.tsx
 msgid "Needs you"
-msgstr ""
+msgstr "需要接管"
 
 #: src/pages/shell/import-status.ts
 msgid "Needs: {names}"
@@ -3945,7 +3945,7 @@ msgstr ""
 #: src/pages/GroupPanel.tsx
 #: src/pages/shell/bot-picker.tsx
 msgid "No bots match"
-msgstr ""
+msgstr "没有匹配的 Bot"
 
 #: src/components/AskCard.tsx
 msgid "No longer active"
@@ -3971,7 +3971,7 @@ msgstr "还没有 MCP 服务器。"
 
 #: src/pages/GroupPanel.tsx
 msgid "No members yet"
-msgstr ""
+msgstr "还没有成员"
 
 #: src/pages/PeerMessagesOverlay.tsx
 msgid "No messages with {peerBotName} yet."
@@ -4167,12 +4167,12 @@ msgstr ""
 
 #: src/pages/shell/chat-header.tsx
 msgid "Open call"
-msgstr ""
+msgstr "打开通话"
 
 #. placeholder {0}: call.botName
 #: src/components/call/CallCard.tsx
 msgid "Open chat with {0}"
-msgstr ""
+msgstr "打开与 {0} 的对话"
 
 #: src/components/ComputersUnavailableHint.tsx
 msgid "Open computer settings"
@@ -4343,7 +4343,7 @@ msgstr ""
 
 #: src/components/call/VoiceChatCard.tsx
 msgid "Phone call"
-msgstr ""
+msgstr "电话"
 
 #: src/pages/shell/chat-context.tsx
 #: src/pages/shell/chat-shared.ts
@@ -4352,7 +4352,7 @@ msgstr "照片"
 
 #: src/pages/GroupPanel.tsx
 msgid "Pick {GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX}"
-msgstr ""
+msgstr "选择 {GROUP_MEMBER_MIN}–{GROUP_MEMBER_MAX} 个"
 
 #: src/lib/model-connection-preflight.ts
 msgid "Pick a model from the catalog."
@@ -4524,7 +4524,7 @@ msgstr ""
 #: src/components/integrations/plugin-marketplace.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Reconnect"
-msgstr ""
+msgstr "重新连接"
 
 #: src/pages/McpServersOverlay.tsx
 msgid "Reconnect OAuth"
@@ -4650,7 +4650,7 @@ msgstr "移除 {0}"
 #. placeholder {0}: bot.name
 #: src/pages/GroupPanel.tsx
 msgid "Remove {0} from the group"
-msgstr ""
+msgstr "将 {0} 移出群组"
 
 #: src/components/VaultSettings.tsx
 msgid "Remove {secretName}? Bots will no longer be able to use it."
@@ -4756,12 +4756,12 @@ msgstr "回复"
 
 #: src/pages/shell/composer.tsx
 msgid "Reply cancelled"
-msgstr ""
+msgstr "已取消回复"
 
 #. placeholder {0}: replyNameRef.current
 #: src/pages/shell/composer.tsx
 msgid "Replying to {0}"
-msgstr ""
+msgstr "正在回复 {0}"
 
 #: src/lib/user-error.ts
 msgid "Request a new code"
@@ -4855,12 +4855,12 @@ msgstr "立即重试"
 
 #: src/pages/shell/use-computer.tsx
 msgid "Retry screen"
-msgstr ""
+msgstr "重试屏幕"
 
 #. placeholder {0}: call.botName
 #: src/components/call/CallCard.tsx
 msgid "Return to call with {0}"
-msgstr ""
+msgstr "返回与 {0} 的通话"
 
 #: src/pages/McpOAuthCallback.tsx
 msgid "Return to Rakazo"
@@ -5132,7 +5132,7 @@ msgstr "发送"
 
 #: src/components/composer/HoldToTalk.tsx
 msgid "Send recording"
-msgstr ""
+msgstr "发送录音"
 
 #: src/pages/Auth.tsx
 msgid "Send reset link"
@@ -5218,15 +5218,15 @@ msgstr "显示"
 
 #: src/pages/GroupPanel.tsx
 msgid "Show all"
-msgstr ""
+msgstr "显示全部"
 
 #: src/pages/shell/sidebar-header.tsx
 msgid "Show bots"
-msgstr ""
+msgstr "显示 Bot"
 
 #: src/pages/shell/side-panel.tsx
 msgid "Show computer"
-msgstr ""
+msgstr "显示电脑"
 
 #: src/pages/Artifacts.tsx
 msgid "Show list"
@@ -5244,7 +5244,7 @@ msgstr "显示密码"
 
 #: src/pages/GroupPanel.tsx
 msgid "Show selected"
-msgstr ""
+msgstr "显示已选"
 
 #: src/pages/shell/side-panel.tsx
 msgid "Show settings"
@@ -5358,7 +5358,7 @@ msgstr ""
 
 #: src/components/composer/HoldToTalk.tsx
 msgid "Slide up to lock"
-msgstr ""
+msgstr "上滑锁定"
 
 #: src/components/integrations/skills-dialog.tsx
 #: src/pages/PluginsOverlay.tsx
@@ -5425,7 +5425,7 @@ msgstr "朗读这条回复"
 
 #: src/components/call/CallCard.tsx
 msgid "Speaking"
-msgstr ""
+msgstr "正在说话"
 
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Speech model"
@@ -5712,7 +5712,7 @@ msgstr "此机器人不是导入的。"
 
 #: src/components/call/IncomingCall.tsx
 msgid "This call is no longer ringing."
-msgstr ""
+msgstr "这通电话已不再响铃。"
 
 #: src/components/PasskeySettings.tsx
 #: src/pages/Artifacts.tsx
@@ -5895,7 +5895,7 @@ msgstr ""
 
 #: src/components/composer/HoldToTalk.tsx
 msgid "Transcribing…"
-msgstr ""
+msgstr "正在转写…"
 
 #: src/components/call/CallCard.tsx
 msgid "Transcript"
@@ -5903,7 +5903,7 @@ msgstr "文字记录"
 
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "Transcription model"
-msgstr ""
+msgstr "转写模型"
 
 #: src/pages/ExternalConversationSettings.tsx
 msgid "Treat like a person"
@@ -6360,7 +6360,7 @@ msgstr "可以关闭此窗口。"
 
 #: src/components/call/VoiceChatCard.tsx
 msgid "You declined"
-msgstr ""
+msgstr "你已拒绝"
 
 #: src/pages/shell/computer-overlay.tsx
 msgid "You have control"
