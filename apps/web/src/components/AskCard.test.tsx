@@ -514,7 +514,7 @@ it("quotes an edited reply and marks a sent draft", async () => {
   expect(container.textContent).toContain("Sent");
 });
 
-it("quotes a typed answer under the options it did not match", async () => {
+it("dims the options a typed answer did not match", async () => {
   await render({
     kind: "ask",
     text: "Which city?",
@@ -525,7 +525,8 @@ it("quotes a typed answer under the options it did not match", async () => {
       { id: "seoul", label: "Seoul" },
     ],
   });
-  expect(container.querySelector('[data-testid="ask-answer"]')?.textContent).toBe("Paris");
+  expect(container.querySelector('[data-testid="ask-answer"]')).toBeNull();
+  expect(container.textContent).not.toContain("Paris");
   expect(container.querySelector("[aria-pressed]")).toBeNull();
 
   await render({

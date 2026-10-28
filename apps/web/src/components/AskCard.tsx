@@ -114,24 +114,17 @@ export function AskCard({
     !approvalActions && !block.instructionUpdate && !secretInput && Boolean(askActions?.length);
   const chosenOption =
     answered && displayedAnswer ? resolveAskChoice(displayedAnswer, askActions) : undefined;
-  // A reply typed instead of picked is shown in the user's words, so the card reads as answered.
+  // An edited draft is shown in the user's words, so the card reads as answered. A typed reply to
+  // options already shows as the user's message, so it only dims them.
   const typedAnswer =
     answered &&
+    !optionQuestion &&
     !approvalActions &&
     !secretInput &&
     !block.instructionUpdate &&
-    !chosenOption &&
     displayedAnswer !== "approved"
       ? displayedAnswer
       : undefined;
-  const answerQuote = typedAnswer ? (
-    <blockquote
-      data-testid="ask-answer"
-      className="mt-3 whitespace-pre-wrap break-words border-s-2 border-border ps-3 text-[15px] leading-[1.5] text-muted-foreground"
-    >
-      {typedAnswer}
-    </blockquote>
-  ) : null;
   // A login or credential is saved for the run's user, so only they can fill one in; others see
   // the card without fields or buttons.
   const ownerOnly = secretInput && Boolean(block.credential) && !canDismiss;
@@ -319,10 +312,14 @@ export function AskCard({
               {pendingAction === action.id ? <Trans>Sending…</Trans> : action.label}
             </OptionRow>
           ))}
-          {answerQuote}
         </div>
       ) : typedAnswer ? (
-        answerQuote
+        <blockquote
+          data-testid="ask-answer"
+          className="mt-3 whitespace-pre-wrap break-words border-s-2 border-border ps-3 text-[15px] leading-[1.5] text-muted-foreground"
+        >
+          {typedAnswer}
+        </blockquote>
       ) : answered ? (
         <div className="mt-3.5 flex items-center gap-1.5 text-[13.5px] font-medium text-muted-foreground">
           {displayedAnswer === "deny" ||
