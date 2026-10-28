@@ -56,14 +56,15 @@ test("waits for processing, then creates the version with notes and submits it",
   assert.equal(submitted.attributes.submitted, true);
 });
 
-test("puts the build on a version that is still being prepared", async () => {
+test("puts the build on a version still being prepared and releases it on approval", async () => {
   const store = fakeAppStore({
     existingVersion: { id: "version-old", attributes: { appStoreState: "PREPARE_FOR_SUBMISSION" } },
   });
   await submitForReview(store.request, options);
-  assert.deepEqual(summary(store.calls).slice(0, 1), [
-    "PATCH /v1/appStoreVersions/version-old/relationships/build",
-  ]);
+  const updated = store.calls.find(({ method }) => method !== "GET");
+  assert.equal(updated.path, "/v1/appStoreVersions/version-old");
+  assert.equal(updated.data.attributes.releaseType, "AFTER_APPROVAL");
+  assert.equal(updated.data.relationships.build.data.id, "build-7");
   assert.equal(store.calls.at(-1).path, "/v1/reviewSubmissions/sub-1");
 });
 

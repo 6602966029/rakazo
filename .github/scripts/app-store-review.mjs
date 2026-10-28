@@ -87,7 +87,12 @@ export async function submitForReview(request, options) {
   }
   let versionId = existing?.id;
   if (versionId) {
-    await request("PATCH", `/v1/appStoreVersions/${versionId}/relationships/build`, buildRef.data);
+    await request("PATCH", `/v1/appStoreVersions/${versionId}`, {
+      type: "appStoreVersions",
+      id: versionId,
+      attributes: { releaseType: "AFTER_APPROVAL" },
+      relationships: { build: buildRef },
+    });
   } else {
     const created = await request("POST", "/v1/appStoreVersions", {
       type: "appStoreVersions",
