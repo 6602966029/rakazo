@@ -5,6 +5,7 @@ import { StreamableHTTPError } from "@modelcontextprotocol/sdk/client/streamable
 import {
   InvalidClientMetadataError,
   ServerError,
+  TooManyRequestsError,
 } from "@modelcontextprotocol/sdk/server/auth/errors.js";
 import { createLogger, createTestSink, getLogger, installLogger } from "@rakazo/logging";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
@@ -867,18 +868,18 @@ describe("MCP connector session cache", () => {
     });
 
     it.each([
-      ["refuses the client", () => new InvalidClientMetadataError("client not recognized")],
+      ["refuses the client", () => new InvalidClientMetadataError("client not recognized"), false],
       [
         "cannot register a client",
         () => new Error("Incompatible auth server: does not support dynamic client registration"),
+        false,
       ],
-    ])("warns when the server's OAuth endpoint %s", async (_, failure) => {
-      vi.stubGlobal(
-        "fetch",
-        vi.fn(async () => {
-          throw failure();
-        }),
-      );
+      ["rate limits the client", () => new TooManyRequestsError("slow down"), true],
+    ])("warns when the server's OAuth endpoint %s", async (_, failure, retriesSoon) => {
+      const requests = vi.fn(async () => {
+        throw failure();
+      });
+      vi.stubGlobal("fetch", requests);
       const connector = connectorWith(SERVER);
       const error = vi.spyOn(getLogger(), "error");
       const warn = vi.spyOn(getLogger(), "warn");
@@ -888,6 +889,12 @@ describe("MCP connector session cache", () => {
         expect(warn).toHaveBeenCalledWith("mcp discovery failed for server demo", {
           reason: expect.any(String),
         });
+        const tried = requests.mock.calls.length;
+
+        // A refusal waits for the user to reconnect; a rate limit is retried on the usual backoff.
+        vi.spyOn(Date, "now").mockReturnValue(Date.now() + 31_000);
+        await connector.discoverTools(context);
+        expect(requests.mock.calls.length > tried).toBe(retriesSoon);
       } finally {
         vi.restoreAllMocks();
         await connector.close();
