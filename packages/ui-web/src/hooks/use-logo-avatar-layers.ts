@@ -62,14 +62,15 @@ export function useLogoAvatarLayers(
 
   useLayoutEffect(() => {
     const element = ref.current;
-    // Static avatars have no tracks to sync; skipping avoids a style flush per change.
-    if (!element || !animated) return;
+    if (!element) return;
     const now = Number(document.timeline?.currentTime ?? 0);
     const previous = clock.current;
     const elapsed = previous
       ? previous.elapsed + (previous.running ? Math.max(0, now - previous.last) : 0)
       : 0;
     clock.current = { last: now, elapsed, running };
+    // Static avatars have no tracks to sync; skipping avoids a style flush per change.
+    if (!animated) return;
     for (const animation of element.getAnimations?.({ subtree: true }) ?? []) {
       if (animation.effect?.getTiming().iterations === Number.POSITIVE_INFINITY) {
         if (running) animation.startTime = now - elapsed;

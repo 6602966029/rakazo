@@ -31,9 +31,12 @@ export function useBotAvatarActivity(identity: string, status?: string): LogoAva
   const rendered = useRef(activity);
   rendered.current = activity;
   useEffect(() => {
-    const refresh = () => startTransition(() => setVersion((version) => version + 1));
+    const refresh = () => {
+      if (source.getActivity(identity, status) !== rendered.current)
+        startTransition(() => setVersion((version) => version + 1));
+    };
     const unsubscribe = source.subscribe(refresh);
-    if (source.getActivity(identity, status) !== rendered.current) refresh();
+    refresh();
     return unsubscribe;
   }, [source, identity, status]);
   return activity;
