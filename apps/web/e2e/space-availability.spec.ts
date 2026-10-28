@@ -34,7 +34,10 @@ test("a new space chooses what it can use, and a skill can be limited to some sp
 
   // Continue switches to the new space and opens its own Chief in the background. Let that land
   // before leaving it, or its late remount overrides the click below or closes the Skills dialog.
-  const chiefs = page.locator("aside").first().getByRole("button", { name: /^Chief/ });
+  const chiefs = page
+    .locator("aside")
+    .first()
+    .getByRole("button", { name: /^Chief/ });
   await expect(chiefs.nth(1)).toHaveAttribute("aria-current", "page");
   const personalChief = chiefs.first();
   await personalChief.click();
