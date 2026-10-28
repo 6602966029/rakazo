@@ -51,7 +51,7 @@ wal_name() {
 # unfinished bases older than the newest finished one, and WAL older than the oldest kept base.
 # Timeline history files are always kept.
 plan_prune() {
-  local cutoff=$(($1 - $2 * 86400)) kind a b c first=0 i oldest
+  local cutoff=$(($1 - $2 * 86400)) kind a b c first=0 i oldest=""
   local -a stamps=() starts=() ends=() partials=() wals=()
   while read -r kind a b c _ || [[ -n "${kind}" ]]; do
     case "${kind}" in
@@ -68,7 +68,10 @@ plan_prune() {
   for a in "${partials[@]}"; do
     [[ "${a}" > "${stamps[-1]}" ]] || echo "purge base/${a}"
   done
-  oldest="${starts[first]:8:16}"
+  # A base on a later timeline can start below an older one, after a restore rewound the database.
+  for ((i = first; i < ${#stamps[@]}; i++)); do
+    [[ -n "${oldest}" && ! "${starts[i]:8:16}" < "${oldest}" ]] || oldest="${starts[i]:8:16}"
+  done
   for a in "${wals[@]}"; do
     [[ "${a}" =~ ^[0-9A-F]{24}\. ]] || continue
     [[ ! "${a:8:16}" < "${oldest}" ]] || echo "delete wal/${a}"
@@ -158,7 +161,12 @@ list_bases() {
       start="$(sed -n 's/^start_wal=//p' <<<"${meta}")"
       end="$(sed -n 's/^end_time=//p' <<<"${meta}")"
       timeline="$(sed -n 's/^timeline=//p' <<<"${meta}")"
-      echo "base ${stamp} ${start} ${end} ${timeline}"
+      # Bucket contents are untrusted: anything else would reach shell arithmetic.
+      if [[ "${start}" =~ ^[0-9A-F]{24}$ && "${end}" =~ ^[0-9]{1,12}$ && "${timeline}" =~ ^[0-9]{1,10}$ ]]; then
+        echo "base ${stamp} ${start} ${end} ${timeline}"
+      else
+        log "Ignoring base backup ${stamp}: its COMPLETE marker is malformed"
+      fi
     else
       echo "partial ${stamp}"
     fi
@@ -181,6 +189,7 @@ upload_dir() {
     for name in "${names[@]}"; do
       age --encrypt "${AGE_ARGS[@]}" -o "${OUTBOX}/${name}.age" "${dir}/${name}" || return 1
     done
+    enforce_limit
     if ! rclone copy --no-traverse "${OUTBOX}" "${root}/wal"; then
       log "WAL upload failed; retrying"
       return 1
@@ -203,6 +212,15 @@ upload_ready() {
 
 spool_kb() { du -sk "${WAL_DIR}" "${HELD_DIR}" | awk '{ total += $1 } END { print total + 0 }'; }
 
+# Stops pg_receivewal once the spool reaches PITR_MAX_WAL_GB; receive_loop waits for it to drain.
+enforce_limit() {
+  if (($(spool_kb) >= MAX_SPOOL_KB)) && [[ -s "${STATE}/receiver.pid" ]]; then
+    log "Upload backlog reached PITR_MAX_WAL_GB; pausing WAL streaming"
+    kill -TERM "$(cat "${STATE}/receiver.pid")" 2>/dev/null || true
+    rm -f -- "${STATE}/receiver.pid"
+  fi
+}
+
 # Receives into WAL_DIR until the spool reaches PITR_MAX_WAL_GB, then waits for uploads to drain
 # it. While paused, Postgres keeps the WAL for the slot, up to max_slot_wal_keep_size.
 receive_loop() {
@@ -213,6 +231,10 @@ receive_loop() {
       continue
     fi
     rm -f -- "${STATE}/paused"
+    if ! ensure_slot; then
+      sleep 5
+      continue
+    fi
     pg_receivewal --directory="${WAL_DIR}" --slot="${SLOT}" --compress=gzip --no-loop &
     echo "$!" >"${STATE}/receiver.pid"
     wait "$!" || log "pg_receivewal stopped; reconnecting"
@@ -265,18 +287,21 @@ prune() {
 
 # Connects with the replication login, creating its slot on first use. A slot Postgres dropped for
 # exceeding max_slot_wal_keep_size, or a new one, leaves a gap, so both force a new base backup.
+# Local segments then predate what the new slot can stream, so they move to held/ to be uploaded
+# without pg_receivewal resuming from them.
 ensure_slot() {
   local status
-  status="$(sql "SELECT wal_status FROM pg_replication_slots WHERE slot_name = '${SLOT}'")"
+  status="$(sql "SELECT wal_status FROM pg_replication_slots WHERE slot_name = '${SLOT}'")" || return 1
   if [[ "${status}" == lost ]]; then
     log "The replication slot lost WAL it needed; recovery has a gap until the next base backup"
-    sql "SELECT pg_drop_replication_slot('${SLOT}')" >/dev/null
+    sql "SELECT pg_drop_replication_slot('${SLOT}')" >/dev/null || return 1
     status=""
   fi
-  if [[ -z "${status}" ]]; then
-    pg_receivewal --slot="${SLOT}" --create-slot --if-not-exists
-    rm -f -- "${STATE}/last-base"
-  fi
+  [[ -z "${status}" ]] || return 0
+  mkdir -p -- "${HELD_DIR}/${SYSID}" || return 1
+  find "${WAL_DIR}" -maxdepth 1 -type f -exec mv -t "${HELD_DIR}/${SYSID}" -- {} + || return 1
+  pg_receivewal --slot="${SLOT}" --create-slot --if-not-exists || return 1
+  : >"${STATE}/base-now"
 }
 
 run() {
@@ -292,6 +317,7 @@ run() {
     sleep 10
   done
   read -r sysid timeline <<<"${source}"
+  SYSID="${sysid}"
   ROOT="${REMOTE}/${sysid}"
   if [[ -s "${STATE}/source" && "$(cat "${STATE}/source")" != "${source}" ]]; then
     local previous
@@ -300,13 +326,12 @@ run() {
     find "${WAL_DIR}" -maxdepth 1 -type f -exec mv -t "${HELD_DIR}/${previous}" -- {} +
   fi
   echo "${source}" >"${STATE}/source"
-  rm -f -- "${STATE}/last-base"
+  rm -f -- "${STATE}/last-base" "${STATE}/base-now"
   # The newest base on this timeline; when storage cannot be listed, the next one is due now.
   local newest=""
   newest="$(list_bases "${ROOT}" | awk -v tl="${timeline}" '$1 == "base" && $5 == tl { end = $4 } END { print end }')" ||
     log "Cannot list base backups yet"
   [[ -z "${newest}" ]] || echo "${newest}" >"${STATE}/last-base"
-  ensure_slot
   log "Archiving system ${sysid} timeline ${timeline} to ${ROOT}"
 
   receive_loop &
@@ -316,17 +341,16 @@ run() {
     now="$(date +%s)"
     # Retry a failed upload every 30 seconds rather than on every pass.
     if ((now >= upload_after)) && ! upload_ready; then upload_after=$((now + 30)); fi
-    if (($(spool_kb) >= MAX_SPOOL_KB)) && [[ -s "${STATE}/receiver.pid" ]]; then
-      log "Upload backlog reached PITR_MAX_WAL_GB; pausing WAL streaming"
-      kill -TERM "$(cat "${STATE}/receiver.pid")" 2>/dev/null || true
-      rm -f -- "${STATE}/receiver.pid"
-    fi
+    enforce_limit
     if [[ -n "${base_pid}" ]] && ! kill -0 "${base_pid}" 2>/dev/null; then
       if wait "${base_pid}"; then prune || log "Pruning old backups failed"; fi
       base_pid=""
     fi
     last="$(cat "${STATE}/last-base" 2>/dev/null || echo 0)"
-    if [[ -z "${base_pid}" ]] && ((now - last >= BASE_INTERVAL && now - last_attempt >= BASE_RETRY)); then
+    # A new slot starts a gap, so its base backup skips the retry wait.
+    if [[ -z "${base_pid}" ]] && { [[ -e "${STATE}/base-now" ]] ||
+      ((now - last >= BASE_INTERVAL && now - last_attempt >= BASE_RETRY)); }; then
+      rm -f -- "${STATE}/base-now"
       last_attempt="${now}"
       base_backup &
       base_pid=$!
@@ -471,5 +495,6 @@ case "${1:-}" in
   wal-name) wal_name "$2" "$3" "$4" ;;
   plan-prune) plan_prune "$2" "$3" ;;
   plan-restore) plan_restore "$2" ;;
+  list-bases) storage_config && list_bases "${REMOTE}/$2" ;;
   *) die "usage: rakazo-pitr run|health|restore TARGET" ;;
 esac

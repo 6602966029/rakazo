@@ -294,7 +294,7 @@ services:
     profiles: [pitr]
     # Tagged with a hash of Dockerfile.pitr and pitr-agent.sh, so a deploy builds it once per change
     # instead of on every run (compose-service.test.ts checks the hash).
-    image: rakazo-pitr:ed302de0a811271f
+    image: rakazo-pitr:c2295f08da925cb0
     build:
       context: .
       dockerfile: Dockerfile.pitr

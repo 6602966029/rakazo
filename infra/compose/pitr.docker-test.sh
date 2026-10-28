@@ -142,7 +142,7 @@ wait_for "a healthy sidecar after restore" "${compose[@]}" exec -T pitr rakazo-p
 docker exec "${s3}" test -s "${archive}/wal/00000002.history.gz.age" || fail "the new timeline's history was not archived"
 sql "INSERT INTO t SELECT generate_series(1001, 1010)" >/dev/null
 segment="$(sql "SELECT pg_walfile_name(pg_current_wal_lsn())")"
-sql "SELECT pg_switch_wal()" >/dev/null
+# No manual switch here: archive_timeout alone must close the segment within about a minute.
 wait_for "the new timeline's segment upload" docker exec "${s3}" test -s "${archive}/wal/${segment}.gz.age"
 docker volume rm -f "${project}_latest" >/dev/null
 restore restore latest "${project}_latest" >/dev/null

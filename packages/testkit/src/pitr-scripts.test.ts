@@ -1,5 +1,13 @@
 import { spawnSync } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -85,6 +93,20 @@ describe("retention", () => {
     expect(plan).not.toContain("purge base/20260111T000000Z");
   });
 
+  it("keeps WAL a newer timeline's lower-starting base needs", () => {
+    // After a restore rewinds the database, a newer base can start below an older one.
+    const rewound = [
+      base("20260108T000000Z", "0100", 2),
+      `base 20260109T000000Z 000000020000000000000020 ${NOW - DAY} 2`,
+      "wal 000000010000000000000010.gz.age",
+      "wal 000000020000000000000030.gz.age",
+      "wal 000000010000000000000100.gz.age",
+    ].join("\n");
+    expect(runAgent(["plan-prune", String(NOW), "7"], rewound).stdout.trim()).toBe(
+      "delete wal/000000010000000000000010.gz.age",
+    );
+  });
+
   it("deletes nothing before a base backup has finished", () => {
     const unfinished = "partial 20260111T000000Z\nwal 000000010000000000000001.gz.age";
     expect(runAgent(["plan-prune", String(NOW), "7"], unfinished)).toMatchObject({
@@ -118,6 +140,41 @@ describe("choosing a base backup to restore", () => {
       status: 1,
       stdout: "",
     });
+  });
+});
+
+describe("base backup markers from the bucket", () => {
+  it("ignores a marker whose fields could reach shell arithmetic", () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), "rakazo-pitr-markers-"));
+    temporaryDirectories.push(root);
+    const witness = path.join(root, "evaluated");
+    write(
+      path.join(root, "bin/rclone"),
+      `#!/bin/bash
+case "$1 $2" in
+  "lsf -R") printf '%s\\n' 20260101T000000Z/COMPLETE 20260102T000000Z/COMPLETE ;;
+  cat*) if [[ "$2" == *20260101T000000Z* ]]; then
+      printf 'start_wal=000000010000000000000010\\nend_time=a[$(touch ${witness})]\\ntimeline=1\\n'
+    else
+      printf 'start_wal=000000010000000000000020\\nend_time=1800000000\\ntimeline=1\\n'
+    fi ;;
+esac
+`,
+    );
+    chmodSync(path.join(root, "bin/rclone"), 0o755);
+    const result = runAgent(["list-bases", "123"], "", {
+      PATH: `${path.join(root, "bin")}:/usr/bin:/bin`,
+      PITR_BUCKET: "rakazo-pitr",
+      PITR_ACCESS_KEY_ID: "fake-access-key",
+      PITR_SECRET_ACCESS_KEY: "fake-secret-key",
+    });
+    expect(result.stdout.trim()).toBe(
+      "base 20260102T000000Z 000000010000000000000020 1800000000 1",
+    );
+    expect(result.stderr).toContain("Ignoring base backup 20260101T000000Z");
+    const restore = runAgent(["plan-restore", "1900000000"], result.stdout);
+    expect(restore.stdout.trim()).toBe("20260102T000000Z 000000010000000000000020 1");
+    expect(existsSync(witness)).toBe(false);
   });
 });
 
