@@ -132,7 +132,7 @@ test("sidebar footer opens integrations and the account menu", async ({ page }, 
   await expect(page.getByRole("link", { name: "Get the mobile app", exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: "Docs", exact: true })).toBeVisible();
   await expect(footer.locator('span[aria-hidden="true"] > span')).toHaveCount(3);
-  if (avatarBox && pillBox) {
+  if (avatarBox && skillsBox) {
     await expect
       .poll(async () => {
         const menuBox = await page.locator('[data-slot="popover-content"]').boundingBox();
@@ -144,7 +144,7 @@ test("sidebar footer opens integrations and the account menu", async ({ page }, 
           }
         );
       })
-      .toEqual({ x: avatarBox.x, width: pillBox.x + pillBox.width - avatarBox.x, gap: 8 });
+      .toEqual({ x: avatarBox.x, width: skillsBox.x + skillsBox.width - avatarBox.x, gap: 8 });
   }
   await captureScreenshot(page, testInfo, "sidebar-footer-menu");
   await page.keyboard.press("Escape");
