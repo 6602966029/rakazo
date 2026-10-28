@@ -141,6 +141,7 @@ describe("server image publish workflow", () => {
       "test",
       "test-integration",
       "test-postgres-upgrade",
+      "test-pitr",
       "test-e2e",
       "publish-server-image",
     ]);
