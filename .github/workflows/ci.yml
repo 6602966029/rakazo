@@ -9,8 +9,9 @@ permissions:
 
 # Superseded PR checks cancel together. On main, each job that leads to a deploy holds a per-job
 # lock: one revision runs while only the newest waits, so a burst of merges deploys its last commit
-# without stopping work already in progress. Main reruns only what the deploy needs and the E2E
-# screenshot baseline; the pull request already ran the rest against the then-current main.
+# without stopping work already in progress. Main reruns only what the deploy needs; the pull
+# request already ran the rest against the then-current main, and the nightly run refreshes the
+# E2E screenshot baseline.
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -22,17 +23,21 @@ env:
 
 jobs:
   # Pull requests skip suites their files cannot affect (see .github/scripts/changed-areas.sh); a
-  # job skipped by `if` still satisfies a required check. Main runs everything it runs at all.
+  # job skipped by `if` still satisfies a required check. Main skips this job, and with it every
+  # job that needs it.
   changes:
     name: Changed areas
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      web: ${{ steps.areas.outputs.web || 'true' }}
-      server: ${{ steps.areas.outputs.server || 'true' }}
+      web: ${{ steps.areas.outputs.web }}
+      e2e: ${{ steps.areas.outputs.e2e }}
+      server: ${{ steps.areas.outputs.server }}
+      native: ${{ steps.areas.outputs.native }}
+      compose: ${{ steps.areas.outputs.compose }}
     steps:
       - uses: actions/checkout@v5
-        if: github.event_name == 'pull_request'
         with:
           persist-credentials: false
           # The merge commit's first parent is the base, so this diff is exactly what the PR adds.
@@ -40,7 +45,6 @@ jobs:
           filter: blob:none
           sparse-checkout: .github
       - id: areas
-        if: github.event_name == 'pull_request'
         run: bash .github/scripts/changed-areas.sh >> "$GITHUB_OUTPUT"
 
   lint:
@@ -86,7 +90,7 @@ jobs:
   build:
     name: Production builds
     needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.web == 'true'
+    if: needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -149,7 +153,7 @@ jobs:
   native-computer:
     name: Native computer (${{ matrix.os }})
     needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.server == 'true'
+    if: needs.changes.outputs.native == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
@@ -210,7 +214,7 @@ jobs:
   test-postgres-upgrade:
     name: Postgres upgrade
     needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.server == 'true'
+    if: needs.changes.outputs.compose == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -219,18 +223,14 @@ jobs:
           persist-credentials: false
       - run: bash infra/compose/upgrade-postgres.docker-test.sh
 
-  # Still runs on main, one revision at a time, because main's screenshots are the baseline that
-  # pull-request galleries compare against. The deploy does not wait for it.
   test-e2e:
     name: Web E2E
     needs: changes
-    concurrency:
-      group: ci-e2e-${{ github.ref == 'refs/heads/main' && 'main' || github.run_id }}
     uses: ./.github/workflows/playwright.yml
     with:
       upload_artifacts: true
       # Skipped inside the called workflow so the required "Web E2E / Web E2E" check still reports.
-      skip: ${{ needs.changes.outputs.web != 'true' }}
+      skip: ${{ needs.changes.outputs.e2e != 'true' }}
 
   # Publishes sha-<commit> and edge alongside the checks, so the production deploy pulls the
   # image this run built instead of building on the production host.

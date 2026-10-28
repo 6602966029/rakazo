@@ -161,7 +161,7 @@ describe("server image publish workflow", () => {
   });
 
   it("lets only the newest waiting main revision replace a queued one, never a running one", () => {
-    const locks = ["check", "test", "test-integration", "test-e2e", "publish-server-image"].map(
+    const locks = ["check", "test", "test-integration", "publish-server-image"].map(
       (name) => ci.jobs[name]?.concurrency,
     );
     expect(new Set(locks.map((lock) => lock?.group)).size).toBe(locks.length);

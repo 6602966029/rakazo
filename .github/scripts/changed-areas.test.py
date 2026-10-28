@@ -48,29 +48,48 @@ def write(path, text="changed\n"):
     return change
 
 
+AREAS = ("web", "e2e", "server", "native", "compose")
+
+
+def expect(*on):
+    return {area: str(area in on).lower() for area in AREAS}
+
+
+EVERY_BROWSER_AREA = ("web", "e2e", "server")
+
+
 class ChangedAreasTests(unittest.TestCase):
     def test_classifies_what_the_pull_request_changed(self):
         cases = [
-            ("apps/mobile/app/screen.tsx", "false", "false"),
-            (".agents/skills/x/SKILL.md", "false", "false"),
-            ("CHANGELOG.md", "false", "false"),
-            ("docs/getting-started.md", "true", "false"),
-            ("apps/www/src/page.astro", "true", "false"),
-            ("apps/mobile/package.json", "true", "true"),
-            ("packages/core/README.md", "true", "true"),
-            ("apps/web/src/app.ts", "true", "true"),
-            (".github/workflows/ci.yml", "true", "true"),
+            ("apps/mobile/app/screen.tsx", expect()),
+            (".agents/skills/x/SKILL.md", expect()),
+            ("CHANGELOG.md", expect()),
+            ("docs/getting-started.md", expect("web")),
+            ("apps/www/src/page.astro", expect("web")),
+            ("apps/worker/src/index.ts", expect("web", "server")),
+            ("packages/adapters/src/slack.ts", expect("web", "server")),
+            ("packages/adapters/src/host-computer-runner.ts", expect("web", "server", "native")),
+            ("packages/adapters/src/computer-workspace.ts", expect("web", "server", "native")),
+            ("packages/core/src/node/desktop-runtime.ts", expect(*EVERY_BROWSER_AREA, "native")),
+            ("apps/desktop/src/main.ts", expect(*EVERY_BROWSER_AREA, "native")),
+            ("infra/compose/docker-compose.prod.yml", expect(*EVERY_BROWSER_AREA, "compose")),
+            ("apps/mobile/package.json", expect(*EVERY_BROWSER_AREA)),
+            ("packages/core/README.md", expect(*EVERY_BROWSER_AREA)),
+            ("packages/core/src/run-error.ts", expect(*EVERY_BROWSER_AREA)),
+            ("apps/web/src/app.ts", expect(*EVERY_BROWSER_AREA)),
+            ("pnpm-lock.yaml", expect(*AREAS)),
+            (".github/workflows/ci.yml", expect(*AREAS)),
         ]
-        for path, web, server in cases:
+        for path, expected in cases:
             with self.subTest(path=path):
-                self.assertEqual(areas(write(path)), {"web": web, "server": server})
+                self.assertEqual(areas(write(path)), expected)
 
     def test_a_rename_out_of_the_web_app_counts_its_old_path(self):
         def move(root):
             (root / "apps/mobile/assets").mkdir()
             git(root, "mv", "apps/web/src/logo.svg", "apps/mobile/assets/logo.svg")
 
-        self.assertEqual(areas(move), {"web": "true", "server": "true"})
+        self.assertEqual(areas(move), expect(*EVERY_BROWSER_AREA))
 
 
 if __name__ == "__main__":
