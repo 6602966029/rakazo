@@ -14,6 +14,7 @@ import { reportCaughtReactError } from "./lib/monitoring";
 import { markAfterPaint, markOnce } from "./lib/performance";
 import { installPreloadRecovery } from "./lib/preload-recovery";
 import { queryClient } from "./lib/query";
+import { captureReferral } from "./lib/referral";
 import { applyUiAppearance, watchSystemAppearance } from "./lib/ui-appearance";
 import { resolveUiLocale } from "./lib/ui-locale";
 import { registerServiceWorker } from "./pwa/register";
@@ -27,6 +28,7 @@ registerServiceWorker();
 lockStandaloneZoom();
 applyUiDirection(resolveUiLocale());
 applyUiAppearance();
+captureReferral(window.location.search);
 
 function PerformanceProbe() {
   useLayoutEffect(() => {

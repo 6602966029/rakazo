@@ -1194,4 +1194,9 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Could not load skill": "无法加载技能",
   "Could not save skill": "无法保存技能",
   "Could not delete skill": "无法删除技能",
+  "Invite friends": "邀请朋友",
+  "Get a free month for each friend who starts a trial.":
+    "每有一位朋友开始试用，你就能获得一个月免费。",
+  "1 free month earned": "已获得 1 个月免费",
+  "{count} free months earned": "已获得 {count} 个月免费",
 };

@@ -33,6 +33,11 @@ msgstr ""
 msgid "{0, plural, one {# file} other {# files}}"
 msgstr ""
 
+#. placeholder {0}: referral.rewards
+#: src/components/InviteDialog.tsx
+msgid "{0, plural, one {# free month earned} other {# free months earned}}"
+msgstr "{0, plural, one {已獲得 # 個月免費} other {已獲得 # 個月免費}}"
+
 #. placeholder {0}: skills.length - shownSkills.length
 #: src/components/integrations/plugin-marketplace.tsx
 msgid "{0, plural, one {# more} other {# more}}"
@@ -1697,6 +1702,7 @@ msgid "Conversations"
 msgstr "對話"
 
 #: src/components/ComputersUnavailableHint.tsx
+#: src/components/InviteDialog.tsx
 #: src/components/markdown-copy.tsx
 #: src/components/VaultSettings.tsx
 #: src/pages/model-settings/connection-controls.tsx
@@ -1705,6 +1711,7 @@ msgstr "對話"
 msgid "Copied"
 msgstr "已複製"
 
+#: src/components/InviteDialog.tsx
 #: src/components/VaultSettings.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
@@ -2990,6 +2997,10 @@ msgstr "閘道器 ID"
 msgid "General"
 msgstr "一般"
 
+#: src/components/InviteDialog.tsx
+msgid "Get a free month for each friend who starts a trial."
+msgstr "每有一位朋友開始試用，你就能獲得一個月免費。"
+
 #: src/components/SidebarFooter.tsx
 msgid "Get the mobile app"
 msgstr "下載手機應用程式"
@@ -3280,6 +3291,15 @@ msgstr "間隔單位"
 #: src/lib/user-error.ts
 msgid "Invalid code"
 msgstr "驗證碼無效"
+
+#: src/components/InviteDialog.tsx
+#: src/components/SidebarFooter.tsx
+msgid "Invite friends"
+msgstr "邀請朋友"
+
+#: src/components/InviteDialog.tsx
+msgid "Invite link"
+msgstr "邀請連結"
 
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx

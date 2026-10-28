@@ -32,6 +32,11 @@ msgstr ""
 msgid "{0, plural, one {# file} other {# files}}"
 msgstr ""
 
+#. placeholder {0}: referral.rewards
+#: src/components/InviteDialog.tsx
+msgid "{0, plural, one {# free month earned} other {# free months earned}}"
+msgstr "{0, plural, one {# मुफ़्त महीना मिला} other {# मुफ़्त महीने मिले}}"
+
 #. placeholder {0}: skills.length - shownSkills.length
 #: src/components/integrations/plugin-marketplace.tsx
 msgid "{0, plural, one {# more} other {# more}}"
@@ -1696,6 +1701,7 @@ msgid "Conversations"
 msgstr ""
 
 #: src/components/ComputersUnavailableHint.tsx
+#: src/components/InviteDialog.tsx
 #: src/components/markdown-copy.tsx
 #: src/components/VaultSettings.tsx
 #: src/pages/model-settings/connection-controls.tsx
@@ -1704,6 +1710,7 @@ msgstr ""
 msgid "Copied"
 msgstr "कॉपी किया गया"
 
+#: src/components/InviteDialog.tsx
 #: src/components/VaultSettings.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
@@ -2989,6 +2996,10 @@ msgstr "गेटवे आईडी"
 msgid "General"
 msgstr "सामान्य"
 
+#: src/components/InviteDialog.tsx
+msgid "Get a free month for each friend who starts a trial."
+msgstr "ट्रायल शुरू करने वाले हर दोस्त के लिए एक महीना मुफ़्त पाएँ।"
+
 #: src/components/SidebarFooter.tsx
 msgid "Get the mobile app"
 msgstr "मोबाइल ऐप पाएँ"
@@ -3279,6 +3290,15 @@ msgstr "अंतराल इकाई"
 #: src/lib/user-error.ts
 msgid "Invalid code"
 msgstr "अमान्य कोड"
+
+#: src/components/InviteDialog.tsx
+#: src/components/SidebarFooter.tsx
+msgid "Invite friends"
+msgstr "दोस्तों को आमंत्रित करें"
+
+#: src/components/InviteDialog.tsx
+msgid "Invite link"
+msgstr "आमंत्रण लिंक"
 
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx

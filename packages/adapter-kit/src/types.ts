@@ -1248,6 +1248,8 @@ export interface BillingSubscriptionSnapshot {
   endedAt: Date | null;
   /** The flat own-key plan, which grants access without credits. */
   byokPlan?: boolean;
+  /** Stable identity of the subscription's card across customers, when the provider has one. */
+  cardFingerprint?: string;
 }
 
 export interface BillingCheckoutRequest {

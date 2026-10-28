@@ -1198,4 +1198,9 @@ export const NL_MESSAGES: Record<string, string> = {
   "Could not load skill": "Kan skill niet laden",
   "Could not save skill": "Kan skill niet opslaan",
   "Could not delete skill": "Kan skill niet verwijderen",
+  "Invite friends": "Vrienden uitnodigen",
+  "Get a free month for each friend who starts a trial.":
+    "Krijg een gratis maand voor elke vriend die een proefperiode start.",
+  "1 free month earned": "1 gratis maand verdiend",
+  "{count} free months earned": "{count} gratis maanden verdiend",
 };

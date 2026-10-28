@@ -32,6 +32,11 @@ msgstr ""
 msgid "{0, plural, one {# file} other {# files}}"
 msgstr ""
 
+#. placeholder {0}: referral.rewards
+#: src/components/InviteDialog.tsx
+msgid "{0, plural, one {# free month earned} other {# free months earned}}"
+msgstr "{0, plural, one {הרווחת חודש חינם אחד} other {הרווחת # חודשים חינם}}"
+
 #. placeholder {0}: skills.length - shownSkills.length
 #: src/components/integrations/plugin-marketplace.tsx
 msgid "{0, plural, one {# more} other {# more}}"
@@ -1696,6 +1701,7 @@ msgid "Conversations"
 msgstr ""
 
 #: src/components/ComputersUnavailableHint.tsx
+#: src/components/InviteDialog.tsx
 #: src/components/markdown-copy.tsx
 #: src/components/VaultSettings.tsx
 #: src/pages/model-settings/connection-controls.tsx
@@ -1704,6 +1710,7 @@ msgstr ""
 msgid "Copied"
 msgstr "הועתק"
 
+#: src/components/InviteDialog.tsx
 #: src/components/VaultSettings.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
@@ -2989,6 +2996,10 @@ msgstr "Gateway ID"
 msgid "General"
 msgstr "כללי"
 
+#: src/components/InviteDialog.tsx
+msgid "Get a free month for each friend who starts a trial."
+msgstr "קבלו חודש חינם על כל חבר שמתחיל תקופת ניסיון."
+
 #: src/components/SidebarFooter.tsx
 msgid "Get the mobile app"
 msgstr "הורדת האפליקציה לנייד"
@@ -3279,6 +3290,15 @@ msgstr "יחידת המרווח"
 #: src/lib/user-error.ts
 msgid "Invalid code"
 msgstr "קוד לא תקין"
+
+#: src/components/InviteDialog.tsx
+#: src/components/SidebarFooter.tsx
+msgid "Invite friends"
+msgstr "הזמנת חברים"
+
+#: src/components/InviteDialog.tsx
+msgid "Invite link"
+msgstr "קישור הזמנה"
 
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx

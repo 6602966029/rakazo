@@ -21,6 +21,7 @@ import {
   Settings,
   Smartphone,
   SquareKanban,
+  UserPlus,
   UserRound,
 } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
@@ -44,6 +45,7 @@ type Props = {
   onArtifacts: () => void;
   onSettings: () => void;
   onUsage: () => void;
+  onInvite?: () => void;
   onLogOut: () => void;
   signingOut: boolean;
   logOutError: string | null;
@@ -71,6 +73,7 @@ export function SidebarFooter({
   onArtifacts,
   onSettings,
   onUsage,
+  onInvite,
   onLogOut,
   signingOut,
   logOutError,
@@ -176,6 +179,16 @@ export function SidebarFooter({
               <Smartphone className="text-muted-foreground" strokeWidth={1.75} />
               <Trans>Get the mobile app</Trans>
             </a>
+            {onInvite ? (
+              <Button
+                variant="ghost"
+                className="h-9 w-full justify-start gap-2.5 font-normal"
+                onClick={onInvite}
+              >
+                <UserPlus className="text-muted-foreground" strokeWidth={1.75} />
+                <Trans>Invite friends</Trans>
+              </Button>
+            ) : null}
             <a
               className={`${buttonVariants({ variant: "ghost" })} h-9 w-full justify-start gap-2.5 font-normal`}
               href="https://github.com/elie222/rakazo/blob/main/docs/self-host.md"

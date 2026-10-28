@@ -32,6 +32,11 @@ msgstr ""
 msgid "{0, plural, one {# file} other {# files}}"
 msgstr ""
 
+#. placeholder {0}: referral.rewards
+#: src/components/InviteDialog.tsx
+msgid "{0, plural, one {# free month earned} other {# free months earned}}"
+msgstr "{0, plural, one {무료 #개월 획득} other {무료 #개월 획득}}"
+
 #. placeholder {0}: skills.length - shownSkills.length
 #: src/components/integrations/plugin-marketplace.tsx
 msgid "{0, plural, one {# more} other {# more}}"
@@ -1696,6 +1701,7 @@ msgid "Conversations"
 msgstr ""
 
 #: src/components/ComputersUnavailableHint.tsx
+#: src/components/InviteDialog.tsx
 #: src/components/markdown-copy.tsx
 #: src/components/VaultSettings.tsx
 #: src/pages/model-settings/connection-controls.tsx
@@ -1704,6 +1710,7 @@ msgstr ""
 msgid "Copied"
 msgstr "복사됨"
 
+#: src/components/InviteDialog.tsx
 #: src/components/VaultSettings.tsx
 #: src/pages/model-settings/connection-controls.tsx
 #: src/pages/Onboarding.tsx
@@ -2989,6 +2996,10 @@ msgstr "게이트웨이 ID"
 msgid "General"
 msgstr "일반"
 
+#: src/components/InviteDialog.tsx
+msgid "Get a free month for each friend who starts a trial."
+msgstr "친구가 체험을 시작할 때마다 한 달 무료 혜택을 받으세요."
+
 #: src/components/SidebarFooter.tsx
 msgid "Get the mobile app"
 msgstr "모바일 앱 다운로드"
@@ -3279,6 +3290,15 @@ msgstr "간격 단위"
 #: src/lib/user-error.ts
 msgid "Invalid code"
 msgstr "잘못된 코드"
+
+#: src/components/InviteDialog.tsx
+#: src/components/SidebarFooter.tsx
+msgid "Invite friends"
+msgstr "친구 초대"
+
+#: src/components/InviteDialog.tsx
+msgid "Invite link"
+msgstr "초대 링크"
 
 #: src/pages/MemorySettingsOverlay.tsx
 #: src/pages/shell/bot-panel.tsx
