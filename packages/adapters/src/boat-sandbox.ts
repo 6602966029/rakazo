@@ -9,7 +9,7 @@ import type {
   SandboxStateEnum,
   SavedSnapshot,
 } from "@boatdev/sdk";
-import { BoatApi, Configuration } from "@boatdev/sdk";
+import { BoatApi, Configuration, followCommand } from "@boatdev/sdk";
 import type {
   AdapterContext,
   CommandRequest,
@@ -37,7 +37,13 @@ import {
 } from "@rakazo/adapter-kit";
 import { boundedSandboxCommandTimeoutMs } from "@rakazo/core";
 import { getLogger } from "@rakazo/logging";
-import { BoatApiError, boatResponseError, callerSignal, wrapBoatCall } from "./boat-errors.js";
+import {
+  BoatApiError,
+  BoatRequestGate,
+  boatResponseError,
+  callerSignal,
+  wrapBoatCall,
+} from "./boat-errors.js";
 import { normalizeWorkspacePath, shellQuote, workspacePath } from "./computer-support.js";
 import {
   PORTABLE_TRANSFER_BATCH_BYTES,
@@ -61,6 +67,13 @@ const BOAT_COMMAND_ENV = "/home/user/.rakazo-command-env";
 const BOAT_ARCHIVE_PREFIX = "/tmp/rakazo-workspace-archive-";
 const BOAT_READY_TIMEOUT_MS = 5 * 60_000;
 const BOAT_RECOVER_POLL_MAX_MS = 15_000;
+/**
+ * Status polls start fast so short waits stay quick, then slow to this. Every Boat request from
+ * this host counts against one per-IP budget.
+ */
+const BOAT_POLL_MAX_MS = 5_000;
+/** The output of a finished detached command keeps at most this much of each stream's end. */
+const BOAT_COMMAND_TAIL_BYTES = 1_000_000;
 const BOAT_API_COMMAND_TIMEOUT_SECONDS = 600;
 const BOAT_TTL_SECONDS = 2 * 60 * 60;
 const BOAT_DELETE_TIMEOUT_MS = 60_000;
@@ -85,6 +98,7 @@ const BOAT_SNAPSHOT_LOOKUP_RETRY_MS = 60_000;
 export type BoatSandboxSdk = Pick<
   BoatApi,
   | "artifactRaw"
+  | "attachCommandRaw"
   | "command"
   | "commandStatus"
   | "create"
@@ -326,10 +340,10 @@ export class BoatSandboxProvider implements SandboxProvider {
     name: string,
     signal: AbortSignal,
   ): Promise<SavedSnapshot | undefined> {
-    while (true) {
+    for (let pause = 2_000; ; pause = nextPoll(pause)) {
       const snapshot = await this.savedSnapshot(name, signal);
       if (snapshot?.status !== "saving") return snapshot;
-      await delay(2_000, undefined, { signal });
+      await delay(pause, undefined, { signal });
     }
   }
 
@@ -770,7 +784,7 @@ export class BoatSandboxProvider implements SandboxProvider {
     let started = false;
     let recovering = false;
     let forced = false;
-    let pause = 1_000;
+    let pause = 500;
     while (true) {
       if (signal?.aborted) {
         throw signal.reason ?? new Error("Boat preparation aborted");
@@ -822,8 +836,8 @@ export class BoatSandboxProvider implements SandboxProvider {
         started = false;
         deadline = Date.now() + BOAT_READY_TIMEOUT_MS;
       }
-      // A recovering machine usually answers within 1-2 minutes; back off while it reboots.
-      pause = sandbox.state === "error" ? Math.min(pause * 2, BOAT_RECOVER_POLL_MAX_MS) : 1_000;
+      // A recovering machine usually answers within 1-2 minutes; back off further while it reboots.
+      pause = nextPoll(pause, sandbox.state === "error" ? BOAT_RECOVER_POLL_MAX_MS : undefined);
       await delay(pause, undefined, { signal });
     }
   }
@@ -889,7 +903,7 @@ export class BoatSandboxProvider implements SandboxProvider {
     onWait?: (sandbox: BoatMachine) => Promise<void>,
   ): Promise<BoatMachine> {
     const deadline = Date.now() + BOAT_READY_TIMEOUT_MS;
-    while (true) {
+    for (let pause = 1_000; ; pause = nextPoll(pause)) {
       if (context.signal.aborted) throw context.signal.reason ?? new Error("Boat wait aborted");
       const response = await this.client.get({ sandboxId: id }, { signal: context.signal });
       if (states.has(response.sandbox.state)) return response.sandbox;
@@ -897,7 +911,7 @@ export class BoatSandboxProvider implements SandboxProvider {
       await onWait?.(response.sandbox);
       if (Date.now() >= deadline)
         throw new Error(`Boat ${id} did not reach ${[...states].join("/")}`);
-      await delay(1_000, undefined, { signal: context.signal });
+      await delay(pause, undefined, { signal: context.signal });
     }
   }
 
@@ -1163,7 +1177,7 @@ export class BoatSandboxProvider implements SandboxProvider {
       );
       const result = isFinishedCommand(response)
         ? commandResponse(response)
-        : await this.pollCommand(id, response.processId, timeoutMs + 10_000, signal);
+        : await this.waitForCommand(id, response.processId, timeoutMs + 10_000, signal);
       if (result.exitCode !== 0 && systemDamaged(result.stderr)) {
         // The next start checks it again rather than trust an earlier preparation.
         this.prepared.delete(id);
@@ -1208,17 +1222,67 @@ export class BoatSandboxProvider implements SandboxProvider {
     });
   }
 
-  private async pollCommand(
+  /** Waits for a detached command on its output stream, or by polling when that is unavailable. */
+  private async waitForCommand(
     id: string,
     processId: number,
     timeoutMs: number,
     signal?: AbortSignal,
   ): Promise<BoatCommandResult> {
     const deadline = Date.now() + timeoutMs;
-    while (true) {
+    return (
+      (await this.followCommand(id, processId, deadline, signal)) ??
+      this.pollCommand(id, processId, deadline, signal)
+    );
+  }
+
+  /**
+   * The command's result from Boat's output stream, which costs one request per ten minutes.
+   * Undefined at the deadline, or when Boat refused or ended the stream without the command's
+   * exit; status polls then stop the command or read how it ended.
+   */
+  private async followCommand(
+    id: string,
+    processId: number,
+    deadline: number,
+    signal?: AbortSignal,
+  ): Promise<BoatCommandResult | undefined> {
+    const timeout = AbortSignal.timeout(Math.max(deadline - Date.now(), 0));
+    const output = { stdout: "", stderr: "" };
+    try {
+      for await (const frame of followCommand(
+        // The helper only attaches; this client's attach waits out Boat's rate limit.
+        this.client as Pick<BoatApi, "attachCommandRaw"> as BoatApi,
+        id,
+        processId,
+        { signal: signal ? AbortSignal.any([signal, timeout]) : timeout },
+      )) {
+        if (frame.type === "stdout" || frame.type === "stderr") {
+          output[frame.type] = `${output[frame.type]}${frame.data ?? ""}`.slice(
+            -BOAT_COMMAND_TAIL_BYTES,
+          );
+        } else if (frame.type === "exit") {
+          return { ...output, exitCode: frame.exitCode ?? 1, timedOut: false };
+        } else if (frame.type === "error") {
+          return undefined;
+        }
+      }
+    } catch (error) {
+      if (signal?.aborted || !(timeout.aborted || error instanceof BoatApiError)) throw error;
+    }
+    return undefined;
+  }
+
+  private async pollCommand(
+    id: string,
+    processId: number,
+    deadline: number,
+    signal?: AbortSignal,
+  ): Promise<BoatCommandResult> {
+    for (let pause = 500; ; pause = nextPoll(pause)) {
       if (signal?.aborted) throw signal.reason ?? new Error("command aborted");
       const status = await this.client.commandStatus(
-        { sandboxId: id, processId, tailBytes: 1_000_000 },
+        { sandboxId: id, processId, tailBytes: BOAT_COMMAND_TAIL_BYTES },
         signal ? { signal } : undefined,
       );
       if (!status.running) {
@@ -1238,7 +1302,7 @@ export class BoatSandboxProvider implements SandboxProvider {
         ).catch(() => undefined);
         return { stdout: status.stdout, stderr: status.stderr, exitCode: 124, timedOut: true };
       }
-      await delay(500, undefined, signal ? { signal } : undefined);
+      await delay(pause, undefined, signal ? { signal } : undefined);
     }
   }
 
@@ -1257,7 +1321,7 @@ export class BoatSandboxProvider implements SandboxProvider {
       commandRequest: { command, timeoutSeconds },
     });
     if (!isFinishedCommand(response)) {
-      return this.pollCommand(id, response.processId, timeoutSeconds * 1_000 + 5_000);
+      return this.waitForCommand(id, response.processId, timeoutSeconds * 1_000 + 5_000);
     }
     return commandResponse(response);
   }
@@ -1321,12 +1385,17 @@ function boatSandboxGone(sandboxId: string, cause?: unknown): Error {
 
 /** Turns raw SDK failures into actionable errors, rate limits, and gone sandboxes. */
 function boatClient(api: BoatSandboxSdk, apiKey: string): BoatSandboxSdk {
-  const get = wrapBoatCall(api.get.bind(api), apiKey, true);
+  const gate = new BoatRequestGate();
+  const boatCall = <Args extends unknown[], Result>(
+    call: (...args: Args) => Promise<Result>,
+    idempotent = false,
+  ) => wrapBoatCall(call, apiKey, idempotent, gate);
+  const get = boatCall(api.get.bind(api), true);
   const sandboxCall = <Args extends [{ sandboxId: string }, ...unknown[]], Result>(
     call: (...args: Args) => Promise<Result>,
     idempotent = false,
   ) => {
-    const wrapped = wrapBoatCall(call, apiKey, idempotent);
+    const wrapped = boatCall(call, idempotent);
     return async (...args: Args): Promise<Result> => {
       try {
         return await wrapped(...args);
@@ -1378,21 +1447,22 @@ function boatClient(api: BoatSandboxSdk, apiKey: string): BoatSandboxSdk {
   // Reads, URL grants, TTL updates, and whole-file writes are safe to send twice.
   return {
     artifactRaw: sandboxCall(api.artifactRaw.bind(api), true),
+    attachCommandRaw: sandboxCall(api.attachCommandRaw.bind(api), true),
     command: sandboxCall(api.command.bind(api)),
     commandStatus: sandboxCall(api.commandStatus.bind(api), true),
-    create: startCall("create", wrapBoatCall(api.create.bind(api), apiKey)),
+    create: startCall("create", boatCall(api.create.bind(api))),
     createDownloadUrl: sandboxCall(api.createDownloadUrl.bind(api), true),
     createUploadUrl: sandboxCall(api.createUploadUrl.bind(api), true),
     get: sandboxCall(api.get.bind(api), true),
-    getSavedSnapshot: wrapBoatCall(api.getSavedSnapshot.bind(api), apiKey, true),
+    getSavedSnapshot: boatCall(api.getSavedSnapshot.bind(api), true),
     hostPort: sandboxCall(api.hostPort.bind(api), true),
     recover: startCall("recover", sandboxCall(api.recover.bind(api))),
     resume: startCall("resume", sandboxCall(api.resume.bind(api))),
-    saveSavedSnapshot: wrapBoatCall(api.saveSavedSnapshot.bind(api), apiKey),
+    saveSavedSnapshot: boatCall(api.saveSavedSnapshot.bind(api)),
     stop: sandboxCall(api.stop.bind(api)),
     update: sandboxCall(api.update.bind(api), true),
     writeFile: sandboxCall(api.writeFile.bind(api), true),
-    deleteSandbox: api.deleteSandbox.bind(api),
+    deleteSandbox: boatCall(api.deleteSandbox.bind(api)),
   };
 }
 
@@ -1424,13 +1494,13 @@ function createBoatSdk(config: { apiKey: string; apiUrl?: string }): BoatSandbox
         if (!response.ok) {
           throw await boatResponseError(response, config.apiKey, signal);
         }
-        while (!signal.aborted) {
+        for (let pause = 500; !signal.aborted; pause = nextPoll(pause)) {
           const status = await fetch(url, { headers, signal });
           if (status.status === 404) return;
           if (!status.ok) {
             throw await boatResponseError(status, config.apiKey, signal);
           }
-          await withAbort(delay(500), signal);
+          await withAbort(delay(pause), signal);
         }
       } catch (error) {
         if (!signal.aborted || error !== signal.reason) throw error;
@@ -1438,6 +1508,10 @@ function createBoatSdk(config: { apiKey: string; apiUrl?: string }): BoatSandbox
       throw new Error(`Boat ${sandboxId} was not deleted within 60 seconds`);
     },
   });
+}
+
+function nextPoll(pause: number, max = BOAT_POLL_MAX_MS): number {
+  return Math.min(pause * 2, max);
 }
 
 async function sandboxMissing(

@@ -266,12 +266,22 @@ export function scheduleComputerSleep(
   jobs: JobPublisher,
   computerId: string,
   notAfter?: Date,
+  notBefore?: Date,
 ): void {
   if (!computerId || !computerIdleSleepEnabled()) return;
-  const at = Date.now() + sandboxIdleMs();
-  void jobs.enqueue(
-    computerSleepJob(computerId, new Date(notAfter ? Math.min(at, notAfter.getTime()) : at)),
+  const idleAt = Date.now() + sandboxIdleMs();
+  const at = Math.max(
+    notAfter ? Math.min(idleAt, notAfter.getTime()) : idleAt,
+    notBefore?.getTime() ?? 0,
   );
+  void jobs.enqueue(computerSleepJob(computerId, new Date(at)));
+}
+
+/** When a rate-limited provider said it takes requests again. */
+function rateLimitEnds(error: unknown): Date | undefined {
+  return error instanceof SandboxRateLimitError && error.retryAfterMs
+    ? new Date(Date.now() + error.retryAfterMs)
+    : undefined;
 }
 
 function activeLimitReached(
@@ -475,7 +485,7 @@ export async function sleepComputerIfIdle(
         where: suspensionClaim,
         data: { state: "running" },
       });
-      scheduleComputerSleep(deps.jobs, computerId);
+      scheduleComputerSleep(deps.jobs, computerId, undefined, rateLimitEnds(error));
       if (deferSleep(error, computer)) return;
       throw error;
     }
@@ -526,7 +536,7 @@ export async function sleepComputerIfIdle(
       where: suspensionClaim,
       data: { state: "running" },
     });
-    scheduleComputerSleep(deps.jobs, computerId);
+    scheduleComputerSleep(deps.jobs, computerId, undefined, rateLimitEnds(error));
     if (deferSleep(error, computer)) return;
     throw error;
   }

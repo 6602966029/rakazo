@@ -3,9 +3,12 @@ import { COMPUTER_RATE_LIMIT_ERROR } from "@rakazo/contracts";
 /** The sandbox provider refused the request because an account rate limit or quota was hit. */
 export class SandboxRateLimitError extends Error {
   readonly code = "SANDBOX_RATE_LIMITED";
-  constructor(options?: { cause?: unknown }) {
+  /** How long the provider asked to wait before trying again, when it said. */
+  readonly retryAfterMs: number | undefined;
+  constructor(options?: { cause?: unknown; retryAfterMs?: number }) {
     super(COMPUTER_RATE_LIMIT_ERROR, options);
     this.name = "SandboxRateLimitError";
+    this.retryAfterMs = options?.retryAfterMs;
   }
 }
 
