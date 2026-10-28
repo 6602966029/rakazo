@@ -135,7 +135,7 @@ const questions: Scenario = {
     bot([
       {
         kind: "ask",
-        text: "Which city should I use?",
+        text: "Where should we meet?",
         status: "answered",
         answer: "Paris",
         actions: [
