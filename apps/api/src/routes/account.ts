@@ -1,6 +1,5 @@
 import { ORPCError } from "@orpc/server";
 import {
-  deploymentAutoReviewDefault,
   effectiveModelRole,
   hasHostedModelCredits,
   isAutoReviewCheckerConfigured,
@@ -225,7 +224,7 @@ export function accountRoutes(ctx: RouterContext) {
             input.mode
               ? approvalPreferenceFromMode(input.mode)
               : { enabled: input.enabled, skipApprovals: input.skipApprovals },
-            { enabled: deploymentAutoReviewDefault(process.env), skipApprovals: false },
+            { enabled: true, skipApprovals: false },
             input.scope,
           ),
         );
@@ -369,7 +368,7 @@ async function loadAutoReviewSettings(deps: RouterDeps, actor: Actor, scope?: Se
     findAutoReviewPreference(deps.prisma, actor, scope),
   ]);
   const stored = {
-    enabled: preference?.enabled ?? deploymentAutoReviewDefault(process.env),
+    enabled: preference?.enabled ?? true,
     skipApprovals: preference?.skipApprovals ?? false,
   };
   const settings = { ...stored, mode: approvalModeFromPreference(stored) };
