@@ -69,6 +69,8 @@ class ChangedAreasTests(unittest.TestCase):
             ("apps/worker/src/index.ts", expect("web", "server")),
             ("packages/adapters/src/slack.ts", expect("web", "server")),
             ("packages/adapters/src/host-computer-runner.ts", expect("web", "server", "native")),
+            ("packages/adapters/src/computer-workspace.ts", expect("web", "server", "native")),
+            ("packages/core/src/node/desktop-runtime.ts", expect(*EVERY_BROWSER_AREA, "native")),
             ("apps/desktop/src/main.ts", expect(*EVERY_BROWSER_AREA, "native")),
             ("infra/compose/docker-compose.prod.yml", expect(*EVERY_BROWSER_AREA, "compose")),
             ("apps/mobile/package.json", expect(*EVERY_BROWSER_AREA)),

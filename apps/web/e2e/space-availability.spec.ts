@@ -1,19 +1,11 @@
 import { expect, test } from "@playwright/test";
-import {
-  activeBotId,
-  captureScreenshot,
-  completeOnboarding,
-  openNewSpace,
-  rpc,
-  signup,
-} from "./helpers";
+import { captureScreenshot, completeOnboarding, openNewSpace, rpc, signup } from "./helpers";
 
 test("a new space chooses what it can use, and a skill can be limited to some spaces", async ({
   page,
 }, testInfo) => {
   await signup(page, `availability-${Date.now()}@rakazo.test`, "password12", "Space Owner");
   await completeOnboarding(page);
-  const chiefId = activeBotId(page);
   await rpc(page, "agentSkills/create", {
     content: [
       "---",
@@ -40,9 +32,19 @@ test("a new space chooses what it can use, and a skill can be limited to some sp
   await chooser.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(chooser).toHaveCount(0);
 
-  // Continue switches to the new space in the background; a full load of Personal's Chief cannot race it.
-  await page.goto(`/app/${chiefId}`);
-  await expect(page.getByRole("combobox", { name: "Message Chief" })).toBeVisible();
+  // Continue switches to the new, empty space in the background. Let that switch land before
+  // leaving it, or its late remount overrides the click below or closes the Skills dialog.
+  await expect(
+    page.locator("main").getByRole("button", { name: "New bot", exact: true }),
+  ).toBeVisible();
+  const personalChief = page
+    .locator("aside")
+    .first()
+    .getByRole("button", { name: /^Chief/ })
+    .first();
+  await personalChief.click();
+  await expect(personalChief).toHaveAttribute("aria-current", "page");
+  await expect(page.getByPlaceholder("Message Chief")).toBeVisible();
   await page.getByTestId("user-menu-trigger").click();
   await page.getByRole("button", { name: "Skills", exact: true }).click();
   const skills = page.getByRole("dialog", { name: "Skills", exact: true });

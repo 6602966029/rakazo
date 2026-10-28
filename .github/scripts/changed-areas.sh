@@ -2,9 +2,10 @@
 # Prints which CI areas a pull request's merge commit can affect, as GitHub step outputs.
 # web: anything beyond the mobile app and agent notes. e2e: web, minus the worker and server
 # adapters, which the browser never loads. server: web, minus www and docs/, which www renders.
-# native: the desktop app and the host-computer code its native tests exercise. compose: the
-# Compose files the Postgres upgrade drill copies. Renames count both paths. Changes to CI itself,
-# the lockfile, or anything unlisted (shared packages included) count as every area they could touch.
+# native: the desktop app, the computer and sandbox adapters its native tests load, and core's
+# desktop runtime. compose: the Compose files the Postgres upgrade drill copies. CI itself, the root
+# manifest and the lockfile count for every area. Any other file, shared packages included, counts
+# for web, e2e and server. Renames count both paths.
 set -euo pipefail
 
 files="$(git diff --no-renames --name-only HEAD^1 HEAD)"
@@ -19,11 +20,11 @@ while IFS= read -r file; do
       native=true
       compose=true
       ;;
-    apps/desktop/* | scripts/pnpm*.mjs | packages/adapter-kit/* | \
-      packages/adapters/src/host-computer* | packages/adapters/src/desktop-* | \
-      packages/adapters/src/remote-desktop-* | packages/adapters/src/computer-support* | \
-      packages/adapters/src/native-shell* | packages/adapters/src/sandbox-command-environment* | \
-      packages/adapters/src/home.*)
+    apps/desktop/* | scripts/pnpm*.mjs | packages/adapter-kit/* | packages/core/src/node/* | \
+      packages/adapters/src/*computer* | packages/adapters/src/*desktop* | \
+      packages/adapters/src/*sandbox* | packages/adapters/src/host-* | \
+      packages/adapters/src/home* | packages/adapters/src/native-shell* | \
+      packages/adapters/src/page-browser*)
       native=true
       ;;
     infra/compose/*) compose=true ;;
