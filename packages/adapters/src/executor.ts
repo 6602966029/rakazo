@@ -319,7 +319,25 @@ export function createRunExecutor(deps: ExecutorDeps) {
         }
       } catch (error) {
         if (!(error instanceof ComputerBusyError)) throw error;
-        await requeueComputerRun(deps, runId, workerId, fence, resumeCheckpoint, heldForTakeover);
+        // Maintenance or suspension sends no release, so only a held lease waits for one.
+        const heldByAnotherRun = await deps.prisma.computerExecutionLease.findFirst({
+          where: {
+            computerId: leaseTarget.computerId,
+            botId: run.botId,
+            runId: { not: runId },
+            expiresAt: { gt: new Date() },
+          },
+          select: { id: true },
+        });
+        await requeueComputerRun(
+          deps,
+          runId,
+          workerId,
+          fence,
+          resumeCheckpoint,
+          heldForTakeover,
+          Boolean(heldByAnotherRun),
+        );
         return;
       }
       let attempt: { id: string };

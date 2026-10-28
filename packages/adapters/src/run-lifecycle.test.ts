@@ -14,7 +14,7 @@ function deps(next: { id: string } | null) {
 }
 
 describe("starting the next run waiting for a bot's computer", () => {
-  it("starts the oldest other queued run of the bot, including one backing off as busy", async () => {
+  it("starts the oldest other due run of the bot, leaving failure backoff alone", async () => {
     vi.useFakeTimers({ now: new Date("2026-10-28T12:00:00Z") });
     try {
       const f = deps({ id: "waiting" });
@@ -24,7 +24,7 @@ describe("starting the next run waiting for a bot's computer", () => {
           botId: "bot",
           status: "queued",
           id: { not: "finished" },
-          OR: [{ wakeAt: null }, { wakeAt: { lte: new Date("2026-10-28T12:00:10Z") } }],
+          OR: [{ wakeAt: null }, { wakeAt: { lte: new Date("2026-10-28T12:00:00Z") } }],
         },
         orderBy: [{ createdAt: "asc" }, { id: "asc" }],
         select: { id: true },
