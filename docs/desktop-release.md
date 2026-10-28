@@ -26,9 +26,12 @@ the patch once an electron-builder release includes that fix.
 Windows signs through Azure Artifact Signing once it is configured, logging in
 with GitHub OIDC instead of a stored secret. Create a Public Trust certificate
 profile, then an app registration with the Artifact Signing Certificate Profile
-Signer role on the signing account and a federated credential for the subject
-`repo:elie222/rakazo:environment:desktop-release`. Create that
-`desktop-release` environment in the repository settings.
+Signer role on the signing account, and a `desktop-release` environment in the
+repository settings. Give the app registration a federated credential whose
+subject is exactly the one printed under "Federated token details" in the
+release's Azure login step. This repository's OIDC subject includes owner and
+repository IDs, so the plain `repo:<owner>/<repo>:environment:desktop-release`
+form does not match.
 
 | Secret | Value |
 | --- | --- |

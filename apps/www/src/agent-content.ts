@@ -94,7 +94,7 @@ Rakazo is an open source Grok Bot alternative for persistent AI teammates: bots 
 
 The project started from a simple premise: useful agents should be understandable and controllable by the people who run them. Rakazo keeps routines in readable Markdown, supports multiple model providers, records actions in an audit log, and lets operators keep model keys, browser sessions, and deployment infrastructure under their own control.
 
-Rakazo targets the web, macOS, Linux, iOS, and Android. The source is available under the Apache-2.0 license and accepts public issues and contributions on GitHub. Inbox Zero Inc. maintains the project and offers support at hello@rakazo.com.
+Rakazo targets the web, macOS, Windows, Linux, iOS, and Android. The source is available under the Apache-2.0 license and accepts public issues and contributions on GitHub. Inbox Zero Inc. maintains the project and offers support at hello@rakazo.com.
 
 - [Source code](https://github.com/elie222/rakazo)
 - [Self-hosting guide](https://rakazo.com/self-hosted-ai-agent/)
