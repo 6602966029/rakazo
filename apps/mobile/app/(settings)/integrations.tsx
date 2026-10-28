@@ -222,7 +222,10 @@ export default function Integrations() {
   const categories = pluginCategories([...plugins, ...mergedBrands.map(({ entry }) => entry)]);
   const brandMatches = category
     ? mergedBrands.filter(
-        ({ entry }) => entry.category === (category === OTHER_PLUGINS ? null : category),
+        ({ item, entry }) =>
+          entry.category === (category === OTHER_PLUGINS ? null : category) &&
+          (matchesWordPrefixes(item.name, query) ||
+            filterPlugins([entry], query, null, categoryLabel).length > 0),
       )
     : [];
   const pluginMatches = filterPlugins(plugins, query, category || null, categoryLabel);

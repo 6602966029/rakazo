@@ -179,6 +179,19 @@ it("shows a built-in skill read-only, without Save or Delete", async () => {
   expect(container.textContent).not.toContain("Delete");
 });
 
+it("keeps a skill that failed to load from being saved as a new one, and retries", async () => {
+  mocks.params = { id: "own-1" };
+  mocks.rpc.mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce(own);
+  await render();
+  expect(container.querySelector('[aria-label="SKILL.md"]')).toBeNull();
+  expect(mocks.rpc).not.toHaveBeenCalledWith("agentSkills/create", expect.anything());
+  const retry = [...container.querySelectorAll("button")].find(
+    (button) => button.textContent === "Retry",
+  );
+  await act(async () => retry?.click());
+  expect(editor().value).toBe(own.content);
+});
+
 it("creates a new skill from the template and goes back", async () => {
   mocks.rpc.mockResolvedValue(own);
   await render();

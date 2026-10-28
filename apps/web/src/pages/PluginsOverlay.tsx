@@ -329,7 +329,10 @@ export function PluginsOverlay({
   );
   const brandMatches = category
     ? mergedBrands.filter(
-        ({ entry }) => entry.category === (category === OTHER_PLUGINS ? null : category),
+        ({ item, entry }) =>
+          entry.category === (category === OTHER_PLUGINS ? null : category) &&
+          (matchesWordPrefixes(item.name, query) ||
+            matchesPluginQuery(entry, query, categoryLabel(entry.category ?? ""))),
       )
     : [];
   const searching = query.trim().length > 0;

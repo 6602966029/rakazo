@@ -43,10 +43,13 @@ export default function SkillScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const live = useRef(true);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     live.current = true;
     if (params.id) {
+      setLoading(true);
+      setError(null);
       rpc("agentSkills/get", { skillId: params.id })
         .then((found) => {
           if (!live.current) return;
@@ -63,10 +66,13 @@ export default function SkillScreen() {
     return () => {
       live.current = false;
     };
-  }, [params.id, t]);
+  }, [params.id, t, attempt]);
 
+  // An existing skill that failed to load must not be saved as a new one.
+  const unloaded = Boolean(params.id) && !skill;
   const readOnly = Boolean(skill?.readOnly);
-  const canSave = !readOnly && !busy && Boolean(draft.trim()) && draft !== (skill?.content ?? "");
+  const canSave =
+    !readOnly && !unloaded && !busy && Boolean(draft.trim()) && draft !== (skill?.content ?? "");
 
   async function save() {
     setBusy(true);
@@ -150,7 +156,7 @@ export default function SkillScreen() {
       >
         {loading ? (
           <ActivityIndicator color={native.secondaryLabel} accessibilityLabel={t("Loading…")} />
-        ) : (
+        ) : unloaded ? null : (
           <TextInput
             value={draft}
             onChangeText={setDraft}
@@ -168,6 +174,14 @@ export default function SkillScreen() {
           <Text accessibilityRole="alert" style={styles.error}>
             {error}
           </Text>
+        ) : null}
+        {unloaded && !loading ? (
+          <NativeActionButton
+            fill={false}
+            label={t("Retry")}
+            onPress={() => setAttempt((count) => count + 1)}
+            prominence="secondary"
+          />
         ) : null}
         {skill && !readOnly ? (
           <NativeActionButton
