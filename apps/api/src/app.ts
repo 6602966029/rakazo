@@ -1,3 +1,4 @@
+import { hostname } from "node:os";
 import { ORPCError, onError } from "@orpc/server";
 import { RPCHandler } from "@orpc/server/fetch";
 import type {
@@ -76,6 +77,7 @@ import {
   pipedreamConfigFromEnv,
   piSessionsRoot,
   RunJobPublisher,
+  RunStarter,
   reconcileCloudAgents,
   reconcileComputerUpdates,
   reconcilePurchases,
@@ -338,19 +340,22 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     });
   }
   const jobPool = created.pool ?? ownedJobPool;
-  const jobs = inMemoryJobs
-    ? inMemoryJobs
-    : new RunJobPublisher(
+  const shutdown = new AbortController();
+  // Chat starts in the process that receives it; the worker only takes what this one can't.
+  const runs = inMemoryJobs ? undefined : new RunStarter(realtime, { signal: shutdown.signal });
+  const jobs =
+    inMemoryJobs ??
+    new RunJobPublisher(
+      prisma,
+      new GraphileJobPublisher(
+        jobPool ??
+          (() => {
+            throw new Error("Graphile job publisher requires a PostgreSQL pool");
+          })(),
         prisma,
-        realtime,
-        new GraphileJobPublisher(
-          jobPool ??
-            (() => {
-              throw new Error("Graphile job publisher requires a PostgreSQL pool");
-            })(),
-          prisma,
-        ),
-      );
+      ),
+      runs!,
+    );
   const ticketChanges = createTicketChangeNotifier({
     boardEvents,
     jobs,
@@ -570,7 +575,6 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     PAYMENT_WALLET_PROVIDER: env.paymentWalletProvider,
     PAYMENT_WALLET_CLIENT_ID: env.paymentWalletClientId,
   });
-  const shutdown = new AbortController();
   // One cache serves models.list, selection validation, and run-time model
   // resolution alike, so a list call warms the run path in this process.
   const codexCatalog = new CodexCatalogCache();
@@ -643,7 +647,8 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     artifacts,
     jobs,
     events,
-    workerId: "api",
+    // Every API container runs node as the same pid, and deploys run old and new side by side.
+    workerId: `${hostname()}:${process.pid}`,
     runtime,
     notifications: notifications instanceof ExpoPushProvider ? notifications : undefined,
     secretStore: secrets,
@@ -657,6 +662,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
   if (inMemoryJobs) {
     await inMemoryJobs.start(jobHandlers);
   }
+  runs?.attach(jobHandlers);
   const reconciler = inMemoryJobs
     ? createJobReconciler({
         prisma,
@@ -1347,6 +1353,8 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       // on waitForComputerReady for the full boot-wait window during shared Postgres journeys.
       auth.disposeOidcDiscovery();
       shutdown.abort();
+      // Aborted runs hand themselves back while realtime is still open to announce them.
+      const runsStopped = runs?.stop();
       await userDeviceHub?.close();
       oauthLogins.abortAll();
       messagingStopped = true;
@@ -1368,6 +1376,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       await email?.drain?.();
       await reconciler?.stop();
       await oauthTokenUpgrade;
+      await runsStopped;
       await jobs.close();
       await secrets.close();
       await realtime.close();

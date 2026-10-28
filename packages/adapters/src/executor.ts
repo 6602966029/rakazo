@@ -134,6 +134,7 @@ import {
   requeueComputerRun,
   requeueRunAfterShutdown,
   setupFailureStreak,
+  startNextWaitingRun,
   writeComputerRunRequeue,
 } from "./run-lifecycle.js";
 import {
@@ -1661,6 +1662,12 @@ export function createRunExecutor(deps: ExecutorDeps) {
               .catch(() => undefined);
           }
           await releaseComputerExecutionLease(deps.prisma, computerLease).catch(() => undefined);
+          // A stopping process requeues this run instead, which must keep its turn.
+          if (!deps.shutdownSignal?.aborted) {
+            await startNextWaitingRun(deps, run.botId, runId).catch((error) =>
+              getLogger().error("start next waiting run", error),
+            );
+          }
         }
         if (deps.shutdownSignal?.aborted) {
           // A renewal still in flight must not treat this release as a lost lease.

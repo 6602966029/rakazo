@@ -148,8 +148,36 @@ export async function setupFailureStreak(prisma: PrismaClient, runId: string): P
   return streak === -1 ? recent.length : streak;
 }
 
+const MAX_COMPUTER_RETRY_DELAY_MS = 10_000;
+
 export function computerRetryDelay(fence: number): number {
-  return Math.min(10_000, 250 * 2 ** Math.min(Math.max(fence - 1, 0), 5));
+  return Math.min(MAX_COMPUTER_RETRY_DELAY_MS, 250 * 2 ** Math.min(Math.max(fence - 1, 0), 5));
+}
+
+/**
+ * A bot uses its computer for one run at a time. The run releasing it starts the next one
+ * waiting, including one backing off after finding the computer busy, instead of leaving
+ * it to its retry timer.
+ */
+export async function startNextWaitingRun(
+  deps: ExecutorDeps,
+  botId: string,
+  releasedBy: string,
+): Promise<void> {
+  const next = await deps.prisma.run.findFirst({
+    where: {
+      botId,
+      status: "queued",
+      id: { not: releasedBy },
+      OR: [
+        { wakeAt: null },
+        { wakeAt: { lte: new Date(Date.now() + MAX_COMPUTER_RETRY_DELAY_MS) } },
+      ],
+    },
+    orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    select: { id: true },
+  });
+  if (next) await deps.jobs.enqueue(runContinueJob(next.id));
 }
 
 /** Open the model only while this worker still owns the running lease. */

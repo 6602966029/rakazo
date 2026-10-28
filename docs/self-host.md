@@ -100,6 +100,14 @@ Docker computer topology:
 Set any of them to `0`, `none` or `unlimited` to remove that ceiling. A malformed value fails the
 supervisor at startup naming the variable, rather than surfacing later as a failed bot.
 
+### API and worker memory
+
+Chat runs execute in the API container that receives the message, and routines and other
+background runs execute in the worker, so both hold live agent turns. In the production Compose
+file, `RAKAZO_API_MEMORY_LIMIT` and `RAKAZO_WORKER_MEMORY_LIMIT` cap them (Compose sizes such as
+`2g` or `3072m`, default `2g` each). Raise them on a larger host. Deploys briefly run the old and
+new container of each side by side, so leave room for both.
+
 ### Restricted computer egress
 
 Restricted egress gives Docker computers the public internet (browsing, DNS, apt, git
