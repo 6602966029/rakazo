@@ -106,11 +106,12 @@ export function NewSpaceDialog({
           </DialogHeader>
           <div data-testid="new-space-items" className="max-h-80 space-y-1 overflow-y-auto">
             {created.items.map((item) => (
-              <label
+              <div
                 key={key(item)}
                 className="flex items-center gap-3 rounded-lg px-1 py-1.5 text-[14px] text-foreground"
               >
                 <Checkbox
+                  id={`new-space-item-${key(item)}`}
                   checked={chosen.has(key(item))}
                   onCheckedChange={(checked) =>
                     setChosen((current) => {
@@ -121,8 +122,10 @@ export function NewSpaceDialog({
                     })
                   }
                 />
-                <span className="min-w-0 truncate">{item.name}</span>
-              </label>
+                <label htmlFor={`new-space-item-${key(item)}`} className="min-w-0 flex-1 truncate">
+                  {item.name}
+                </label>
+              </div>
             ))}
           </div>
           {error ? <p className="text-[13.5px] text-destructive">{error}</p> : null}
