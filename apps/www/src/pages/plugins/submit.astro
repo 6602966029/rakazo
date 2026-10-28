@@ -3,8 +3,8 @@ import SiteFrame from "../../components/SiteFrame.astro";
 import { GITHUB_URL } from "../../site";
 
 const fields = [
-  { name: "title", label: "Plugin name", placeholder: "Acme", required: true },
-  { name: "website", label: "Website URL", placeholder: "https://acme.com", type: "url" },
+  { name: "title", label: "Plugin name", placeholder: "Acme", type: "text", required: true },
+  { name: "website", label: "Website URL", placeholder: "https://acme.com", type: "url", required: false },
   {
     name: "logo",
     label: "Logo URL",
@@ -19,7 +19,7 @@ const fields = [
     type: "url",
     required: true,
   },
-];
+] as const;
 ---
 
 <SiteFrame
@@ -36,7 +36,7 @@ const fields = [
           <span>{field.label}</span>
           <input
             name={field.name}
-            type={field.type ?? "text"}
+            type={field.type}
             placeholder={field.placeholder}
             required={field.required}
           />
