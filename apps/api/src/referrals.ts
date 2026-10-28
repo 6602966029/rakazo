@@ -41,7 +41,7 @@ export function createReferrals(deps: {
 
   async function decline(organizationId: string) {
     await prisma.referral.updateMany({
-      where: { organizationId, rewardedAt: null, declinedAt: null },
+      where: { organizationId, rewardKind: null, declinedAt: null },
       data: { declinedAt: new Date() },
     });
   }
@@ -78,8 +78,9 @@ export function createReferrals(deps: {
 
     /**
      * Called whenever the invited organization's subscription grants access, after its card is
-     * stored. The grant is idempotent and recorded only once it succeeds, so a failure or restart
-     * at any point is retried by the next sync, which it never blocks.
+     * stored. The decision and its reward kind are saved before granting, and the grant is
+     * idempotent, so the next sync finishes an interrupted reward exactly as decided. A failure
+     * never blocks the sync.
      */
     async settle(organizationId: string, cardFingerprint: string | undefined) {
       if (!enabled || !cardFingerprint) return;
@@ -89,31 +90,47 @@ export function createReferrals(deps: {
           select: {
             rewardedAt: true,
             declinedAt: true,
+            rewardKind: true,
             referrerOrganizationId: true,
             referrer: { select: { billing: true, modelCredits: { select: { mode: true } } } },
           },
         });
         if (!referral || referral.rewardedAt || referral.declinedAt) return;
         const referrerBilling = referral.referrer.billing;
-        // Each organization stores its card before this check, so of two using one card, the
-        // later one always sees the earlier.
-        const cardUsedElsewhere =
-          (await prisma.billingCardFingerprint.count({
-            where: { fingerprint: cardFingerprint, organizationId: { not: organizationId } },
-          })) > 0;
-        if (
-          !referrerBilling ||
-          cardUsedElsewhere ||
-          // The referrer may not have synced since fingerprints were stored.
-          (await provider.getCustomerSubscription(referrerBilling.customerId))?.cardFingerprint ===
-            cardFingerprint
-        ) {
-          await decline(organizationId);
-          return;
+        if (!referrerBilling) return decline(organizationId);
+        let kind = referral.rewardKind;
+        if (!kind) {
+          // Each organization stores its card before this check, so of two using one card, the
+          // later one always sees the earlier.
+          const cardUsedElsewhere =
+            (await prisma.billingCardFingerprint.count({
+              where: { fingerprint: cardFingerprint, organizationId: { not: organizationId } },
+            })) > 0;
+          if (
+            cardUsedElsewhere ||
+            // The referrer may not have synced since fingerprints were stored.
+            (await provider.getCustomerSubscription(referrerBilling.customerId))
+              ?.cardFingerprint === cardFingerprint
+          )
+            return decline(organizationId);
+          // Monthly credit invoices turn what is paid into credits, so a balance would buy nothing.
+          await prisma.referral.updateMany({
+            where: { organizationId, rewardKind: null, declinedAt: null },
+            data: {
+              rewardKind:
+                referral.referrer.modelCredits?.mode === "credits" ? "credits" : "balance",
+            },
+          });
+          kind = (
+            await prisma.referral.findUniqueOrThrow({
+              where: { organizationId },
+              select: { rewardKind: true },
+            })
+          ).rewardKind;
+          if (!kind) return;
         }
         const referenceId = `referral_${organizationId}`;
-        // Monthly credit invoices turn what is paid into credits, so a balance would buy nothing.
-        if (referral.referrer.modelCredits?.mode === "credits")
+        if (kind === "credits")
           await reconcileCreditPurchase(prisma, referral.referrerOrganizationId, {
             id: referenceId,
             amountCents: rewardCents!,

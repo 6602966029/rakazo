@@ -27,6 +27,7 @@ CREATE TABLE "referrals" (
     "organizationId" TEXT NOT NULL,
     "referrerOrganizationId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "rewardKind" TEXT,
     "rewardedAt" TIMESTAMP(3),
     "declinedAt" TIMESTAMP(3),
 

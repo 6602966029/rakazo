@@ -132,6 +132,33 @@ dbTests("referrals", () => {
     await expect(service.status(referrer)).resolves.toMatchObject({ referral: { rewards: 1 } });
   });
 
+  it("finishes an approved reward the same way after the referrer changes funding or the card is reused", async () => {
+    const referrer = await newOrganization("decided-referrer");
+    const referrerCustomer = await startTrial(referrer);
+    const friend = await newOrganization("decided-friend");
+    await service.claimReferral(friend, await inviteCode(referrer));
+    await service.selectFunding(friend, "byok");
+    const friendCustomer = (await billingAccountForOrganization(prisma, friend.organizationId))!
+      .customerId;
+    provider.completeByokCheckout(friendCustomer, "decided-card");
+    await prisma.referral.update({
+      where: { organizationId: friend.organizationId },
+      data: { rewardKind: "balance" },
+    });
+    await prisma.modelCreditAccount.update({
+      where: { organizationId: referrer.organizationId },
+      data: { mode: "credits" },
+    });
+    const other = await newOrganization("decided-other");
+    await startTrial(other, "decided-card");
+    await service.sync(friendCustomer);
+    expect(provider.balanceCredits.get(referrerCustomer)).toBe(BYOK_MONTHLY_PRICE_CENTS);
+    await expect(service.status(referrer)).resolves.toMatchObject({
+      balanceUsd: 0,
+      referral: { rewards: 1 },
+    });
+  });
+
   it("ignores a claim after subscribing, for its own code, or for an unknown code", async () => {
     const referrer = await newOrganization("ignored");
     const referrerCustomer = await startTrial(referrer);

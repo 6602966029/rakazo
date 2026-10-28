@@ -278,13 +278,15 @@ model ReferralCode {
   @@map("referral_codes")
 }
 
-/// Settled once, when the invited organization first subscribes: rewarded or declined.
+/// Settled once, when the invited organization first subscribes: approved with a kind, or declined.
 model Referral {
   organizationId         String       @id
   organization           Organization @relation("ReferredOrganization", fields: [organizationId], references: [id], onDelete: Cascade)
   referrerOrganizationId String
   referrer               Organization @relation("ReferrerOrganization", fields: [referrerOrganizationId], references: [id], onDelete: Cascade)
   createdAt              DateTime     @default(now())
+  /// `balance` or `credits`, chosen once before granting so retries pay the same way.
+  rewardKind             String?
   rewardedAt             DateTime?
   declinedAt             DateTime?
 
