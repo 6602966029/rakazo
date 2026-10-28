@@ -125,7 +125,7 @@ export function CreateBotDialog({
             </p>
           ) : null}
           <BotLookPicker
-            value={look.value}
+            value={color}
             identity={look.identity}
             organicIdentities={ORGANIC_IDENTITIES}
             avatarSet={avatarSet}

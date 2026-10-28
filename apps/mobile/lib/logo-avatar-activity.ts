@@ -60,7 +60,7 @@ export function beginMobileAvatarFeed(
   const source = `mobile-avatar-${++serial}`;
   const key = "groupId" in target ? `group:${target.groupId}` : `bot:${target.botId}`;
   const snapshot = snapshots.get(key)?.value;
-  if (snapshot)
-    projection.hydrate(source, { ...snapshot, cursor: Math.max(snapshot.cursor, cursor) });
+  // A snapshot older than the feed cursor misses runs started since, so it can't vouch for idle.
+  if (snapshot && snapshot.cursor >= cursor) projection.hydrate(source, snapshot);
   return { source, threadId: snapshot?.threadId };
 }

@@ -38,6 +38,12 @@ it("uses current snapshot provenance and ignores tools before its cursor", () =>
   mobileLogoAvatarActivity.resetSource(feed.source);
   expect(mobileLogoAvatarActivity.getActivity("bot-a", "running")).toBe("working");
 });
+it("does not restore a stale snapshot as idle on reconnect", () => {
+  rememberMobileAvatarSnapshot({ ...snapshot, run: undefined });
+  const feed = beginMobileAvatarFeed({ botId: "bot-a" }, 15);
+  expect(mobileLogoAvatarActivity.getActivity("bot-a", "running")).toBe("working");
+  mobileLogoAvatarActivity.resetSource(feed.source);
+});
 it("cannot bring an older response or a previous session into the next feed", () => {
   const older = newMobileAvatarSnapshotRequest(),
     newer = newMobileAvatarSnapshotRequest();
