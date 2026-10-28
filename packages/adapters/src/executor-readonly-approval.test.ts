@@ -68,6 +68,7 @@ function fixture({
   rules = [] as ActionApprovalRule[],
   confirmationsOverride = false,
   autoReview = false,
+  savedPreference = true,
   approvalRole,
   nativeReview = false,
   checkerConnected = true,
@@ -123,6 +124,7 @@ function fixture({
   /** The Space has its own confirmations; otherwise `rules` and auto review are the account's. */
   confirmationsOverride?: boolean;
   autoReview?: boolean;
+  savedPreference?: boolean;
   approvalRole?: ModelRoleSettings;
   nativeReview?: boolean;
   checkerConnected?: boolean;
@@ -384,12 +386,12 @@ function fixture({
     routine: { findMany: vi.fn(async () => routines) },
     actionAutoReviewPreference: {
       findUnique: vi.fn(async () =>
-        confirmationsOverride ? { enabled: autoReview, skipApprovals } : null,
+        confirmationsOverride && savedPreference ? { enabled: autoReview, skipApprovals } : null,
       ),
     },
     userActionAutoReviewPreference: {
       findUnique: vi.fn(async () =>
-        confirmationsOverride ? null : { enabled: autoReview, skipApprovals },
+        confirmationsOverride || !savedPreference ? null : { enabled: autoReview, skipApprovals },
       ),
     },
     steeringMessage: {
@@ -1042,6 +1044,15 @@ describe("connector read-only metadata and approval enforcement", () => {
         expect(f.pauseRunForInput).toHaveBeenCalledTimes(decision === "pass" ? 0 : 1);
       },
     );
+
+    it("reviews automatically when no approval mode was ever saved", async () => {
+      reviewMock.mockResolvedValue({ decision: "pass", model: "scripted/checker" });
+      const f = fixture({ catalog, name: "demo_send_message", savedPreference: false });
+      await f.run();
+      expect(reviewMock).toHaveBeenCalledOnce();
+      expect(f.execute).toHaveBeenCalledOnce();
+      expect(f.pauseRunForInput).not.toHaveBeenCalled();
+    });
 
     it("redacts run secrets from automatic review task and bot context", async () => {
       reviewMock.mockResolvedValue({ decision: "pass", model: "mock" });

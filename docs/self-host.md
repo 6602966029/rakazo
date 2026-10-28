@@ -42,7 +42,7 @@ role, keep [restricted computer egress](#restricted-computer-egress) on so bot c
 cannot read the role's credentials from the metadata endpoint.
 Approvals have three modes in **Settings → Approvals**: Never ask runs every action, Auto lets an
 approval model pass actions that fit the request, and Ask asks before any change. A space starts
-in Ask, or in Auto when `RAKAZO_AUTO_REVIEW=1` is set and an approval model is available. Each
+in Auto, which asks like Ask until an approval model is available. Each
 person can allow or block single tools and sites in every mode, and a space can customize its
 approvals apart from the account.
 
