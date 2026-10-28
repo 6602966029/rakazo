@@ -41,6 +41,7 @@ test("a new space chooses what it can use, and a skill can be limited to some sp
   await personalChief.click();
   // Switching spaces remounts the shell, which would close a Skills dialog opened before it lands.
   await expect(personalChief).toHaveAttribute("aria-current", "page");
+  await page.getByTestId("user-menu-trigger").click();
   await page.getByRole("button", { name: "Skills", exact: true }).click();
   const skills = page.getByRole("dialog", { name: "Skills", exact: true });
   const yours = skills.getByTestId("your-skills");
