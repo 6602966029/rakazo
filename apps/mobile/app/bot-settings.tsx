@@ -6,6 +6,7 @@ import {
   BOT_INSTRUCTIONS_MAX_LENGTH,
   BOT_NAME_MAX_LENGTH,
   BOT_TITLE_MAX_LENGTH,
+  resolveBotAvatarSet,
 } from "@rakazo/contracts";
 import {
   credentialForModel,
@@ -167,7 +168,7 @@ export default function BotSettingsScreen() {
         setDescription(next.description ?? "");
         setInstructions(next.instructions ?? "");
         setColor(next.color);
-        setAvatarSet(next.avatarSet ?? "organic");
+        setAvatarSet(resolveBotAvatarSet(next.avatarSet));
         setComputerMode(next.computerMode);
         setModelKey(
           next.modelProvider && next.modelId
@@ -380,7 +381,7 @@ export default function BotSettingsScreen() {
         input.expectedInstructions = bot.instructions;
       }
       if (color !== bot.color) input.color = color;
-      if (avatarSet !== (bot.avatarSet ?? "organic")) input.avatarSet = avatarSet;
+      if (avatarSet !== resolveBotAvatarSet(bot.avatarSet)) input.avatarSet = avatarSet;
       const modelChanged =
         (selected?.provider ?? null) !== (bot.modelProvider ?? null) ||
         (selected?.modelId ?? null) !== (bot.modelId ?? null);
@@ -431,7 +432,7 @@ export default function BotSettingsScreen() {
     (description.trim() !== (bot.description ?? "") ||
       instructions !== (bot.instructions ?? "") ||
       color !== bot.color ||
-      avatarSet !== (bot.avatarSet ?? "organic") ||
+      avatarSet !== resolveBotAvatarSet(bot.avatarSet) ||
       computerMode !== bot.computerMode ||
       autoSpeak !== bot.autoSpeak ||
       (selectedModel?.provider ?? null) !== (bot.modelProvider ?? null) ||
@@ -861,7 +862,7 @@ export default function BotSettingsScreen() {
               ]}
               value={avatarSet}
               onChange={(next) => {
-                setAvatarSet(next === "rakazo" ? "rakazo" : "organic");
+                setAvatarSet(resolveBotAvatarSet(next));
                 setColor((current) => avatarColor(current));
               }}
               plain

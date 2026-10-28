@@ -1,6 +1,11 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ChatMarkdown, LinkifiedText, withBlockMentions } from "@rakazo/chat-ui/web";
-import type { LoginFieldInput, MessageReaction, ThreadMessage } from "@rakazo/contracts";
+import type {
+  BotAvatarSet,
+  LoginFieldInput,
+  MessageReaction,
+  ThreadMessage,
+} from "@rakazo/contracts";
 import type { ChildBotBlock } from "@rakazo/core";
 import { isPeerReceiptBlocks, isSecretAskBlock, isToolActivityBlock } from "@rakazo/core";
 import { BotAvatar, Button, cn, resolvePersonaColorDef } from "@rakazo/ui-web";
@@ -92,9 +97,7 @@ export const MessageView = memo(function MessageView({
   memberName?: (botId: string | undefined) => string | undefined;
   peerBot: (
     botId: string,
-  ) =>
-    | { name?: string; color: string; status?: string; avatarSet?: "organic" | "rakazo" }
-    | undefined;
+  ) => { name?: string; color: string; status?: string; avatarSet?: BotAvatarSet } | undefined;
   replyParent?: ThreadMessage;
   onJumpToMessage?: (messageId: string) => void;
   onRefresh: () => Promise<void>;
@@ -630,7 +633,7 @@ function BotMention({
 }: {
   block: ChildBotBlock;
   color: string | undefined;
-  avatarSet?: "organic" | "rakazo";
+  avatarSet?: BotAvatarSet;
   onOpenBot: (botId: string) => void;
 }) {
   const live = block.status === "created" && color;

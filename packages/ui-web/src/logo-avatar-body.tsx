@@ -18,7 +18,7 @@ export function LogoAvatarBody({
 }) {
   const paint = logoAvatarPaint(color, originalOrange);
   return (
-    <g className="logo-avatar-art" data-vector-body="true">
+    <g className="logo-avatar-art">
       <defs>
         <clipPath id={`body-clip-${id}`}>
           <path d={LOGO_BODY_PATH} />

@@ -1,3 +1,4 @@
+import { LOGO_AVATAR_LOOP_MS } from "@rakazo/core";
 import { useEffect, useRef } from "react";
 import {
   cancelAnimation,
@@ -7,8 +8,6 @@ import {
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
-
-const LOOP_MS = 24_000;
 
 /** Native UI-thread clock. Activity/rerender changes do not restart its elapsed phase. */
 export function useLogoAvatarClock(running: boolean) {
@@ -20,8 +19,8 @@ export function useLogoAvatarClock(running: boolean) {
     mirror.current = { elapsed: base, since: performance.now() };
     milliseconds.value = base;
     milliseconds.value = withRepeat(
-      withTiming(base + LOOP_MS, {
-        duration: LOOP_MS,
+      withTiming(base + LOGO_AVATAR_LOOP_MS, {
+        duration: LOGO_AVATAR_LOOP_MS,
         easing: Easing.linear,
         reduceMotion: ReduceMotion.Never,
       }),

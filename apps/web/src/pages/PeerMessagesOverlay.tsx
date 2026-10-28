@@ -1,5 +1,6 @@
 import { Trans, useLingui } from "@lingui/react/macro";
 import { ChatMarkdown } from "@rakazo/chat-ui/web";
+import type { BotAvatarSet } from "@rakazo/contracts";
 import { loadPeerHistory, peerConversations } from "@rakazo/core";
 import {
   BotAvatar,
@@ -33,11 +34,11 @@ export function PeerMessagesOverlay({
   botId: string;
   botName: string;
   botColor: string;
-  botAvatarSet?: "organic" | "rakazo";
+  botAvatarSet?: BotAvatarSet;
   peerBotId: string;
   peerBotName: string;
   peerBotColor: string;
-  peerBotAvatarSet?: "organic" | "rakazo";
+  peerBotAvatarSet?: BotAvatarSet;
   onClose: () => void;
 }) {
   const { t } = useLingui();

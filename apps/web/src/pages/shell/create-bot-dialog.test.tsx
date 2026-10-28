@@ -85,7 +85,7 @@ describe("CreateBotDialog", () => {
     await click(button("Create"));
     expect(onCreate.mock.lastCall?.[0]).toMatchObject({ name: "Scout", avatarSet: "rakazo" });
     expect(onCreate.mock.lastCall?.[0]).not.toHaveProperty("avatarFamily");
-    expect(onCreate.mock.lastCall?.[0]).not.toHaveProperty("color");
+    expect(onCreate.mock.lastCall?.[0]?.color).toMatch(/^#[0-9A-F]{6}$/i);
   });
 
   it("preserves an explicitly chosen Rakazo colour through a failed create and retry", async () => {

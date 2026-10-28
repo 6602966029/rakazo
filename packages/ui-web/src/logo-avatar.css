@@ -74,9 +74,6 @@
 .logo-avatar-layer:where([data-activity="thinking"]) .logo-avatar-eye-lid {
   transform: scaleY(0.8);
 }
-.logo-avatar-layer:where([data-activity="computer"]) .logo-avatar-gaze {
-  transform: translate(0, 0);
-}
 .logo-avatar-layer:where([data-activity="computer"]) .logo-avatar-eye-lid {
   transform: scaleY(1.12);
 }
@@ -380,17 +377,12 @@
   fill: var(--foreground);
   stroke: none;
 }
-.logo-avatar-page-cursor {
-  stroke-width: var(--logo-task-stroke);
-}
 .logo-avatar-key-left,
 .logo-avatar-key-right {
   opacity: 0.7;
-  stroke-width: var(--logo-task-stroke);
 }
 .logo-avatar-selection {
   opacity: 0;
-  stroke-width: var(--logo-task-stroke);
 }
 .rakazo-logo-avatar[data-compact="true"] .logo-avatar-task-detail {
   display: none;

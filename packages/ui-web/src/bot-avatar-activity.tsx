@@ -1,5 +1,5 @@
 import type { LogoAvatarActivity } from "@rakazo/core";
-import { isRunWaitingOnUser, isRunWorking } from "@rakazo/core";
+import { logoAvatarStatusActivity } from "@rakazo/core";
 import type { ReactNode } from "react";
 import { createContext, useCallback, useContext, useSyncExternalStore } from "react";
 
@@ -9,14 +9,7 @@ export interface BotAvatarActivitySource {
 }
 const emptySource: BotAvatarActivitySource = {
   subscribe: () => () => {},
-  getActivity: (_id, status) =>
-    status === "failed"
-      ? "error"
-      : isRunWaitingOnUser(status)
-        ? "waiting"
-        : isRunWorking(status)
-          ? "working"
-          : "idle",
+  getActivity: (_id, status) => logoAvatarStatusActivity(status),
 };
 const Activity = createContext<BotAvatarActivitySource>(emptySource);
 
@@ -33,7 +26,5 @@ export function BotAvatarActivityProvider({
 export function useBotAvatarActivity(identity: string, status?: string): LogoAvatarActivity {
   const source = useContext(Activity);
   const get = useCallback(() => source.getActivity(identity, status), [source, identity, status]);
-  return useSyncExternalStore(source.subscribe, get, () =>
-    emptySource.getActivity(identity, status),
-  );
+  return useSyncExternalStore(source.subscribe, get, () => logoAvatarStatusActivity(status));
 }

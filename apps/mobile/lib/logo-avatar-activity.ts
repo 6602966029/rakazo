@@ -42,17 +42,15 @@ export function rememberMobileAvatarSnapshot(
   )
     return;
   // Keep only current run metadata, never message contents or historical tool rows.
-  snapshots.set(key, {
-    order,
-    value: {
-      threadId: snapshot.threadId,
-      cursor: snapshot.cursor,
-      botId: snapshot.botId,
-      run: snapshot.run,
-      activeRuns: snapshot.activeRuns,
-    },
-  });
-  projection.reconcile(snapshots.get(key)!.value);
+  const value = {
+    threadId: snapshot.threadId,
+    cursor: snapshot.cursor,
+    botId: snapshot.botId,
+    run: snapshot.run,
+    activeRuns: snapshot.activeRuns,
+  };
+  snapshots.set(key, { order, value });
+  projection.reconcile(value);
   if (snapshots.size > 100) snapshots.delete(snapshots.keys().next().value!);
 }
 export function beginMobileAvatarFeed(

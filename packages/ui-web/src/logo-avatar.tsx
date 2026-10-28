@@ -74,7 +74,6 @@ export const LogoAvatar = memo(function LogoAvatar({
           "--logo-blink-duration": `${traits.blinkMs}ms`,
           "--logo-blink-delay": `${traits.blinkDelayMs}ms`,
           "--logo-side": traits.side,
-          "--logo-energy": traits.energy,
         } as CSSProperties
       }
     >

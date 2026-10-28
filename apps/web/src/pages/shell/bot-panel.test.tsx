@@ -2,7 +2,7 @@
 
 import { i18n } from "@lingui/core";
 import { ORPCError } from "@orpc/client";
-import type { Bot } from "@rakazo/contracts";
+import type { Bot, BotAvatarSet } from "@rakazo/contracts";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ComponentProps, ReactNode } from "react";
 import { act } from "react";
@@ -84,8 +84,8 @@ vi.mock("./avatar-studio-popover", () => ({
     onChange,
   }: {
     value: string;
-    avatarSet?: "organic" | "rakazo";
-    onChange: (value: string, avatarSet?: "organic" | "rakazo") => void;
+    avatarSet?: BotAvatarSet;
+    onChange: (value: string, avatarSet?: BotAvatarSet) => void;
   }) => (
     <>
       <button

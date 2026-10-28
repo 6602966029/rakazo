@@ -1,3 +1,4 @@
+import type { BotAvatarSet } from "@rakazo/contracts";
 import type { GroupAvatarMember } from "@rakazo/ui-web";
 import { BotAvatar, Button, GroupAvatar } from "@rakazo/ui-web";
 import { ChevronDown } from "lucide-react";
@@ -17,7 +18,7 @@ export function CollaborationMarker({
 }: {
   ariaLabel: string;
   color: string;
-  avatarSet?: "organic" | "rakazo";
+  avatarSet?: BotAvatarSet;
   identity: string;
   label: string;
   onClick: () => void;

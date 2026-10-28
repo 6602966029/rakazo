@@ -1,4 +1,11 @@
-import type { Bot, Me, Space, SpaceMemoryConfig, UsageSummary } from "@rakazo/contracts";
+import type {
+  Bot,
+  BotAvatarSet,
+  Me,
+  Space,
+  SpaceMemoryConfig,
+  UsageSummary,
+} from "@rakazo/contracts";
 import { writeSaved } from "@rakazo/core/query";
 import { useQuery } from "@tanstack/react-query";
 import type { RefObject } from "react";
@@ -112,7 +119,7 @@ export function SettingsOverlays({
   peerConversation: { peerBotId: string; peerBotName: string } | null;
   setPeerConversation: (peer: null) => void;
   active: Bot | undefined;
-  peerBot: (botId: string) => { color: string; avatarSet?: "organic" | "rakazo" } | undefined;
+  peerBot: (botId: string) => { color: string; avatarSet?: BotAvatarSet } | undefined;
 }) {
   // Read when Usage opens; a reopened Usage shows the last summary while it refreshes.
   const usageQuery = useQuery({ ...queries.usage.summary.queryOptions(), enabled: false });

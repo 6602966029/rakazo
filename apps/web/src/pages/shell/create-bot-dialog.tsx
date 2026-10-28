@@ -5,6 +5,7 @@ import {
   ORGANIC_AVATAR_LOOKS,
   organicAvatarFamily,
   organicAvatarSampleIdentity,
+  seededLogoAvatarColor,
 } from "@rakazo/core";
 import {
   BOT_AVATAR_COLORS,
@@ -59,6 +60,8 @@ export function CreateBotDialog({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const trimmed = name.trim();
+  const color =
+    avatarSet === "rakazo" && !colorChosen ? seededLogoAvatarColor(look.identity) : look.value;
 
   async function create() {
     if (!trimmed || submitting) return;
@@ -68,7 +71,7 @@ export function CreateBotDialog({
     try {
       await onCreate({
         name: trimmed,
-        ...(avatarSet === "organic" || colorChosen ? { color: look.value } : {}),
+        color,
         avatarSet,
         ...(organic ? { avatarFamily: organicAvatarFamily(look.identity) } : {}),
       });
@@ -106,7 +109,7 @@ export function CreateBotDialog({
           </DialogHeader>
           <div className="flex justify-center py-2">
             <BotAvatar
-              color={look.value}
+              color={color}
               identity={look.identity}
               size={96}
               avatarSet={avatarSet}

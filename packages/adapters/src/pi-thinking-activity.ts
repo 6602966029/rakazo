@@ -14,17 +14,7 @@ export function withPiThinkingActivity(
       try {
         for await (const event of stream) {
           if (event.type === "thinking_start") setThinking(true);
-          else if (
-            event.type === "start" ||
-            event.type === "thinking_end" ||
-            event.type === "text_start" ||
-            event.type === "text_delta" ||
-            event.type === "toolcall_start" ||
-            event.type === "toolcall_end" ||
-            event.type === "done" ||
-            event.type === "error"
-          )
-            setThinking(false);
+          else if (event.type !== "thinking_delta") setThinking(false);
           yield event;
         }
       } finally {

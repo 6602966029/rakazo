@@ -140,8 +140,6 @@ function RakazoBotAvatar({
   muted = false,
   motion = "static",
 }: BotAvatarProps) {
-  const tokens = useMobileTokens();
-  const { t } = useI18n();
   const liveActivity = useSyncExternalStore(
     mobileLogoAvatarActivity.subscribe,
     () => mobileLogoAvatarActivity.getActivity(identity ?? "", status),
@@ -152,7 +150,6 @@ function RakazoBotAvatar({
     (composing && (liveActivity === "working" || liveActivity === "idle")
       ? "writing"
       : liveActivity);
-  const dot = avatarWorkingDot(size);
   const working = isRunWorking(status) && resolved !== "writing" && motion !== "running";
   return (
     <View style={{ width: size, height: size }}>
@@ -163,25 +160,32 @@ function RakazoBotAvatar({
         activity={resolved}
         motion={motion}
       />
-      {working ? (
-        <View
-          accessibilityLabel={t("Working")}
-          style={{
-            position: "absolute",
-            right: muted ? undefined : dot.inset - dot.ring,
-            left: muted ? dot.inset - dot.ring : undefined,
-            bottom: dot.inset - dot.ring,
-            width: dot.diameter + dot.ring * 2,
-            height: dot.diameter + dot.ring * 2,
-            borderRadius: size,
-            borderWidth: dot.ring,
-            borderColor: tokens.background,
-            backgroundColor: tokens.workingDot,
-          }}
-        />
-      ) : null}
+      {working ? <WorkingDot size={size} muted={muted} /> : null}
       {muted ? <MutedBadge size={size} /> : null}
     </View>
+  );
+}
+
+function WorkingDot({ size, muted }: { size: number; muted: boolean }) {
+  const tokens = useMobileTokens();
+  const { t } = useI18n();
+  const dot = avatarWorkingDot(size);
+  return (
+    <View
+      accessibilityLabel={t("Working")}
+      style={{
+        position: "absolute",
+        right: muted ? undefined : dot.inset - dot.ring,
+        left: muted ? dot.inset - dot.ring : undefined,
+        bottom: dot.inset - dot.ring,
+        width: dot.diameter + dot.ring * 2,
+        height: dot.diameter + dot.ring * 2,
+        borderRadius: size,
+        borderWidth: dot.ring,
+        borderColor: tokens.background,
+        backgroundColor: tokens.workingDot,
+      }}
+    />
   );
 }
 
@@ -216,7 +220,7 @@ function MutedBadge({ size }: { size: number }) {
   );
 }
 
-const LegacyBotAvatar = memo(function LegacyBotAvatar({
+function LegacyBotAvatar({
   color,
   size = 54,
   status,
@@ -251,8 +255,6 @@ const LegacyBotAvatar = memo(function LegacyBotAvatar({
   // The working dot marks a bot at work, not one writing its reply; a running avatar is
   // itself that sign, so it carries none.
   const isWorking = isRunWorking(status) && !composing && motion !== "running";
-  // The ring sits outside the disc, so the disc keeps its place.
-  const dot = avatarWorkingDot(size);
   const parsed = mobileBotAvatarPresentation(color);
   const onScreen = useAvatarOnScreen();
   const reducedMotion = useReducedMotion();
@@ -308,23 +310,7 @@ const LegacyBotAvatar = memo(function LegacyBotAvatar({
       {parsed.kind !== "image" && clock !== "still" ? (
         <ThinkingDots color={fillColor} size={size} life={life} />
       ) : null}
-      {isWorking ? (
-        <View
-          accessibilityLabel={t("Working")}
-          style={{
-            position: "absolute",
-            right: muted ? undefined : dot.inset - dot.ring,
-            left: muted ? dot.inset - dot.ring : undefined,
-            bottom: dot.inset - dot.ring,
-            width: dot.diameter + dot.ring * 2,
-            height: dot.diameter + dot.ring * 2,
-            borderRadius: size,
-            borderWidth: dot.ring,
-            borderColor: tokens.background,
-            backgroundColor: tokens.workingDot,
-          }}
-        />
-      ) : null}
+      {isWorking ? <WorkingDot size={size} muted={muted} /> : null}
       {muted ? (
         <View
           accessible
@@ -361,7 +347,7 @@ const LegacyBotAvatar = memo(function LegacyBotAvatar({
   ) : (
     avatar
   );
-});
+}
 
 /** The three typing dots a writing bot's avatar turns into; the middle one is its body. */
 function ThinkingDots({ color, size, life }: { color: string; size: number; life: AvatarLife }) {

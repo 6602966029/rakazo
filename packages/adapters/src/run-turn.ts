@@ -190,7 +190,8 @@ export async function consumeRunEvents(
     }
     return false;
   } finally {
-    await publishThinking(false);
+    // Run completion clears thinking too; never let this replace the turn's own outcome.
+    await publishThinking(false).catch(() => {});
   }
 }
 

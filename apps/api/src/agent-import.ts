@@ -20,6 +20,7 @@ import type {
   AgentImportSource,
   AgentImportWarning,
   Bot,
+  BotAvatarSet,
   CreateRoutineInput as CreateRoutineInputType,
   McpServerConfigInput,
   MessageBlock,
@@ -69,7 +70,7 @@ export type AgentImportServices<PreparedKey = unknown> = {
       instructions: string;
       notifyOnFinish: boolean;
       color?: string;
-      avatarSet?: "organic" | "rakazo";
+      avatarSet?: BotAvatarSet;
       computerMode: AgentImportCreateInput["computerMode"];
       modelProvider: string | null;
       modelId: string | null;

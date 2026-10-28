@@ -1970,7 +1970,8 @@ export async function appendEventInTransaction(
   tx: Prisma.TransactionClient,
   input: AppendEventInput,
 ) {
-  if (input.type === "thread.meta" && hasThinkingActivityMarker(input.payload)) {
+  const activity = input.type === "thread.meta" && hasThinkingActivityMarker(input.payload);
+  if (activity) {
     ThreadActivityPayloadSchema.parse(input.payload);
     if (!input.runId || !input.activityLease) throw new RunHistoryWriteError();
   }
@@ -1986,7 +1987,7 @@ export async function appendEventInTransaction(
       if (input.runId && isRecordNotFound(error)) throw new RunHistoryWriteError();
       throw error;
     });
-  if (input.type === "thread.meta" && hasThinkingActivityMarker(input.payload)) {
+  if (activity) {
     const active = await tx.run.findUnique({
       where: { id: input.runId },
       select: { status: true, leaseOwner: true, leaseFence: true },

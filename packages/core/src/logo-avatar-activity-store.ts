@@ -31,11 +31,11 @@ const PRIORITY: Record<LogoAvatarActivity, number> = {
   computer: 8,
   writing: 7,
   reading: 6,
+  thinking: 5,
   working: 4,
   waiting: 3,
   error: 2,
   idle: 1,
-  thinking: 5,
 };
 
 /**
