@@ -34,7 +34,8 @@ const TRANSIENT_STATUSES = new Set([500, 502, 503, 504]);
  * Keep HTTP failures actionable without changing the SDK's status-based recovery contract.
  * A brief Boat outage is retried once: any call whose request never arrived, and an
  * `idempotent` call that Boat failed on its side. A sandbox that took the request and did not
- * answer in time would only time out again, so that is never resent.
+ * answer in time would only time out again, so that is never resent. A server error that
+ * remains is an outage at Boat, reported as unresponsive like a connection Boat never answered.
  */
 export function wrapBoatCall<Args extends unknown[], Result>(
   call: (...args: Args) => Promise<Result>,
@@ -60,13 +61,23 @@ export function wrapBoatCall<Args extends unknown[], Result>(
       throw wrapped;
     }
   };
-  return async (...args) => {
+  const attemptWithRetry = async (...args: Args): Promise<Result> => {
     try {
       return await attempt(...args);
     } catch (error) {
       if (!unsent(error) && !(idempotent && failedAtBoat(error))) throw error;
       await delay(BOAT_RETRY_DELAY_MS, undefined, { signal: callerSignal(args[1]) });
       return attempt(...args);
+    }
+  };
+  return async (...args) => {
+    try {
+      return await attemptWithRetry(...args);
+    } catch (error) {
+      if (failedAtBoat(error)) {
+        throw new SandboxUnresponsiveError(error.message, { cause: error });
+      }
+      throw error;
     }
   };
 }
@@ -100,7 +111,7 @@ function aborted(error: FetchError, signal: AbortSignal | undefined): boolean {
   return signal?.aborted === true || name === "AbortError" || name === "TimeoutError";
 }
 
-function failedAtBoat(error: unknown): boolean {
+function failedAtBoat(error: unknown): error is BoatApiError {
   return error instanceof BoatApiError && TRANSIENT_STATUSES.has(error.response.status);
 }
 

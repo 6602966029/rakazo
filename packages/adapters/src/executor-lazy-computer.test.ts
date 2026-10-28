@@ -1,5 +1,5 @@
 import type { AgentRunRequest, ComputerRef } from "@rakazo/adapter-kit";
-import { SandboxRateLimitError } from "@rakazo/adapter-kit";
+import { SandboxRateLimitError, SandboxUnresponsiveError } from "@rakazo/adapter-kit";
 import type { MessageBlock } from "@rakazo/contracts";
 import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -563,6 +563,21 @@ describe("run computer provisioning", () => {
       "Run setup failed; retrying",
     );
     expect(provisionComputer).toHaveBeenCalledOnce();
+    expect(sink.events).toContainEqual(
+      expect.objectContaining({ level: "error", message: "run setup failed" }),
+    );
+  });
+
+  it("retries setup after a computer provider outage without an error report", async () => {
+    provisionComputer.mockRejectedValue(new SandboxUnresponsiveError("Boat could not be reached"));
+
+    await expect(runRoutine([{ name: "list_files", args: { path: "" } }])).rejects.toThrow(
+      "Run setup failed; retrying",
+    );
+    expect(sink.events).toContainEqual(
+      expect.objectContaining({ level: "warn", message: "run setup failed" }),
+    );
+    expect(sink.events.filter((event) => event.level === "error")).toEqual([]);
   });
 
   it("fails the run instead of retrying once setup has failed too many times in a row", async () => {

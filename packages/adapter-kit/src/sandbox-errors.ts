@@ -10,8 +10,8 @@ export class SandboxRateLimitError extends Error {
 }
 
 /**
- * The sandbox took a request but did not answer before the provider gave up on it. It is not
- * resent; background work skips this attempt and tries again later.
+ * The provider could not be reached, failed on its side, or gave up waiting for the sandbox to
+ * answer. It is not resent; background work skips this attempt and tries again later.
  */
 export class SandboxUnresponsiveError extends Error {
   constructor(message: string, options?: { cause?: unknown }) {
