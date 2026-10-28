@@ -17,7 +17,7 @@ import {
 import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { InMemoryRealtimeFanout } from "./realtime.js";
-import { RunJobPublisher, RunWorkerHost } from "./run-wakeup.js";
+import { RunJobPublisher, RunStarter, RunWorkerHost } from "./run-wakeup.js";
 import { GraphileJobPublisher } from "./wakeup.js";
 
 const url = process.env.DATABASE_URL;
@@ -80,7 +80,7 @@ describePostgres("direct run dispatch (PostgreSQL)", () => {
   const wait = async (assertion: () => Promise<void> | void) =>
     vi.waitFor(assertion, { timeout: 5_000, interval: 20 });
 
-  it("measures current due queue time without counting normal retry backoff", async () => {
+  it("reports runs left unstarted, not retry backoff or waits on the bot's own earlier run", async () => {
     const now = Date.now();
     const computer = await system.computer.create({
       data: {
@@ -109,18 +109,34 @@ describePostgres("direct run dispatch (PostgreSQL)", () => {
     });
     const sink = createTestSink();
     installLogger(createLogger({ service: "test", sinks: [sink] }));
-    const host = new RunWorkerHost(db.prisma, new InMemoryRealtimeFanout());
+    const realtime = new InMemoryRealtimeFanout();
+    const host = () => new RunWorkerHost(db.prisma, realtime, new RunStarter(realtime));
+    const waitingOnBot = host();
+    const unblocked = host();
     try {
-      await host.start({} as BackgroundJobHandlers);
+      // Waiting for the bot's own earlier run is expected, not a failure to start.
+      await waitingOnBot.start({} as BackgroundJobHandlers);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      await waitingOnBot.stop();
+      expect(sink.events.some((event) => event.message === "run.queue_delayed")).toBe(false);
+
+      await system.computerExecutionLease.update({
+        where: { id: lease.id },
+        data: { expiresAt: new Date(now - 1_000) },
+      });
+      await unblocked.start({} as BackgroundJobHandlers);
       await wait(() =>
         expect(sink.events.some((event) => event.message === "run.queue_delayed")).toBe(true),
       );
       const warning = sink.events.find((event) => event.message === "run.queue_delayed")!;
+      expect(warning.level).toBe("error");
       expect(warning["queue.delayed_runs"]).toBe(1);
+      expect(warning["queue.oldest_run_id"]).toBe(delayed.id);
       expect(warning["queue.oldest_wait_ms"]).toBeGreaterThanOrEqual(45_000);
       expect(warning["queue.oldest_wait_ms"]).toBeLessThan(60_000);
     } finally {
-      await host.stop();
+      await waitingOnBot.stop();
+      await unblocked.stop();
       installLogger(createLogger({ service: "test", level: "off", sinks: [] }));
       await system.run.updateMany({
         where: { id: { in: [owner.id, retry.id, delayed.id] } },
@@ -158,7 +174,8 @@ describePostgres("direct run dispatch (PostgreSQL)", () => {
         expiresAt: new Date(Date.now() + 60_000),
       },
     });
-    const host = new RunWorkerHost(db.prisma, new InMemoryRealtimeFanout(), {
+    const realtime = new InMemoryRealtimeFanout();
+    const host = new RunWorkerHost(db.prisma, realtime, new RunStarter(realtime), {
       intervalMs: 25,
       batchSize: 1,
     });
@@ -194,10 +211,10 @@ describePostgres("direct run dispatch (PostgreSQL)", () => {
     const run = await createRun();
     const realtime = new InMemoryRealtimeFanout();
     const scheduler = background();
-    const publisher = new RunJobPublisher(db.prisma, realtime, scheduler);
+    const publisher = new RunJobPublisher(db.prisma, scheduler, new RunStarter(realtime));
     const hosts = [
-      new RunWorkerHost(db.prisma, realtime, { intervalMs: 25 }),
-      new RunWorkerHost(db.prisma, realtime, { intervalMs: 25 }),
+      new RunWorkerHost(db.prisma, realtime, new RunStarter(realtime), { intervalMs: 25 }),
+      new RunWorkerHost(db.prisma, realtime, new RunStarter(realtime), { intervalMs: 25 }),
     ];
     const claims: string[] = [];
     let release!: () => void;
@@ -253,8 +270,9 @@ describePostgres("direct run dispatch (PostgreSQL)", () => {
     const waiting = await createRun({ status: "waiting_input" });
     const realtime = new InMemoryRealtimeFanout();
     vi.spyOn(realtime, "publish").mockRejectedValue(new Error("fixture notification lost"));
-    const publisher = new RunJobPublisher(db.prisma, realtime, background());
-    const host = new RunWorkerHost(db.prisma, realtime, { intervalMs: 25 });
+    const starter = new RunStarter(realtime);
+    const publisher = new RunJobPublisher(db.prisma, background(), starter);
+    const host = new RunWorkerHost(db.prisma, realtime, starter, { intervalMs: 25 });
     const entered: string[] = [];
     const handlers = {
       "run.continue": async ({ runId }) => {

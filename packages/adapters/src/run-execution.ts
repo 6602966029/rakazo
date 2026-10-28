@@ -40,6 +40,10 @@ export class RunExecutionHost {
   private readonly activeRuns = new Set<Promise<void>>();
   private readonly capacityWaiters = new Set<() => void>();
 
+  get activeCount(): number {
+    return this.activeRuns.size;
+  }
+
   start(): void {
     this.stopping = false;
     this.pressure = undefined;

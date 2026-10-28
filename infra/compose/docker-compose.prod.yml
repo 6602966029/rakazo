@@ -401,8 +401,9 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    pids_limit: 256
-    mem_limit: 1536m
+    # Chat runs execute in the API that receives them, so it gets the worker's headroom.
+    pids_limit: 512
+    mem_limit: ${RAKAZO_API_MEMORY_LIMIT:-2g}
     environment:
       <<: *app-environment
       # Sign-in, sessions, billing and inbound webhooks: API only.
@@ -502,7 +503,7 @@ services:
     cap_drop:
       - ALL
     pids_limit: 512
-    mem_limit: 2g
+    mem_limit: ${RAKAZO_WORKER_MEMORY_LIMIT:-2g}
     environment:
       <<: *app-environment
       GRAPHILE_WORKER_CONCURRENCY:

@@ -110,10 +110,12 @@ async function runRoutine(
     run: {
       findUnique: vi.fn(async () => run),
       findUniqueOrThrow: vi.fn(async () => run),
-      findFirst: vi.fn(async () => ({
-        bot: { notifyOnFinish: false },
-        thread: { groupId: null },
-      })),
+      // No other run of this bot waits for the computer.
+      findFirst: vi.fn(async (args?: { where?: { status?: unknown } }) =>
+        args?.where?.status === "queued"
+          ? null
+          : { bot: { notifyOnFinish: false }, thread: { groupId: null } },
+      ),
       updateMany: vi.fn(
         async ({
           where,
