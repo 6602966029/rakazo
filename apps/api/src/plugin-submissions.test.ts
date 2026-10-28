@@ -206,7 +206,12 @@ describe("reviewing submissions", () => {
       decision: "reject",
       reason: "The MCP server returned errors.",
     });
-    expect(result).toMatchObject({ status: "rejected", reason: "The MCP server returned errors." });
+    expect(result).toMatchObject({
+      status: "rejected",
+      reason: "The MCP server returned errors.",
+      // Admins open the branch and folder that was submitted.
+      source: "https://github.com/acme/plugins/tree/main/tickets",
+    });
     await vi.waitFor(() => expect(email.sent).toHaveLength(1));
     expect(email.sent[0]!.text).toContain("The MCP server returned errors.");
     expect(preview).not.toHaveBeenCalled();

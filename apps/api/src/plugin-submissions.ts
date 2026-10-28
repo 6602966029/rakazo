@@ -59,7 +59,7 @@ export function pluginSubmissionDto(row: SubmissionRow): PluginSubmission {
     name: row.name,
     website: row.website,
     logo: row.logo,
-    source: row.source,
+    source: browseUrl(row.source),
     description: row.description,
     testing: row.testing,
     status: row.status as PluginSubmissionStatus,
@@ -67,6 +67,14 @@ export function pluginSubmissionDto(row: SubmissionRow): PluginSubmission {
     createdAt: row.createdAt.toISOString(),
     reviewedAt: row.reviewedAt?.toISOString() ?? null,
   };
+}
+
+/** The GitHub page for a stored source, opening the branch and folder it names. */
+function browseUrl(source: string): string {
+  const ref = parsePluginSource(source);
+  return ref.ref || ref.subdir
+    ? `${ref.gitUrl}/tree/${ref.ref ?? "HEAD"}${ref.subdir ? `/${ref.subdir}` : ""}`
+    : ref.gitUrl;
 }
 
 /** The submitted repository in the form previews read, keeping the branch or commit it named. */
