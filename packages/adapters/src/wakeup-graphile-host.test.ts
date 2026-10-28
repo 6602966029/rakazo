@@ -386,10 +386,13 @@ describe("GraphileJobWorkerHost runner lifecycle", () => {
       heap_size_limit: 1024 ** 3,
     } as ReturnType<typeof getHeapStatistics>);
     vi.spyOn(process, "availableMemory").mockReturnValue(8 * 1024 ** 3);
+    // Keep the host's real cgroup file cache out of admission.
+    vi.spyOn(process, "constrainedMemory").mockReturnValue(0);
   });
   afterEach(() => {
     run.mockReset();
     vi.mocked(process.availableMemory).mockRestore();
+    vi.mocked(process.constrainedMemory).mockRestore();
     vi.useRealTimers();
   });
 
