@@ -3571,6 +3571,65 @@ describe("sendUserMessage", () => {
     });
   });
 
+  it.each([
+    { waiting: "routine", trigger: "messaging" },
+    { waiting: "bot_message", trigger: "user" },
+    { waiting: "user", trigger: "webhook" },
+  ] as const)(
+    "starts its own run instead of waiting behind a $waiting takeover request ($trigger)",
+    async ({ waiting, trigger }) => {
+      const tx = {
+        thread: {
+          update: vi
+            .fn()
+            .mockResolvedValueOnce({ nextMessageSeq: 5 })
+            .mockResolvedValueOnce({ nextEventSeq: 9 }),
+        },
+        message: {
+          create: vi.fn().mockResolvedValue({ id: "message-1", seq: 4 }),
+          update: vi.fn(),
+        },
+        steeringMessage: { create: vi.fn() },
+        task: { create: vi.fn().mockResolvedValue({ id: "task-1" }) },
+        run: {
+          findMany: vi.fn().mockResolvedValue([
+            {
+              id: "run-takeover",
+              taskId: "task-takeover",
+              trigger: waiting,
+              status: "waiting_takeover",
+            },
+          ]),
+          findUnique: vi.fn().mockResolvedValue({ status: "queued" }),
+          create: vi.fn().mockResolvedValue({ id: "run-1", taskId: "task-1" }),
+        },
+        event: {
+          create: vi.fn(async ({ data }: { data: { seq: number; type: string } }) => ({
+            ...event(data.seq),
+            type: data.type,
+          })),
+        },
+      };
+      const prisma = {
+        $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
+      } as unknown as PrismaClient;
+
+      const sent = await sendUserMessage(prisma, {
+        spaceId: "workspace-1",
+        threadId: "thread-1",
+        botId: "bot-1",
+        userId: "user-1",
+        blocks: [{ kind: "text", text: "ping" }],
+        prompt: "ping",
+        trigger,
+      });
+
+      expect(sent.runId).toBe("run-1");
+      expect(tx.run.create).toHaveBeenCalledTimes(1);
+      expect(tx.steeringMessage.create).not.toHaveBeenCalled();
+    },
+  );
+
   it("keeps an agreed inbound model on steering while a routine run is busy", async () => {
     const tx = {
       thread: {

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import type { BackgroundJobHandlers, JobPublisher } from "@rakazo/adapter-kit";
 import { runContinueJob } from "@rakazo/adapter-kit";
+import { stuckWorkStatusMessage } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
 import {
   appendEvent,
@@ -51,7 +52,9 @@ describePostgres("direct run dispatch (PostgreSQL)", () => {
       await db.pool.end();
     }
   });
-  async function createRun(data: { status?: string; wakeAt?: Date; leaseExpiresAt?: Date } = {}) {
+  async function createRun(
+    data: { status?: string; wakeAt?: Date; leaseExpiresAt?: Date; trigger?: string } = {},
+  ) {
     const { userId, spaceId, botId, threadId } = identity;
     const task = await system.task.create({
       data: { userId, spaceId, botId, threadId, prompt: "fixture", status: "queued" },
@@ -203,6 +206,137 @@ describePostgres("direct run dispatch (PostgreSQL)", () => {
       await wait(() => expect(entered).toContain(blocked.id));
     } finally {
       await host.stop();
+      await system.computerExecutionLease.delete({ where: { id: lease.id } });
+    }
+  });
+
+  it("ends an untaken takeover wait so chat work for its bot can start", async () => {
+    const computer = await system.computer.create({
+      data: {
+        spaceId: identity.spaceId,
+        userId: identity.userId,
+        scopeKey: `dispatch-takeover-${randomUUID()}`,
+        homeKey: `dispatch-takeover-${randomUUID()}`,
+        kind: "fake",
+      },
+    });
+    const bot = await system.bot.update({
+      where: { id: identity.botId },
+      data: { computerId: computer.id },
+    });
+    const waiting = await createRun({ status: "waiting_takeover" });
+    await system.computer.update({
+      where: { id: computer.id },
+      data: { controlRunId: waiting.id },
+    });
+    const lease = await system.computerExecutionLease.create({
+      data: {
+        computerId: computer.id,
+        botId: bot.id,
+        runId: waiting.id,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60_000),
+      },
+    });
+    const reply = await createRun();
+    const peer = await createRun({ trigger: "bot_message" });
+    const routine = await createRun({ trigger: "routine" });
+    const fanout = new InMemoryRealtimeFanout();
+    const host = new RunWorkerHost(db.prisma, fanout, new RunStarter(fanout), { intervalMs: 25 });
+    const entered: string[] = [];
+    try {
+      await host.start({
+        "run.continue": async ({ runId }) => {
+          entered.push(runId);
+          await system.run.update({ where: { id: runId }, data: { status: "completed" } });
+        },
+      } as BackgroundJobHandlers);
+      await wait(() => expect(entered).toEqual(expect.arrayContaining([reply.id, peer.id])));
+      expect(entered).not.toContain(waiting.id);
+      expect(await system.run.findUniqueOrThrow({ where: { id: waiting.id } })).toMatchObject({
+        status: "cancelled",
+        error: stuckWorkStatusMessage("waiting_takeover"),
+      });
+      expect(
+        await system.message.count({
+          where: { threadId: identity.threadId, clientNonce: `stuck-expired:${waiting.id}` },
+        }),
+      ).toBe(1);
+      expect(await system.computer.findUniqueOrThrow({ where: { id: computer.id } })).toMatchObject(
+        { controlRunId: null },
+      );
+    } finally {
+      await host.stop();
+      await system.run.updateMany({
+        where: { id: { in: [waiting.id, reply.id, peer.id, routine.id] } },
+        data: { status: "cancelled" },
+      });
+      await system.computerExecutionLease.delete({ where: { id: lease.id } });
+    }
+  });
+
+  it("leaves chat work queued behind a takeover the user is on the screen for", async () => {
+    const computer = await system.computer.create({
+      data: {
+        spaceId: identity.spaceId,
+        userId: identity.userId,
+        scopeKey: `dispatch-held-${randomUUID()}`,
+        homeKey: `dispatch-held-${randomUUID()}`,
+        kind: "fake",
+      },
+    });
+    const bot = await system.bot.update({
+      where: { id: identity.botId },
+      data: { computerId: computer.id },
+    });
+    const waiting = await createRun({ status: "waiting_takeover" });
+    await system.computer.update({
+      where: { id: computer.id },
+      data: {
+        controlHolder: "user",
+        controlBotId: bot.id,
+        controlRunId: waiting.id,
+        controlLeaseId: randomUUID(),
+        controlLeaseExpiresAt: new Date(Date.now() + 60_000),
+      },
+    });
+    const lease = await system.computerExecutionLease.create({
+      data: {
+        computerId: computer.id,
+        botId: bot.id,
+        runId: waiting.id,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60_000),
+      },
+    });
+    const reply = await createRun();
+    // Another bot's run shares the reply's scan; once it starts, that scan has decided the wait.
+    const other = await system.bot.create({
+      data: { spaceId: identity.spaceId, userId: identity.userId, name: "Other", color: "test" },
+    });
+    const sentinel = await system.run.update({
+      where: { id: (await createRun()).id },
+      data: { botId: other.id },
+    });
+    const fanout = new InMemoryRealtimeFanout();
+    const host = new RunWorkerHost(db.prisma, fanout, new RunStarter(fanout), { intervalMs: 25 });
+    const entered: string[] = [];
+    try {
+      await host.start({
+        "run.continue": async ({ runId }) => {
+          entered.push(runId);
+          await system.run.update({ where: { id: runId }, data: { status: "completed" } });
+        },
+      } as BackgroundJobHandlers);
+      await wait(() => expect(entered).toContain(sentinel.id));
+      expect(entered).not.toContain(reply.id);
+      expect(await system.run.findUniqueOrThrow({ where: { id: waiting.id } })).toMatchObject({
+        status: "waiting_takeover",
+      });
+    } finally {
+      await host.stop();
+      await system.run.updateMany({
+        where: { id: { in: [waiting.id, reply.id, sentinel.id] } },
+        data: { status: "cancelled" },
+      });
       await system.computerExecutionLease.delete({ where: { id: lease.id } });
     }
   });
