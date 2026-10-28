@@ -1,0 +1,27 @@
+{
+  "disabledLabels": ["review:coderabbit"],
+  "rules": [
+    {
+      "id": "remove-before-patching",
+      "severity": "high",
+      "rule": "When code added in this PR cannot work as written or does not belong in it (an unrun harness, a speculative path, work unrelated to the stated change), recommend removing it. Do not suggest building more code to make it work."
+    },
+    {
+      "id": "unstated-scope",
+      "severity": "medium",
+      "rule": "Flag changes the PR description does not mention, such as new vendor or provider presets, dependencies, test runners, environment variables, or edits to shared tooling."
+    },
+    {
+      "id": "no-one-off-test-tooling",
+      "severity": "high",
+      "scope": [
+        "packages/testkit/**",
+        "apps/web/e2e/**",
+        "apps/mobile/e2e/**",
+        "apps/mobile/.maestro/**",
+        "apps/desktop/e2e/**"
+      ],
+      "rule": "Shared test, fixture, and screenshot tooling must not gain feature-specific flags, modes, runners, or fake upstream services to capture or test one screen."
+    }
+  ]
+}
