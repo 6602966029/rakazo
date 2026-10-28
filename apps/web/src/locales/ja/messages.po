@@ -541,6 +541,10 @@ msgstr ""
 msgid "Add fallback"
 msgstr "フォールバックを追加"
 
+#: src/components/LoginFields.tsx
+msgid "Add field"
+msgstr "フィールドを追加"
+
 #: src/components/ModelHeadersEditor.tsx
 msgid "Add header"
 msgstr "ヘッダーを追加"
@@ -2651,10 +2655,6 @@ msgstr "対応する場合… 無視する場合…"
 msgid "Enter a password"
 msgstr "パスワードを入力してください"
 
-#: src/components/VaultSettings.tsx
-msgid "Enter a username and password"
-msgstr "ユーザー名とパスワードを入力してください"
-
 #: src/lib/user-error.ts
 msgid "Enter a valid email"
 msgstr "有効なメールアドレスを入力してください"
@@ -3007,6 +3007,10 @@ msgstr "サンプルを再生"
 msgid "Hi, this is how I'll sound when I read replies out loud."
 msgstr "こんにちは。返信を読み上げるときは、このような声になります。"
 
+#: src/components/LoginFields.tsx
+msgid "Hidden"
+msgstr "非表示"
+
 #: src/components/VaultSettings.tsx
 msgid "Hide"
 msgstr "非表示"
@@ -3275,6 +3279,10 @@ msgstr "保持"
 #: src/pages/RoutineEditor.tsx
 msgid "key"
 msgstr "キー"
+
+#: src/components/LoginFields.tsx
+msgid "Label"
+msgstr "ラベル"
 
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Language"
@@ -4587,6 +4595,7 @@ msgstr "再読み込み"
 
 #: src/components/ApprovalRulesSettings.tsx
 #: src/components/integrations/plugin-marketplace.tsx
+#: src/components/LoginFields.tsx
 #: src/components/VaultSettings.tsx
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/ModelRoleSettings.tsx
@@ -6089,6 +6098,7 @@ msgstr "APIキーを使用中"
 msgid "Using your API key. Free plan ends {freeUntil}."
 msgstr "自分の API キーを使用中。無料プランは{freeUntil}に終了します。"
 
+#: src/components/LoginFields.tsx
 #: src/components/VaultSettings.tsx
 #: src/pages/McpServersOverlay.tsx
 msgid "Value"

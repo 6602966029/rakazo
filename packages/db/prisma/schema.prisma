@@ -942,6 +942,11 @@ model Purchase {
   nextPollAt   DateTime?
   wokenStatus  String?
   cardCiphertext String?
+  credentialType String  @default("card")
+  merchantAccountId String?
+  paymentChallenge String?
+  requestCiphertext String?
+  tokenCiphertext String?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 

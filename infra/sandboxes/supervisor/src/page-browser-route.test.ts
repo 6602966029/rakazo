@@ -163,6 +163,14 @@ it.each([
       cardField: "track2",
     },
   ],
+  [
+    "a pay token without the merchant's origin",
+    { kind: "pay_token", text: "lpt_fake_secret", merchantAccountId: "acct_fake123" },
+  ],
+  [
+    "a pay token without its merchant account",
+    { kind: "pay_token", text: "lpt_fake_secret", origin: "https://shop.example.test" },
+  ],
 ])("rejects %s", async (_, action) => {
   const response = await supervisorApp.request("/computers/computer-login/browser", {
     method: "POST",
@@ -227,6 +235,16 @@ it.each([
       origin: "https://shop.example.test",
       field: "card",
       cardField: "number",
+    },
+  ],
+  [
+    "pay token",
+    {
+      kind: "pay_token",
+      ref: undefined,
+      text: "lpt_fake_secret",
+      origin: "https://shop.example.test",
+      merchantAccountId: "acct_fake123",
     },
   ],
 ])("sends a %s fill only over stdin, never in the helper's arguments", async (_, fill) => {
