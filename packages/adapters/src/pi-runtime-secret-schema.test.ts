@@ -378,3 +378,33 @@ describe("jsonField const handling", () => {
     expect(JSON.stringify(jsonField({ type: "string" }))).not.toContain("const");
   });
 });
+
+describe("request_secret login card arguments", () => {
+  const login = {
+    name: "example-login",
+    origin: "https://login.example.test",
+    auth: { type: "login" },
+  };
+
+  it("accepts a login without a password as labeled fields", () => {
+    const schema = requestSecretSchema();
+    expect(
+      parseConnectorToolArgs(schema, {
+        label: "Example sign-in",
+        purpose: "password",
+        credential: login,
+        fields: ["ID number", "Phone"],
+      }),
+    ).toMatchObject({ credential: login, fields: ["ID number", "Phone"] });
+  });
+
+  it("rejects a purpose outside the allowed values and an empty field list", () => {
+    const schema = requestSecretSchema();
+    expect(() =>
+      parseConnectorToolArgs(schema, { label: "c", purpose: "login", credential: login }),
+    ).toThrow();
+    expect(() =>
+      parseConnectorToolArgs(schema, { label: "c", purpose: "otp", credential: login, fields: [] }),
+    ).toThrow();
+  });
+});

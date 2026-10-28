@@ -16,7 +16,7 @@ For example, the bot can request:
 }
 ```
 
-The value is encrypted in Postgres `bot_secrets` using the deployment's `ENCRYPTION_KEY` (AES-256-GCM with record-bound authentication). Only the run's user can submit a reusable credential. It belongs to that user, space and bot, survives later runs, and is deleted when its owner, space or bot is deleted. Names, destinations and authentication configuration are metadata; `list_secrets` returns those fields without values. No hosted credential service or prebuilt connector is required.
+The value is encrypted in Postgres `vault_credentials` using the deployment's `ENCRYPTION_KEY` (AES-256-GCM with record-bound authentication). Only the run's user can submit a reusable credential. It belongs to that user and survives later runs. By default it sits in the user's account vault, which every Space uses; a Space where the user keeps its own credentials has a separate vault that starts empty, so they have to be saved there again, and no other Space can read it. It is deleted when its owner is deleted, and a Space's own vault is also deleted with its Space. Names, destinations and authentication configuration are metadata; `list_secrets` returns those fields without values. No hosted credential service or prebuilt connector is required.
 
 The bot uses `secret_request` to ask the backend to decrypt and inject the credential:
 
@@ -113,6 +113,6 @@ The thread credential card still works on the phone, including website logins, a
 bot obtains a value there. Listing, replacing, and removing saved credentials stays on the web
 section. Asking the bot to `forget_secret` a name only removes it; it does not list or replace one.
 
-Two-factor codes, CAPTCHA and passkeys still use `request_takeover`, as does any site where you prefer to sign in yourself.
+A sign-in without a password, such as an ID number and phone number, uses the same login card. Texted or emailed one-time codes, CAPTCHA and passkeys still use `request_takeover`, so a code is typed on the live screen rather than saved, as is any sign-in you prefer to do yourself.
 
 The value is typed into a real browser on the bot's computer. Anything that can read that browser, including the bot's own shell commands through the page or its debugging port, could read a filled field. Keeping the value out of model input stops accidental disclosure, not a bot that sets out to extract it. Save logins only for accounts you would let the bot use unattended.
