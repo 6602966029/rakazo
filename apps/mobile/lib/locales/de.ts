@@ -1215,4 +1215,5 @@ export const DE_MESSAGES: Record<string, string> = {
     "Erhalte einen Gratismonat für jeden Freund, der eine Testphase startet.",
   "1 free month earned": "1 Gratismonat verdient",
   "{count} free months earned": "{count} Gratismonate verdient",
+  "Submit a plugin": "Plugin einreichen",
 };

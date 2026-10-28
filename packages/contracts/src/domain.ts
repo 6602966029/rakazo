@@ -879,6 +879,47 @@ export const PluginMarketplaceCatalogSchema = z.object({
 });
 export type PluginMarketplaceCatalog = z.infer<typeof PluginMarketplaceCatalogSchema>;
 
+export const PLUGIN_SUBMISSIONS_PATH = "/api/v1/plugin-submissions";
+export const SUBMIT_PLUGIN_URL = "https://rakazo.com/plugins/submit/";
+
+const HttpsUrlSchema = z
+  .string()
+  .trim()
+  .max(2048)
+  .url()
+  .refine((value) => value.startsWith("https://"), "Use an https:// URL");
+
+export const PluginSubmissionInputSchema = z.object({
+  email: z.string().trim().max(254).email(),
+  name: z.string().trim().min(1).max(80),
+  website: HttpsUrlSchema.optional(),
+  logo: HttpsUrlSchema,
+  source: HttpsUrlSchema,
+  description: z.string().trim().min(1).max(2000),
+  testing: z.string().trim().min(1).max(4000),
+  tested: z.literal(true),
+});
+export type PluginSubmissionInput = z.infer<typeof PluginSubmissionInputSchema>;
+
+export const PluginSubmissionStatusSchema = z.enum(["pending", "approved", "rejected"]);
+export type PluginSubmissionStatus = z.infer<typeof PluginSubmissionStatusSchema>;
+
+export const PluginSubmissionSchema = PluginSubmissionInputSchema.omit({ tested: true }).extend({
+  id: z.string(),
+  website: z.string().nullable(),
+  status: PluginSubmissionStatusSchema,
+  reason: z.string().nullable(),
+  createdAt: z.string(),
+  reviewedAt: z.string().nullable(),
+});
+export type PluginSubmission = z.infer<typeof PluginSubmissionSchema>;
+
+export const PluginSubmissionReviewSchema = z.discriminatedUnion("decision", [
+  z.object({ id: Id, decision: z.literal("approve") }),
+  z.object({ id: Id, decision: z.literal("reject"), reason: z.string().trim().min(1).max(1000) }),
+]);
+export type PluginSubmissionReview = z.infer<typeof PluginSubmissionReviewSchema>;
+
 export const IntegrationCatalogSurfaceSchema = z.object({
   kind: z.enum(["mcp", "openapi", "graphql", "cli"]),
   slug: z.string(),
@@ -1703,6 +1744,8 @@ export const MeSchema = z.object({
   spaceId: Id,
   /** Deprecated: app accounts never have server administrator privileges. Always false. */
   isDeploymentOwner: z.boolean(),
+  /** Listed in RAKAZO_ADMIN_EMAILS with a verified email: reviews plugin submissions. */
+  isAdmin: z.boolean().default(false),
   needsModel: z.boolean(),
   defaultProvider: z.string().nullable(),
   defaultModel: z.string().nullable(),

@@ -1222,4 +1222,5 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
     "每有一位朋友開始試用，你就能獲得一個月免費。",
   "1 free month earned": "已獲得 1 個月免費",
   "{count} free months earned": "已獲得 {count} 個月免費",
+  "Submit a plugin": "提交外掛程式",
 };

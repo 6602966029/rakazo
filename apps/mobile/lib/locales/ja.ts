@@ -1239,4 +1239,5 @@ export const JA_MESSAGES: Record<string, string> = {
     "友だちがトライアルを開始するたびに、1か月無料になります。",
   "1 free month earned": "1か月分の無料期間を獲得",
   "{count} free months earned": "{count}か月分の無料期間を獲得",
+  "Submit a plugin": "プラグインを申請",
 };

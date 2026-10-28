@@ -278,6 +278,30 @@ model Referral {
   @@map("referrals")
 }
 
+model PluginSubmission {
+  id           String    @id @default(cuid())
+  email        String
+  name         String
+  website      String?
+  logo         String
+  source       String
+  description  String
+  testing      String
+  status       String    @default("pending")
+  reason       String?
+  // Set on approval.
+  pinnedSource String?
+  hasConnector Boolean   @default(false)
+  skillCount   Int       @default(0)
+  reviewedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([status, createdAt])
+  @@index([source])
+  @@map("plugin_submissions")
+}
+
 model ActionApprovalRule {
   id              String   @id @default(cuid())
   spaceId         String

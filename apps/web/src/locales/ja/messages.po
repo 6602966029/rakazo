@@ -831,6 +831,7 @@ msgid "Approvals"
 msgstr "承認"
 
 #: src/pages/MessagingSettingsPanel.tsx
+#: src/pages/PluginSubmissionsPanel.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Approve"
 msgstr "承認"
@@ -838,6 +839,14 @@ msgstr "承認"
 #: src/pages/shell/message-cards.tsx
 msgid "Approve this server to let your agent use its tools."
 msgstr "このサーバーを承認すると、エージェントがそのツールを使用できるようになります。"
+
+#: src/pages/PluginSubmissionsPanel.tsx
+msgid "Approved"
+msgstr ""
+
+#: src/pages/PluginSubmissionsPanel.tsx
+msgid "Approving…"
+msgstr ""
 
 #: src/components/integrations/plugin-marketplace.tsx
 #: src/pages/PluginsOverlay.tsx
@@ -962,6 +971,7 @@ msgstr "Avatar Studio"
 
 #: src/components/integrations/plugin-marketplace.tsx
 #: src/components/integrations/skills-dialog.tsx
+#: src/pages/AdminPluginsPage.tsx
 #: src/pages/Auth.tsx
 #: src/pages/Board.tsx
 #: src/pages/NavLinkPage.tsx
@@ -1144,6 +1154,7 @@ msgstr "画像を読み取れません"
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/PaymentWalletSettingsPanel.tsx
+#: src/pages/PluginSubmissionsPanel.tsx
 #: src/pages/shell/agent-import-undo.tsx
 #: src/pages/shell/create-bot-dialog.tsx
 #: src/pages/shell/dialogs.tsx
@@ -1755,6 +1766,10 @@ msgstr "MCPサーバーを追加できませんでした"
 msgid "Could not add skills"
 msgstr ""
 
+#: src/pages/PluginSubmissionsPanel.tsx
+msgid "Could not approve plugin"
+msgstr ""
+
 #: src/pages/shell/message-cards.tsx
 msgid "Could not approve this server"
 msgstr "このサーバーを承認できませんでした"
@@ -2048,6 +2063,10 @@ msgstr "サーバーに接続できませんでした"
 msgid "Could not read these files"
 msgstr "これらのファイルを読み込めませんでした"
 
+#: src/pages/PluginSubmissionsPanel.tsx
+msgid "Could not reject plugin"
+msgstr ""
+
 #: src/components/ComputerDeviceSettings.tsx
 #: src/lib/user-devices.ts
 #: src/pages/KnowledgeSection.tsx
@@ -2246,6 +2265,10 @@ msgstr "コンピューターのセットアップを確認できませんでし
 #: src/pages/MessagingSettingsPanel.tsx
 msgid "Couldn't load messaging settings"
 msgstr "メッセージ設定を読み込めませんでした"
+
+#: src/pages/PluginSubmissionsPanel.tsx
+msgid "Couldn't load submissions"
+msgstr ""
 
 #: src/pages/PaymentWalletSettingsPanel.tsx
 msgid "Couldn't load your wallet"
@@ -3484,6 +3507,7 @@ msgstr "音声プロバイダーを読み込み中…"
 #: src/pages/Artifacts.tsx
 #: src/pages/IntegrationSetup.tsx
 #: src/pages/PeerMessagesOverlay.tsx
+#: src/pages/PluginSubmissionsPanel.tsx
 #: src/pages/RoutineRunHistory.tsx
 #: src/pages/shell/transcript.tsx
 msgid "Loading…"
@@ -4077,6 +4101,10 @@ msgstr "実行はまだありません"
 msgid "No skills yet"
 msgstr "スキルはまだありません"
 
+#: src/pages/PluginSubmissionsPanel.tsx
+msgid "No submissions"
+msgstr ""
+
 #: src/pages/Board.tsx
 msgid "No tickets yet"
 msgstr "チケットはまだありません"
@@ -4388,6 +4416,7 @@ msgid "Paused"
 msgstr "一時停止中"
 
 #: src/pages/MessagingSettingsPanel.tsx
+#: src/pages/PluginSubmissionsPanel.tsx
 msgid "Pending"
 msgstr ""
 
@@ -4451,6 +4480,10 @@ msgstr "プラグイン"
 #: src/components/integrations/skills-dialog.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Plugin GitHub URL"
+msgstr ""
+
+#: src/pages/AdminPluginsPage.tsx
+msgid "Plugin submissions"
 msgstr ""
 
 #: src/components/integrations/skills-dialog.tsx
@@ -4563,6 +4596,10 @@ msgstr "返信を読み上げる"
 #: src/pages/shell/import-status.ts
 msgid "Ready"
 msgstr "準備完了"
+
+#: src/pages/PluginSubmissionsPanel.tsx
+msgid "Reason"
+msgstr ""
 
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
@@ -4684,6 +4721,23 @@ msgstr "更新中…"
 #: src/lib/user-error.ts
 msgid "Registration is closed"
 msgstr "新規登録は締め切られています"
+
+#: src/pages/PluginSubmissionsPanel.tsx
+msgid "Reject"
+msgstr ""
+
+#. placeholder {0}: rejecting?.name
+#: src/pages/PluginSubmissionsPanel.tsx
+msgid "Reject {0}"
+msgstr ""
+
+#: src/pages/PluginSubmissionsPanel.tsx
+msgid "Rejected"
+msgstr ""
+
+#: src/pages/PluginSubmissionsPanel.tsx
+msgid "Rejecting…"
+msgstr ""
 
 #: src/pages/shell/computer-release-actions.tsx
 msgid "Release control"
@@ -4914,6 +4968,7 @@ msgstr "ワークスペースを復元中"
 #: src/pages/Auth.tsx
 #: src/pages/ModelRoleSettings.tsx
 #: src/pages/PluginsOverlay.tsx
+#: src/pages/PluginSubmissionsPanel.tsx
 #: src/pages/SpaceSettingOverrides.tsx
 msgid "Retry"
 msgstr "再試行"
@@ -5587,6 +5642,10 @@ msgstr "サブエージェント"
 msgid "Submit"
 msgstr "送信"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Submit a plugin"
+msgstr ""
+
 #: src/components/ModelCredits.tsx
 #: src/pages/Paywall.tsx
 msgid "Subscribe"
@@ -5691,6 +5750,10 @@ msgstr "ルールを試す"
 #: src/pages/RoutineEditor.tsx
 msgid "Test run"
 msgstr "テスト実行"
+
+#: src/pages/PluginSubmissionsPanel.tsx
+msgid "Testing"
+msgstr ""
 
 #: src/components/ModelConnectionPreflightNotice.tsx
 #: src/pages/McpServersOverlay.tsx

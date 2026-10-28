@@ -831,6 +831,7 @@ msgid "Approvals"
 msgstr "स्वीकृतियाँ"
 
 #: src/pages/MessagingSettingsPanel.tsx
+#: src/pages/PluginSubmissionsPanel.tsx
 #: src/pages/shell/message-cards.tsx
 msgid "Approve"
 msgstr "अनुमोदित करें"
@@ -838,6 +839,14 @@ msgstr "अनुमोदित करें"
 #: src/pages/shell/message-cards.tsx
 msgid "Approve this server to let your agent use its tools."
 msgstr "अपने एजेंट को इसके टूल उपयोग करने देने के लिए इस सर्वर को अनुमोदित करें।"
+
+#: src/pages/PluginSubmissionsPanel.tsx
+msgid "Approved"
+msgstr ""
+
+#: src/pages/PluginSubmissionsPanel.tsx
+msgid "Approving…"
+msgstr ""
 
 #: src/components/integrations/plugin-marketplace.tsx
 #: src/pages/PluginsOverlay.tsx
@@ -962,6 +971,7 @@ msgstr "अवतार स्टूडियो"
 
 #: src/components/integrations/plugin-marketplace.tsx
 #: src/components/integrations/skills-dialog.tsx
+#: src/pages/AdminPluginsPage.tsx
 #: src/pages/Auth.tsx
 #: src/pages/Board.tsx
 #: src/pages/NavLinkPage.tsx
@@ -1144,6 +1154,7 @@ msgstr "तस्वीरें नहीं पढ़ सकता"
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/PaymentWalletSettingsPanel.tsx
+#: src/pages/PluginSubmissionsPanel.tsx
 #: src/pages/shell/agent-import-undo.tsx
 #: src/pages/shell/create-bot-dialog.tsx
 #: src/pages/shell/dialogs.tsx
@@ -1755,6 +1766,10 @@ msgstr "MCP सर्वर जोड़ा नहीं जा सका"
 msgid "Could not add skills"
 msgstr ""
 
+#: src/pages/PluginSubmissionsPanel.tsx
+msgid "Could not approve plugin"
+msgstr ""
+
 #: src/pages/shell/message-cards.tsx
 msgid "Could not approve this server"
 msgstr "इस सर्वर को अनुमोदित नहीं किया जा सका"
@@ -2048,6 +2063,10 @@ msgstr "सर्वर से संपर्क नहीं हो सका"
 msgid "Could not read these files"
 msgstr "ये फ़ाइलें पढ़ी नहीं जा सकीं"
 
+#: src/pages/PluginSubmissionsPanel.tsx
+msgid "Could not reject plugin"
+msgstr ""
+
 #: src/components/ComputerDeviceSettings.tsx
 #: src/lib/user-devices.ts
 #: src/pages/KnowledgeSection.tsx
@@ -2245,6 +2264,10 @@ msgstr ""
 
 #: src/pages/MessagingSettingsPanel.tsx
 msgid "Couldn't load messaging settings"
+msgstr ""
+
+#: src/pages/PluginSubmissionsPanel.tsx
+msgid "Couldn't load submissions"
 msgstr ""
 
 #: src/pages/PaymentWalletSettingsPanel.tsx
@@ -3484,6 +3507,7 @@ msgstr "आवाज़ प्रोवाइडर्स लोड हो र�
 #: src/pages/Artifacts.tsx
 #: src/pages/IntegrationSetup.tsx
 #: src/pages/PeerMessagesOverlay.tsx
+#: src/pages/PluginSubmissionsPanel.tsx
 #: src/pages/RoutineRunHistory.tsx
 #: src/pages/shell/transcript.tsx
 msgid "Loading…"
@@ -4077,6 +4101,10 @@ msgstr ""
 msgid "No skills yet"
 msgstr "अभी तक कोई स्किल नहीं"
 
+#: src/pages/PluginSubmissionsPanel.tsx
+msgid "No submissions"
+msgstr ""
+
 #: src/pages/Board.tsx
 msgid "No tickets yet"
 msgstr ""
@@ -4388,6 +4416,7 @@ msgid "Paused"
 msgstr ""
 
 #: src/pages/MessagingSettingsPanel.tsx
+#: src/pages/PluginSubmissionsPanel.tsx
 msgid "Pending"
 msgstr ""
 
@@ -4451,6 +4480,10 @@ msgstr "प्लगइन"
 #: src/components/integrations/skills-dialog.tsx
 #: src/pages/PluginsOverlay.tsx
 msgid "Plugin GitHub URL"
+msgstr ""
+
+#: src/pages/AdminPluginsPage.tsx
+msgid "Plugin submissions"
 msgstr ""
 
 #: src/components/integrations/skills-dialog.tsx
@@ -4563,6 +4596,10 @@ msgstr "उत्तर पढ़कर सुनाएं"
 #: src/pages/shell/import-status.ts
 msgid "Ready"
 msgstr "तैयार"
+
+#: src/pages/PluginSubmissionsPanel.tsx
+msgid "Reason"
+msgstr ""
 
 #: src/pages/model-settings/compatible-model-fields.tsx
 #: src/pages/Onboarding.tsx
@@ -4684,6 +4721,23 @@ msgstr ""
 #: src/lib/user-error.ts
 msgid "Registration is closed"
 msgstr "पंजीकरण बंद है"
+
+#: src/pages/PluginSubmissionsPanel.tsx
+msgid "Reject"
+msgstr ""
+
+#. placeholder {0}: rejecting?.name
+#: src/pages/PluginSubmissionsPanel.tsx
+msgid "Reject {0}"
+msgstr ""
+
+#: src/pages/PluginSubmissionsPanel.tsx
+msgid "Rejected"
+msgstr ""
+
+#: src/pages/PluginSubmissionsPanel.tsx
+msgid "Rejecting…"
+msgstr ""
 
 #: src/pages/shell/computer-release-actions.tsx
 msgid "Release control"
@@ -4914,6 +4968,7 @@ msgstr ""
 #: src/pages/Auth.tsx
 #: src/pages/ModelRoleSettings.tsx
 #: src/pages/PluginsOverlay.tsx
+#: src/pages/PluginSubmissionsPanel.tsx
 #: src/pages/SpaceSettingOverrides.tsx
 msgid "Retry"
 msgstr "फिर कोशिश करें"
@@ -5587,6 +5642,10 @@ msgstr "सबएजेंट"
 msgid "Submit"
 msgstr "सबमिट करें"
 
+#: src/pages/PluginsOverlay.tsx
+msgid "Submit a plugin"
+msgstr ""
+
 #: src/components/ModelCredits.tsx
 #: src/pages/Paywall.tsx
 msgid "Subscribe"
@@ -5690,6 +5749,10 @@ msgstr "नियम जाँचें"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Test run"
+msgstr ""
+
+#: src/pages/PluginSubmissionsPanel.tsx
+msgid "Testing"
 msgstr ""
 
 #: src/components/ModelConnectionPreflightNotice.tsx

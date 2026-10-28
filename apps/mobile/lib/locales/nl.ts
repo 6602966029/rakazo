@@ -1207,4 +1207,5 @@ export const NL_MESSAGES: Record<string, string> = {
     "Krijg een gratis maand voor elke vriend die een proefperiode start.",
   "1 free month earned": "1 gratis maand verdiend",
   "{count} free months earned": "{count} gratis maanden verdiend",
+  "Submit a plugin": "Plugin indienen",
 };
