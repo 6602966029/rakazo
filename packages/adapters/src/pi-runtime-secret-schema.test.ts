@@ -34,6 +34,12 @@ const sampleCredential = {
 };
 
 describe("request_secret parameters", () => {
+  it("tells the bot which login labels start visible, and that the user decides", () => {
+    const { description } = toolNamed("request_secret");
+    expect(description).toContain("ID, phone, email or username starts visible");
+    expect(description).toContain("The user decides which fields are hidden");
+  });
+
   it("exposes credential on the destination branch the executor persists", () => {
     const credentialBranch = oneOfBranches(requestSecretSchema()).find((branch) =>
       (branch.required ?? []).includes("credential"),
