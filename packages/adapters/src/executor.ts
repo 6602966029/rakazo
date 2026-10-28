@@ -1,5 +1,10 @@
 import type { AgentRunRequest, SemanticMemoryProvider } from "@rakazo/adapter-kit";
-import { DEFAULT_CONTEXT_STRATEGY, runContinueJob } from "@rakazo/adapter-kit";
+import {
+  DEFAULT_CONTEXT_STRATEGY,
+  runContinueJob,
+  SandboxUnavailableError,
+  SandboxUnresponsiveError,
+} from "@rakazo/adapter-kit";
 import type { MessageBlock, ModelRoleChoice, RunStatus } from "@rakazo/contracts";
 import { disabledBuiltinToolSet } from "@rakazo/contracts";
 import {
@@ -47,6 +52,7 @@ import {
   commandCredentialRedactions,
   loadBotCommandEnvironment,
   loadLoginPasswordRedactions,
+  loadRunLoginRedactions,
 } from "./bot-secrets.js";
 import { createBrowserProvider } from "./browser-provider-factory.js";
 import { agentConnectionTools, builtinAgentTools } from "./builtin-tools.js";
@@ -134,6 +140,7 @@ import {
   requeueComputerRun,
   requeueRunAfterShutdown,
   setupFailureStreak,
+  startNextWaitingRun,
   writeComputerRunRequeue,
 } from "./run-lifecycle.js";
 import {
@@ -318,7 +325,25 @@ export function createRunExecutor(deps: ExecutorDeps) {
         }
       } catch (error) {
         if (!(error instanceof ComputerBusyError)) throw error;
-        await requeueComputerRun(deps, runId, workerId, fence, resumeCheckpoint, heldForTakeover);
+        // Maintenance or suspension sends no release, so only a held lease waits for one.
+        const heldByAnotherRun = await deps.prisma.computerExecutionLease.findFirst({
+          where: {
+            computerId: leaseTarget.computerId,
+            botId: run.botId,
+            runId: { not: runId },
+            expiresAt: { gt: new Date() },
+          },
+          select: { id: true },
+        });
+        await requeueComputerRun(
+          deps,
+          runId,
+          workerId,
+          fence,
+          resumeCheckpoint,
+          heldForTakeover,
+          Boolean(heldByAnotherRun),
+        );
         return;
       }
       let attempt: { id: string };
@@ -420,6 +445,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           initialBotCommandEnvironment,
           savedLoginPasswordRedactions,
           purchaseRedactions,
+          runLoginRedactions,
         ] = await Promise.all([
           deps.prisma.bot.findUniqueOrThrow({
             where: { id: run.botId },
@@ -457,6 +483,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           loadBotCommandEnvironment(deps.prisma, deps.secretStore, run),
           loadLoginPasswordRedactions(deps.prisma, deps.secretStore, run),
           deps.paymentWallet ? loadPurchaseRedactions(deps, run) : [],
+          loadRunLoginRedactions(deps.prisma, deps.secretStore, run, run.id),
         ]);
         const historySearchBeforeSeq =
           contextStrategy !== "current" && run.sourceMessageId
@@ -473,7 +500,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
         runSecrets.push(...commandCredentialRedactions(initialBotCommandEnvironment));
         // A login filled in an earlier run may still be on its page, and anything this run reads
         // or is given may contain it, so every run hides its saved passwords before the model runs.
-        runSecrets.push(...savedLoginPasswordRedactions, ...purchaseRedactions);
+        runSecrets.push(
+          ...savedLoginPasswordRedactions,
+          ...purchaseRedactions,
+          ...runLoginRedactions,
+        );
         const agentEnvironmentInstruction = formatAgentEnvironmentInstruction(
           initialBotCommandEnvironment,
         );
@@ -1594,7 +1625,16 @@ export function createRunExecutor(deps: ExecutorDeps) {
         const reportedSetupError = sanitizedError(setupError, (text) =>
           redactSecrets(text, runSecrets),
         );
-        if (!computerBusy) getLogger().error("run setup failed", reportedSetupError);
+        // An outage at the computer provider is retried like any setup failure, but is not a
+        // Rakazo bug to report.
+        if (
+          setupError instanceof SandboxUnavailableError ||
+          setupError instanceof SandboxUnresponsiveError
+        ) {
+          getLogger().warn("run setup failed", { error: reportedSetupError });
+        } else if (!computerBusy) {
+          getLogger().error("run setup failed", reportedSetupError);
+        }
         // The job reconciler re-enqueues a queued run whose job ran out of attempts, so a
         // setup that fails every time would retry forever. End the run instead.
         if (
@@ -1661,6 +1701,12 @@ export function createRunExecutor(deps: ExecutorDeps) {
               .catch(() => undefined);
           }
           await releaseComputerExecutionLease(deps.prisma, computerLease).catch(() => undefined);
+          // A stopping process requeues this run instead, which must keep its turn.
+          if (!deps.shutdownSignal?.aborted) {
+            await startNextWaitingRun(deps, run.botId, runId).catch((error) =>
+              getLogger().error("start next waiting run", error),
+            );
+          }
         }
         if (deps.shutdownSignal?.aborted) {
           // A renewal still in flight must not treat this release as a lost lease.

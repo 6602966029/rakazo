@@ -1,3 +1,4 @@
+import { hostname } from "node:os";
 import { setTimeout as sleep } from "node:timers/promises";
 import type { JobPublisher, JobWorkerHost } from "@rakazo/adapter-kit";
 import { ComposioConnector, IntegrationProviderSettings } from "@rakazo/adapters";
@@ -54,6 +55,7 @@ import {
   PrismaPushTokenStore,
   pipedreamConfigFromEnv,
   RunJobPublisher,
+  RunStarter,
   RunWorkerHost,
   reconcileCloudAgents,
   reconcileComputerUpdates,
@@ -211,9 +213,11 @@ async function main() {
   const home = createAgentHomeStore(dataDir, prisma);
   void home.removeStaleStaging().catch((error) => logger.error("home staging cleanup", error));
   const artifacts = createArtifactStore(dataDir, prisma);
+  const shutdown = new AbortController();
   const inMemoryJobs = process.env.WAKEUP_DRIVER === "memory" ? new InMemoryJobQueue() : undefined;
+  const runs = new RunStarter(realtime, { signal: shutdown.signal });
   const jobs: JobPublisher =
-    inMemoryJobs ?? new RunJobPublisher(prisma, realtime, new GraphileJobPublisher(pool, prisma));
+    inMemoryJobs ?? new RunJobPublisher(prisma, new GraphileJobPublisher(pool, prisma), runs);
   const { messaging } = installedMessaging(
     prisma,
     secrets,
@@ -242,7 +246,6 @@ async function main() {
     jobs,
     accessToken: process.env.EXPO_ACCESS_TOKEN,
   });
-  const shutdown = new AbortController();
   const executor = createRunExecutor({
     maxUploadSizeBytes: uploadSizeFromEnv(process.env),
     prisma,
@@ -303,7 +306,7 @@ async function main() {
   const jobHost: JobWorkerHost =
     inMemoryJobs ??
     withRunWorker(
-      new RunWorkerHost(prisma, realtime),
+      new RunWorkerHost(prisma, realtime, runs, { pool }),
       createReservedGraphileJobWorkerHost(pool, {
         concurrency: parsePositiveInteger(process.env.GRAPHILE_WORKER_CONCURRENCY, 4),
       }),
@@ -317,7 +320,8 @@ async function main() {
     artifacts,
     jobs,
     events,
-    workerId: process.pid.toString(),
+    // Deploys run the old and new worker side by side, and every container runs node as the same pid.
+    workerId: `${hostname()}:${process.pid}`,
     runtime,
     secretStore: secrets,
     memoryProviders,

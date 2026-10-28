@@ -281,6 +281,7 @@ export const JA_MESSAGES: Record<string, string> = {
   "Tap to open": "タップして開く",
   "Could not open message": "メッセージを開けませんでした",
   "Could not send answer": "回答を送信できませんでした",
+  "Save to Vault": "保管庫に保存",
   "Could not speak": "読み上げできませんでした",
   "Could not update reaction": "リアクションを更新できませんでした",
   Created: "作成済み",
@@ -317,6 +318,7 @@ export const JA_MESSAGES: Record<string, string> = {
   "Return to inbox": "受信トレイに戻る",
   Running: "実行中",
   Saved: "保存しました",
+  Sent: "送信しました",
   Send: "送信",
   "Send answer": "回答を送信",
   "Sending…": "送信中…",
@@ -959,6 +961,8 @@ export const JA_MESSAGES: Record<string, string> = {
     "起動中に問題が発生しました。しばらくしてからもう一度お試しください。",
   "Your voice provider is out of credit.": "音声プロバイダーのクレジットが不足しています。",
   "Your voice provider key was rejected.": "音声プロバイダーのキーが拒否されました。",
+  "This app needs its own sign-in setup to connect.":
+    "このアプリを接続するには、専用のサインイン設定が必要です。",
   Billing: "請求",
   "Could not load billing": "請求情報を読み込めませんでした",
   "Could not update billing": "請求情報を更新できませんでした",
@@ -1230,4 +1234,10 @@ export const JA_MESSAGES: Record<string, string> = {
   "Could not load skill": "スキルを読み込めませんでした",
   "Could not save skill": "スキルを保存できませんでした",
   "Could not delete skill": "スキルを削除できませんでした",
+  "Invite friends": "友だちを招待",
+  "Get a free month for each friend who starts a trial.":
+    "友だちがトライアルを開始するたびに、1か月無料になります。",
+  "1 free month earned": "1か月分の無料期間を獲得",
+  "{count} free months earned": "{count}か月分の無料期間を獲得",
+  "Submit a plugin": "プラグインを申請",
 };

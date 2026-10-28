@@ -126,6 +126,8 @@ function SpaceShell() {
   });
   const {
     navigate,
+    navigationRevision,
+    overlayRevision,
     alive,
     searchParams,
     setSearchParams,
@@ -390,6 +392,8 @@ function SpaceShell() {
     bootstrapSpaceId: bootstrapMe?.spaceId,
     userId,
     navigate,
+    navigationRevision,
+    overlayRevision,
     closeMobileSidebar: () => setMobileSidebarOpen(false),
   });
 

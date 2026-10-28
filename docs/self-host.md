@@ -42,7 +42,7 @@ role, keep [restricted computer egress](#restricted-computer-egress) on so bot c
 cannot read the role's credentials from the metadata endpoint.
 Approvals have three modes in **Settings → Approvals**: Never ask runs every action, Auto lets an
 approval model pass actions that fit the request, and Ask asks before any change. A space starts
-in Ask, or in Auto when `RAKAZO_AUTO_REVIEW=1` is set and an approval model is available. Each
+in Auto, which asks like Ask until an approval model is available. Each
 person can allow or block single tools and sites in every mode, and a space can customize its
 approvals apart from the account.
 
@@ -99,6 +99,14 @@ Docker computer topology:
 
 Set any of them to `0`, `none` or `unlimited` to remove that ceiling. A malformed value fails the
 supervisor at startup naming the variable, rather than surfacing later as a failed bot.
+
+### API and worker memory
+
+Chat runs execute in the API container that receives the message, and routines and other
+background runs execute in the worker, so both hold live agent turns. In the production Compose
+file, `RAKAZO_API_MEMORY_LIMIT` and `RAKAZO_WORKER_MEMORY_LIMIT` cap them (Compose sizes such as
+`2g` or `3072m`, default `2g` each). Raise them on a larger host. Deploys briefly run the old and
+new container of each side by side, so leave room for both.
 
 ### Restricted computer egress
 
@@ -1598,8 +1606,8 @@ checkout tracks, so a fork pulls what its own CI published. If the pull fails or
 the host instead; set `RAKAZO_DEPLOY_IMAGE=` (empty) to always build. This repository's images are public, so the
 host needs no registry login; for a private fork package, `docker login ghcr.io` as root with a
 token that can only read packages. The deploy
-starts each new API and web container beside the running one and stops the old one only once the
-new one is healthy, so a deploy does not take the site offline, then waits for
+starts each new API, web and worker container beside the running one and stops the old one only
+once the new one is healthy, so a deploy does not take the site offline or pause chat, then waits for
 `https://$RAKAZO_HOST/health` and rolls back on failure by restoring the image the previous
 containers ran. Old and new API containers serve together
 for a few seconds after migrations run, so a migration must keep working with the previous

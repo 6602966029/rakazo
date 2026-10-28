@@ -91,7 +91,7 @@ describe("Playwright artifact publication boundary", () => {
       const output = path.join(root, "output");
       const step = workflow
         .split("      - name: Read Playwright job result\n")[1]
-        ?.split("      - name: Resolve pull request\n")[0];
+        ?.split("\n  publish:\n")[0];
       expect(step).toContain("RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}");
       const script = step?.split("        run: |\n")[1]?.replace(/^ {10}/gm, "");
       expect(script).toBeTruthy();

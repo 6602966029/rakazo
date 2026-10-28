@@ -4,8 +4,10 @@ import { join } from "node:path";
 import { UnauthorizedError } from "@modelcontextprotocol/sdk/client/auth.js";
 import { StreamableHTTPError } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import {
+  OAuthError,
   ServerError,
   TemporarilyUnavailableError,
+  TooManyRequestsError,
 } from "@modelcontextprotocol/sdk/server/auth/errors.js";
 import type {
   AdapterContext,
@@ -28,6 +30,7 @@ import { availableInSpace, itemSecretIn } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { sanitizedError } from "@rakazo/logging/monitoring";
 import { catalogToolPrefix } from "./approval-effect.js";
+import { composioToolBatch } from "./composio-batch.js";
 import {
   combineSignals,
   redactConnectorPayload,
@@ -149,8 +152,19 @@ function expectedFailure(error: unknown, depth = 0): ExpectedFailure | undefined
   }
   if (error instanceof ConnectorRedirectError) return "reconnect";
   // The server's own OAuth endpoint failed or is overloaded; it usually recovers by itself.
-  if (error instanceof ServerError || error instanceof TemporarilyUnavailableError)
+  if (
+    error instanceof ServerError ||
+    error instanceof TemporarilyUnavailableError ||
+    error instanceof TooManyRequestsError
+  )
     return "unreachable";
+  // The authorization server refused our client or grant, or cannot register a client at
+  // all; the user signs in again or enters a pre-registered client.
+  if (
+    error instanceof OAuthError ||
+    error.message === "Incompatible auth server: does not support dynamic client registration"
+  )
+    return "reconnect";
   const code = (error as { code?: unknown }).code;
   if (code === "ENOTFOUND") return "reconnect";
   if (typeof code === "string" && UNREACHABLE_CODES.has(code)) return "unreachable";
@@ -474,6 +488,7 @@ export class McpConnector implements ConnectorProvider {
               description: tool.description ?? tool.name,
               inputSchema: tool.inputSchema as Record<string, unknown>,
               readOnly: tool.annotations?.readOnlyHint,
+              batch: composioToolBatch(tool.name),
               route: {
                 connectorId: "mcp",
                 resourceId: assignment.serverId,

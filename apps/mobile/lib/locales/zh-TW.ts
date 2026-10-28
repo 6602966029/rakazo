@@ -192,6 +192,7 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   expired: "已過期",
 
   Saved: "已儲存",
+  Sent: "已傳送",
   " (unread)": "（未讀）",
   Appearance: "外觀",
   Dark: "深色",
@@ -393,6 +394,7 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   "Could not save the server URL": "無法儲存伺服器網址",
   "Could not send reset email": "無法傳送重設郵件",
   "Could not send answer": "無法傳送回答",
+  "Save to Vault": "儲存到保險庫",
   "Could not share file": "無法分享檔案",
   "Could not sign out": "無法登出",
   "Could not speak": "無法朗讀",
@@ -961,6 +963,7 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
     "啟動時出了點問題。請稍後重試。",
   "Your voice provider is out of credit.": "你的語音供應商額度已用完。",
   "Your voice provider key was rejected.": "你的語音供應商拒絕了該金鑰。",
+  "This app needs its own sign-in setup to connect.": "此應用程式需要單獨設定登入才能連線。",
   Billing: "帳務",
   "Could not load billing": "無法載入帳務資訊",
   "Could not update billing": "無法更新帳務資訊",
@@ -1214,4 +1217,10 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   "Could not load skill": "無法載入技能",
   "Could not save skill": "無法儲存技能",
   "Could not delete skill": "無法刪除技能",
+  "Invite friends": "邀請朋友",
+  "Get a free month for each friend who starts a trial.":
+    "每有一位朋友開始試用，你就能獲得一個月免費。",
+  "1 free month earned": "已獲得 1 個月免費",
+  "{count} free months earned": "已獲得 {count} 個月免費",
+  "Submit a plugin": "提交外掛程式",
 };

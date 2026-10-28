@@ -106,6 +106,9 @@ import {
   PluginMarketplaceCatalogSchema,
   PluginPartSchema,
   PluginPreviewSchema,
+  PluginSubmissionReviewSchema,
+  PluginSubmissionSchema,
+  PluginSubmissionStatusSchema,
   REPLY_QUOTE_MAX_LENGTH,
   ReorderBotsInput,
   ROUTINE_MENTION_BATCH_MAX,
@@ -267,6 +270,10 @@ export const appContract = {
     portal: oc
       .input(z.object({ client: BillingClientSchema }).optional())
       .output(z.object({ url: z.string().url() })),
+    /** Records who invited this organization; ignored once it has subscribed. */
+    claimReferral: oc
+      .input(z.object({ code: z.string().min(1).max(64) }))
+      .output(z.object({ ok: z.literal(true) })),
   },
   preferences: {
     update: oc
@@ -585,9 +592,18 @@ export const appContract = {
             fields: z.array(LoginFieldInput).min(1).max(LOGIN_FIELD_LIMIT).optional(),
             /** A login card's answer from apps that predate `fields`; `answer` carries its password. */
             username: z.string().min(1).max(512).optional(),
+            /** Only for a login card: use the login for this run only instead of saving it. */
+            remember: z.literal(false).optional(),
             /** Turns down a pending secret request; `answer` is then empty. */
             dismiss: z.literal(true).optional(),
           })
+          .refine(
+            (input) => input.remember === undefined || Boolean(input.fields ?? input.username),
+            {
+              message: "Only a website login can be used without saving it",
+              path: ["remember"],
+            },
+          )
           .refine(
             (input) =>
               input.dismiss
@@ -876,6 +892,12 @@ export const appContract = {
     catalog: oc
       .input(z.object({ query: z.string().trim().max(200).default("") }))
       .output(PluginMarketplaceCatalogSchema),
+    /** Admins only. */
+    submissions: oc
+      .input(z.object({ status: PluginSubmissionStatusSchema.default("pending") }))
+      .output(z.array(PluginSubmissionSchema)),
+    /** Admins only. */
+    review: oc.input(PluginSubmissionReviewSchema).output(PluginSubmissionSchema),
   },
   capabilities: {
     list: oc.output(z.array(CapabilityInstallSchema)),

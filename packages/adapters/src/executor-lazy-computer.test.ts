@@ -1,5 +1,5 @@
 import type { AgentRunRequest, ComputerRef } from "@rakazo/adapter-kit";
-import { SandboxRateLimitError } from "@rakazo/adapter-kit";
+import { SandboxRateLimitError, SandboxUnresponsiveError } from "@rakazo/adapter-kit";
 import type { MessageBlock } from "@rakazo/contracts";
 import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -110,10 +110,12 @@ async function runRoutine(
     run: {
       findUnique: vi.fn(async () => run),
       findUniqueOrThrow: vi.fn(async () => run),
-      findFirst: vi.fn(async () => ({
-        bot: { notifyOnFinish: false },
-        thread: { groupId: null },
-      })),
+      // No other run of this bot waits for the computer.
+      findFirst: vi.fn(async (args?: { where?: { status?: unknown } }) =>
+        args?.where?.status === "queued"
+          ? null
+          : { bot: { notifyOnFinish: false }, thread: { groupId: null } },
+      ),
       updateMany: vi.fn(
         async ({
           where,
@@ -199,7 +201,7 @@ async function runRoutine(
     computer: { updateMany: vi.fn(async () => ({ count: 1 })) },
     connection: { findMany: vi.fn(async () => []) },
     userModelPreference: { findFirst: vi.fn(async () => null) },
-    secret: { findFirst: vi.fn(async () => null) },
+    secret: { findMany: vi.fn(async () => []), findFirst: vi.fn(async () => null) },
     userModelCredential: { findFirst: vi.fn(async () => null) },
     deploymentSettings: {
       findUnique: vi.fn(async () => ({
@@ -563,6 +565,21 @@ describe("run computer provisioning", () => {
       "Run setup failed; retrying",
     );
     expect(provisionComputer).toHaveBeenCalledOnce();
+    expect(sink.events).toContainEqual(
+      expect.objectContaining({ level: "error", message: "run setup failed" }),
+    );
+  });
+
+  it("retries setup after a computer provider outage without an error report", async () => {
+    provisionComputer.mockRejectedValue(new SandboxUnresponsiveError("Boat could not be reached"));
+
+    await expect(runRoutine([{ name: "list_files", args: { path: "" } }])).rejects.toThrow(
+      "Run setup failed; retrying",
+    );
+    expect(sink.events).toContainEqual(
+      expect.objectContaining({ level: "warn", message: "run setup failed" }),
+    );
+    expect(sink.events.filter((event) => event.level === "error")).toEqual([]);
   });
 
   it("fails the run instead of retrying once setup has failed too many times in a row", async () => {

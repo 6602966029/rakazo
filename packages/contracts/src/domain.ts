@@ -96,7 +96,6 @@ export const BotSchema = z.object({
   title: z.string(),
   description: z.string(),
   instructions: z.string(),
-  selfUpdateInstructions: z.boolean().optional(),
   instructionHistory: z.array(InstructionVersionSchema).optional(),
   color: z.string(),
   avatarSet: BotAvatarSetSchema.optional(),
@@ -400,6 +399,7 @@ export const UpdateBotInput = z
     description: z.string().trim().max(BOT_DESCRIPTION_MAX_LENGTH).optional(),
     instructions: z.string().trim().max(BOT_INSTRUCTIONS_MAX_LENGTH).optional(),
     expectedInstructions: z.string().max(BOT_INSTRUCTIONS_MAX_LENGTH).optional(),
+    /** Ignored; installed mobile apps may still send it. */
     selfUpdateInstructions: z.boolean().optional(),
     notifyOnFinish: z.boolean().optional(),
     color: BotAvatarValueSchema.optional(),
@@ -878,6 +878,47 @@ export const PluginMarketplaceCatalogSchema = z.object({
   skippedEntries: z.number().int().nonnegative(),
 });
 export type PluginMarketplaceCatalog = z.infer<typeof PluginMarketplaceCatalogSchema>;
+
+export const PLUGIN_SUBMISSIONS_PATH = "/api/v1/plugin-submissions";
+export const SUBMIT_PLUGIN_URL = "https://rakazo.com/plugins/submit/";
+
+const HttpsUrlSchema = z
+  .string()
+  .trim()
+  .max(2048)
+  .url()
+  .refine((value) => value.startsWith("https://"), "Use an https:// URL");
+
+export const PluginSubmissionInputSchema = z.object({
+  email: z.string().trim().max(254).email(),
+  name: z.string().trim().min(1).max(80),
+  website: HttpsUrlSchema.optional(),
+  logo: HttpsUrlSchema,
+  source: HttpsUrlSchema,
+  description: z.string().trim().min(1).max(2000),
+  testing: z.string().trim().min(1).max(4000),
+  tested: z.literal(true),
+});
+export type PluginSubmissionInput = z.infer<typeof PluginSubmissionInputSchema>;
+
+export const PluginSubmissionStatusSchema = z.enum(["pending", "approved", "rejected"]);
+export type PluginSubmissionStatus = z.infer<typeof PluginSubmissionStatusSchema>;
+
+export const PluginSubmissionSchema = PluginSubmissionInputSchema.omit({ tested: true }).extend({
+  id: z.string(),
+  website: z.string().nullable(),
+  status: PluginSubmissionStatusSchema,
+  reason: z.string().nullable(),
+  createdAt: z.string(),
+  reviewedAt: z.string().nullable(),
+});
+export type PluginSubmission = z.infer<typeof PluginSubmissionSchema>;
+
+export const PluginSubmissionReviewSchema = z.discriminatedUnion("decision", [
+  z.object({ id: Id, decision: z.literal("approve") }),
+  z.object({ id: Id, decision: z.literal("reject"), reason: z.string().trim().min(1).max(1000) }),
+]);
+export type PluginSubmissionReview = z.infer<typeof PluginSubmissionReviewSchema>;
 
 export const IntegrationCatalogSurfaceSchema = z.object({
   kind: z.enum(["mcp", "openapi", "graphql", "cli"]),
@@ -1703,6 +1744,8 @@ export const MeSchema = z.object({
   spaceId: Id,
   /** Deprecated: app accounts never have server administrator privileges. Always false. */
   isDeploymentOwner: z.boolean(),
+  /** Listed in RAKAZO_ADMIN_EMAILS with a verified email: reviews plugin submissions. */
+  isAdmin: z.boolean().default(false),
   needsModel: z.boolean(),
   defaultProvider: z.string().nullable(),
   defaultModel: z.string().nullable(),
@@ -1801,6 +1844,11 @@ export const BillingStatusSchema = z.object({
   currentPeriodEndsAt: z.string().nullable(),
   cancelAtPeriodEnd: z.boolean(),
   hasCustomer: z.boolean(),
+  /** Present once the organization has subscribed: its invite link and free months earned. */
+  referral: z
+    .object({ url: z.string().url(), rewards: z.number().int().nonnegative() })
+    .nullable()
+    .optional(),
 });
 export type BillingStatus = z.infer<typeof BillingStatusSchema>;
 

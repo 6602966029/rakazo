@@ -263,3 +263,33 @@ test("choose your own key or monthly credits, then add a one-time top-up", async
   ).toHaveCount(0);
   expect(purchase).toEqual({ amountCents: 5000, monthly: false });
 });
+
+test("a subscribed account invites friends from the account menu", async ({ page }, testInfo) => {
+  const stamp = Date.now();
+  await signup(page, `referral-${stamp}@rakazo.test`, "password12", "Demo Customer");
+  await completeOnboarding(page);
+  await page.route("**/api/auth/capabilities", async (route) => {
+    const response = await route.fetch();
+    await route.fulfill({ response, json: { ...(await response.json()), billing: true } });
+  });
+  await page.route("**/rpc/me", (route) => enableBilling(route, "me"));
+  await page.route("**/rpc/bootstrap", (route) => enableBilling(route, "bootstrap"));
+  const url = new URL("/sign-up?ref=demo42", page.url()).href;
+  const status = billingStatus({
+    access: true,
+    trialAvailable: false,
+    state: "trialing",
+    hasCustomer: true,
+    referral: { url, rewards: 2 },
+  });
+  await page.route("**/rpc/billing/status", (route) => route.fulfill({ json: { json: status } }));
+  await page.reload();
+  await expect(page.getByText("Chief").first()).toBeVisible();
+
+  await page.getByTestId("user-menu-trigger").click();
+  await page.getByRole("button", { name: "Invite friends", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Invite friends" });
+  await expect(dialog.getByRole("textbox", { name: "Invite link" })).toHaveValue(url);
+  await expect(dialog.getByText("2 free months earned", { exact: true })).toBeVisible();
+  await captureScreenshot(page, testInfo, "invite-friends");
+});

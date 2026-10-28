@@ -417,7 +417,7 @@ export function normalizeRunError(
   } else if (
     status === 401 ||
     ((status === 403 ||
-      /(?:invalid|incorrect)[_ -](?:api[_ -])?key|api[_ -]?key[_ -](?:invalid|expired)|authentication_error|\bauthentication token has expired\b/i.test(
+      /(?:invalid|incorrect)[_ -](?:api[_ -])?key|api[_ -]?key[_ -](?:invalid|expired)|authentication_error|\bauthentication token has expired\b|\binvalidated oauth token\b/i.test(
         signals,
       )) &&
       /auth|unauthorized|invalid|key/i.test(signals))

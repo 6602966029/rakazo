@@ -426,11 +426,10 @@ export function computerRoutes(ctx: RouterContext) {
             expiresAt: current.controlLeaseExpiresAt!.toISOString(),
           };
         }
-        try {
-          await scheduleComputerControlExpiry(deps.jobs, bot.computer.id, leaseId, expiresAt);
-        } catch (error) {
-          await deps.prisma.computer.updateMany({
-            where: { id: bot.computer.id, controlLeaseId: leaseId },
+        const computerId = bot.computer.id;
+        const withdrawGrant = () =>
+          deps.prisma.computer.updateMany({
+            where: { id: computerId, controlLeaseId: leaseId },
             data: {
               controlHolder: "none",
               controlLeaseId: null,
@@ -439,6 +438,22 @@ export function computerRoutes(ctx: RouterContext) {
               controlRunId: null,
             },
           });
+        if (waitingForTakeover && executionLease) {
+          // The wait can end (expired, or yielded to newer work) between the read above and the
+          // grant. Bound to an ended run, the user would share the screen with the next run.
+          const waiting = await deps.prisma.run.findUnique({
+            where: { id: executionLease.runId },
+            select: { status: true },
+          });
+          if (!ACTIVE_RUN_STATUSES.some((status) => status === waiting?.status)) {
+            await withdrawGrant();
+            throw new ORPCError("CONFLICT", { message: "Computer control changed; try again" });
+          }
+        }
+        try {
+          await scheduleComputerControlExpiry(deps.jobs, computerId, leaseId, expiresAt);
+        } catch (error) {
+          await withdrawGrant();
           throw error;
         }
         if (bot.thread) {

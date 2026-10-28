@@ -7,7 +7,7 @@ import type {
   PluginMarketplaceEntry,
   RpcOutput,
 } from "@rakazo/contracts";
-import { CONNECTION_LABEL_MAX_LENGTH } from "@rakazo/contracts";
+import { CONNECTION_LABEL_MAX_LENGTH, SUBMIT_PLUGIN_URL } from "@rakazo/contracts";
 import type { PluginCategory } from "@rakazo/core";
 import {
   buildFeaturedConnectorTiles,
@@ -1419,6 +1419,16 @@ export default function Integrations() {
                 ) : null}
 
                 {renderPlugins()}
+                {pluginsState !== "loading" ? (
+                  <NativeActionButton
+                    fill={false}
+                    label={t("Submit a plugin")}
+                    onPress={() => void Linking.openURL(SUBMIT_PLUGIN_URL)}
+                    prominence="quiet"
+                    size="compact"
+                    variant="text"
+                  />
+                ) : null}
               </>
             )}
           </>

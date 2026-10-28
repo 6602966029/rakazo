@@ -226,6 +226,9 @@ model Organization {
   spaces       Space[]
   billing      BillingAccount?
   modelCredits ModelCreditAccount?
+  referralCode ReferralCode?
+  referredBy   Referral?           @relation("ReferredOrganization")
+  referrals    Referral[]          @relation("ReferrerOrganization")
 
   @@unique([slug])
   @@map("organization")
@@ -251,6 +254,52 @@ model BillingAccount {
   updatedAt           DateTime     @updatedAt
 
   @@map("billing_accounts")
+}
+
+model ReferralCode {
+  code           String       @id
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@map("referral_codes")
+}
+
+model Referral {
+  organizationId         String       @id
+  organization           Organization @relation("ReferredOrganization", fields: [organizationId], references: [id], onDelete: Cascade)
+  referrerOrganizationId String
+  referrer               Organization @relation("ReferrerOrganization", fields: [referrerOrganizationId], references: [id], onDelete: Cascade)
+  cardFingerprint        String?      @unique
+  outcome                String?
+  rewardedAt             DateTime?
+
+  @@index([referrerOrganizationId])
+  @@map("referrals")
+}
+
+model PluginSubmission {
+  id           String    @id @default(cuid())
+  email        String
+  name         String
+  website      String?
+  logo         String
+  source       String
+  description  String
+  testing      String
+  status       String    @default("pending")
+  reason       String?
+  // Set on approval.
+  pinnedSource String?
+  hasConnector Boolean   @default(false)
+  skillCount   Int       @default(0)
+  reviewedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([status, createdAt])
+  @@index([source])
+  @@map("plugin_submissions")
 }
 
 model ActionApprovalRule {
@@ -552,10 +601,8 @@ model Bot {
   space             Space             @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   userId            String
   name              String
-  title             String            @default("")
   description       String            @default("")
   instructions      String            @default("")
-  selfUpdateInstructions Boolean @default(false)
   instructionHistory Json @default("[]")
   pendingInstructionsRunId String?
   color             String
@@ -984,6 +1031,9 @@ model ExternalEffect {
   idempotencyKey String
   status         String
   request        Json
+  /// The actions a batch tool call runs, which approval rules and read trust judge instead of
+  /// `kind`. Empty when an entry names no action; null for any other tool.
+  batchActions   Json?
   result         Json?
   reviewDecision String?
   reviewReason   String?
