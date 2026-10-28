@@ -128,6 +128,9 @@ export function AgentImportForm({
   const [busy, setBusy] = useState(false);
   // Bumped by every new read, so a slower earlier one never lands over it.
   const latestRead = useRef(0);
+  // Stays set until createBot finishes. Back may cancel a read, not a create.
+  const creatingRef = useRef(false);
+  const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function failure(err: unknown, fallback: string) {
@@ -358,6 +361,7 @@ export function AgentImportForm({
   }
 
   function stopReading() {
+    if (creatingRef.current) return;
     ++latestRead.current;
     setBusy(false);
   }
@@ -388,8 +392,10 @@ export function AgentImportForm({
       : Boolean(targetBot) && !(replaceInstructions && tooLong);
 
   async function create() {
-    if (!plan || !ready || (target === "new" && tooLong) || busy) return;
+    if (!plan || !ready || (target === "new" && tooLong) || busy || creatingRef.current) return;
     setError(null);
+    creatingRef.current = true;
+    setCreating(true);
     setBusy(true);
     try {
       const bot = await createBot({
@@ -433,6 +439,8 @@ export function AgentImportForm({
       onCreated(bot);
     } catch (err) {
       failure(err, t`Could not create bot`);
+      creatingRef.current = false;
+      setCreating(false);
       setBusy(false);
     }
   }
@@ -561,7 +569,9 @@ export function AgentImportForm({
               variant="ghost"
               size="icon-sm"
               aria-label={t`Back`}
+              disabled={creating}
               onClick={() => {
+                if (creatingRef.current) return;
                 stopReading();
                 if (plan) setPlan(null);
                 else onBack();
@@ -950,8 +960,9 @@ export function AgentImportForm({
             {page ? (
               <Button
                 variant="outline"
-                disabled={busy}
+                disabled={busy || creating}
                 onClick={() => {
+                  if (creatingRef.current) return;
                   stopReading();
                   setPlan(null);
                 }}

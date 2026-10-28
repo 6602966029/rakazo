@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { i18n } from "@lingui/core";
-import type { AgentImportPlan } from "@rakazo/contracts";
+import type { AgentImportPlan, Bot } from "@rakazo/contracts";
 import type * as Core from "@rakazo/core";
 import type { ReactNode } from "react";
 import { act, StrictMode } from "react";
@@ -455,5 +455,86 @@ describe("choosing another agent while the first is still being read", () => {
     const names = [...container.querySelectorAll("input")].map((input) => input.value);
     expect(names).toContain("Second");
     expect(names).not.toContain("First");
+  });
+});
+
+describe("creating a bot", () => {
+  function button(label: string) {
+    return [...container!.querySelectorAll("button")].find(
+      (item) => item.textContent === label || item.getAttribute("aria-label") === label,
+    ) as HTMLButtonElement;
+  }
+
+  async function openPreview(createBot: () => Promise<Bot>) {
+    importPreview.mockResolvedValue({ ...plan, suggestedName: "Pebble" });
+    const onBack = vi.fn();
+    const onCreated = vi.fn();
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+    await act(async () => {
+      root!.render(
+        <AgentImportForm
+          onBack={onBack}
+          onCancel={() => undefined}
+          onCreated={onCreated}
+          createBot={createBot}
+        />,
+      );
+    });
+    const archive = container.querySelector<HTMLInputElement>(
+      '[data-testid="agent-import-archive"]',
+    )!;
+    const file = new File(["backup"], "backup.zip", { type: "application/zip" });
+    Object.defineProperty(file, "arrayBuffer", {
+      value: () => Promise.resolve(new Uint8Array([2]).buffer),
+    });
+    await act(async () => {
+      Object.defineProperty(archive, "files", { configurable: true, value: [file] });
+      archive.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    return { onBack, onCreated };
+  }
+
+  it("keeps the panel locked when Back is pressed while creation is running", async () => {
+    let finish!: (bot: Bot) => void;
+    const createBot = vi.fn(
+      () =>
+        new Promise<Bot>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const { onBack, onCreated } = await openPreview(createBot);
+    await act(async () => button("Create").click());
+    expect(createBot).toHaveBeenCalledTimes(1);
+    expect(button("Creating…").disabled).toBe(true);
+
+    const back = button("Back");
+    expect(back.disabled).toBe(true);
+    await act(async () => {
+      back.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(onBack).not.toHaveBeenCalled();
+    expect(onCreated).not.toHaveBeenCalled();
+    expect(container!.querySelector('[data-testid="agent-import-preview"]')).not.toBeNull();
+    expect(container!.querySelector('[data-testid="agent-import-choose"]')).toBeNull();
+    expect(button("Creating…").disabled).toBe(true);
+    expect(createBot).toHaveBeenCalledTimes(1);
+
+    await act(async () => finish({ id: "bot-1" } as Bot));
+    expect(onCreated).toHaveBeenCalledTimes(1);
+    expect(createBot).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets Back leave the preview after creation fails", async () => {
+    const { onBack } = await openPreview(() => Promise.reject(new Error("nope")));
+    await act(async () => button("Create").click());
+    const back = button("Back");
+    expect(back.disabled).toBe(false);
+    await act(async () => back.click());
+    expect(onBack).not.toHaveBeenCalled();
+    expect(container!.querySelector('[data-testid="agent-import-choose"]')).not.toBeNull();
+    expect(container!.querySelector('[data-testid="agent-import-preview"]')).toBeNull();
   });
 });
