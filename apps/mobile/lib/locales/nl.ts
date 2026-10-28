@@ -1176,4 +1176,8 @@ export const NL_MESSAGES: Record<string, string> = {
   "Available in": "Beschikbaar in",
   "{count} spaces": "{count} spaces",
   "Remove from every space?": "Uit alle spaces verwijderen?",
+  "New skill": "Nieuwe skill",
+  "Could not load skill": "Kan skill niet laden",
+  "Could not save skill": "Kan skill niet opslaan",
+  "Could not delete skill": "Kan skill niet verwijderen",
 };

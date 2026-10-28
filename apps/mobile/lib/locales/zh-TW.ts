@@ -1192,4 +1192,8 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   "Available in": "可用於",
   "{count} spaces": "{count} 個空間",
   "Remove from every space?": "要從所有空間中移除嗎？",
+  "New skill": "新增技能",
+  "Could not load skill": "無法載入技能",
+  "Could not save skill": "無法儲存技能",
+  "Could not delete skill": "無法刪除技能",
 };

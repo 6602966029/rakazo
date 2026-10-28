@@ -1215,4 +1215,8 @@ export const RU_MESSAGES: Record<string, string> = {
   "Available in": "Доступно в",
   "{count} spaces": "Пространств: {count}",
   "Remove from every space?": "Удалить из всех пространств?",
+  "New skill": "Новый навык",
+  "Could not load skill": "Не удалось загрузить навык",
+  "Could not save skill": "Не удалось сохранить навык",
+  "Could not delete skill": "Не удалось удалить навык",
 };

@@ -104,6 +104,8 @@ export default function SettingsLayout() {
       <Stack.Screen name="team-conversation" />
       <Stack.Screen name="integrations" options={glassHeaderOptions(t("Integrations"))} />
       <Stack.Screen name="skills" options={glassHeaderOptions(t("Skills"))} />
+      {/* Titled by the screen once the skill loads. */}
+      <Stack.Screen name="skill" options={glassHeaderOptions("")} />
       <Stack.Screen
         name="plugin"
         // Named after the plugin it opened.

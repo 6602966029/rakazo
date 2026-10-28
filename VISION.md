@@ -63,6 +63,11 @@ One bot has one continuous visible thread because continuity is part of its iden
 Team Computers share a persisted browser identity and isolate simultaneous live desktops when supported because shared login state and safe concurrency are both required.
 Private Computers isolate the entire working home because some trust boundaries must be stronger than collaboration convenience.
 Connections belong to the user or space rather than requiring repetitive per-bot setup because bots differ through role and state, not account plumbing.
+Plugins in the shared plugin format install as ordinary connectors and skills rather than a runtime of their own, so sign-in, approvals and per-bot enablement work the same wherever a capability came from.
+The built-in plugin catalog lists only plugins whose every part installs, because a half-working default is worse than none, while a plugin imported by URL installs what works and names what it left out.
+Plugin parts that would run the plugin's own code on our side, such as hooks, language servers, local MCP commands and skill scripts, are not installed, because executing third-party code is a boundary the catalog does not cross.
+Integrations is where apps are connected and skills have their own place, because a skill is know-how that needs no account and many skills have nothing to connect.
+A brand's connector and its skills are added separately, because connecting an app should not also load dozens of playbooks.
 Settings such as models, voice and approvals are account defaults that every space follows, and a space customizes one only as a deliberate exception, because few people want a different setup per space and spaces exist to separate work, not configuration.
 Skills, MCP servers, plugins and tool sources belong to the account of the user who added them, and each is available in all of that user's spaces or only in chosen ones, because one setup should serve every space while spaces stay private.
 All spaces includes spaces created later, because choosing it means the item should follow the user wherever they work.

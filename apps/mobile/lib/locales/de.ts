@@ -1184,4 +1184,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Available in": "Verfügbar in",
   "{count} spaces": "{count} Spaces",
   "Remove from every space?": "Aus allen Spaces entfernen?",
+  "New skill": "Neuer Skill",
+  "Could not load skill": "Skill konnte nicht geladen werden",
+  "Could not save skill": "Skill konnte nicht gespeichert werden",
+  "Could not delete skill": "Skill konnte nicht gelöscht werden",
 };

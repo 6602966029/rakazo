@@ -1208,4 +1208,8 @@ export const JA_MESSAGES: Record<string, string> = {
   "Available in": "利用できる場所",
   "{count} spaces": "{count} 個のスペース",
   "Remove from every space?": "すべてのスペースから削除しますか？",
+  "New skill": "新しいスキル",
+  "Could not load skill": "スキルを読み込めませんでした",
+  "Could not save skill": "スキルを保存できませんでした",
+  "Could not delete skill": "スキルを削除できませんでした",
 };
