@@ -1077,7 +1077,7 @@ model TaughtSkill {
   @@map("taught_skills")
 }
 
-/// What an agent import created, so Undo can remove it.
+/// An agent import, read by its setup checklist and by a retried create.
 model AgentImport {
   id            String   @id @default(cuid())
   spaceId       String

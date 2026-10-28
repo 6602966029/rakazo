@@ -481,7 +481,6 @@ msgstr "Actividad"
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
-#: src/pages/shell/agent-import.tsx
 msgid "Add"
 msgstr "Agregar"
 
@@ -587,10 +586,6 @@ msgstr ""
 #: src/components/integrations/plugin-marketplace.tsx
 msgid "Add skills"
 msgstr ""
-
-#: src/pages/shell/agent-import.tsx
-msgid "Add to an existing bot"
-msgstr "Añadir a un bot existente"
 
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Add to routine"
@@ -800,10 +795,6 @@ msgstr "Encabezado de clave de API"
 msgid "API keys"
 msgstr "Claves de API"
 
-#: src/pages/shell/agent-import-undo.tsx
-msgid "API keys stay connected."
-msgstr "Las claves de API siguen conectadas."
-
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Appearance"
 msgstr "Apariencia"
@@ -876,10 +867,6 @@ msgstr "a las {0}"
 #: src/pages/RoutineSchedule.tsx
 msgid "at {timeSelect}"
 msgstr "a las {timeSelect}"
-
-#: src/pages/shell/composer.tsx
-msgid "Attach"
-msgstr "Adjuntar"
 
 #: src/pages/shell/composer.tsx
 msgid "Attach file"
@@ -1024,7 +1011,6 @@ msgstr "bot"
 #: src/pages/IntegrationSetup.tsx
 #: src/pages/MessagingSettingsPanel.tsx
 #: src/pages/Shell.tsx
-#: src/pages/shell/agent-import.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 #: src/pages/shell/message-view.tsx
 msgid "Bot"
@@ -1139,7 +1125,6 @@ msgstr "No puede leer imágenes"
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/PaymentWalletSettingsPanel.tsx
-#: src/pages/shell/agent-import-undo.tsx
 #: src/pages/shell/create-bot-dialog.tsx
 #: src/pages/shell/dialogs.tsx
 #: src/pages/SpaceSettingOverrides.tsx
@@ -1274,10 +1259,6 @@ msgstr "Comprobando la conexión…"
 #: src/pages/HostComputerPrompt.tsx
 msgid "Checking…"
 msgstr "Comprobando…"
-
-#: src/pages/shell/agent-import.tsx
-msgid "Choose a bot"
-msgstr "Elige un bot"
 
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose a bot shape, color, or upload an image"
@@ -2198,10 +2179,6 @@ msgstr "No se pudo tomar el control"
 #: src/pages/McpServersOverlay.tsx
 msgid "Could not test MCP server"
 msgstr "No se pudo probar el servidor MCP"
-
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Could not undo the import"
-msgstr "No se pudo deshacer la importación"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Could not update"
@@ -3157,24 +3134,14 @@ msgstr "La entrada de imágenes no está configurada para este modelo."
 msgid "Image upload area"
 msgstr "Área de carga de imagen"
 
-#: src/pages/shell/composer.tsx
-#: src/pages/shell/create-bot-dialog.tsx
-msgid "Import"
-msgstr "Importar"
-
-#: src/pages/Onboarding.tsx
+#: src/components/AccountDataSettings.tsx
 #: src/pages/shell/agent-import.tsx
-#: src/pages/shell/message-cards.tsx
 msgid "Import an agent"
 msgstr "Importar un agente"
 
 #: src/components/AccountDataSettings.tsx
 msgid "Import data"
 msgstr "Importar datos"
-
-#: src/pages/shell/composer.tsx
-msgid "Import this agent as a bot?"
-msgstr "¿Importar este agente como bot?"
 
 #: src/lib/ticket-status.ts
 msgid "In progress"
@@ -3297,26 +3264,6 @@ msgstr "Sus bots y grupos se conservan y salen de la sección."
 msgid "Its conversation, files, and routines will be permanently deleted. Bots it created stay in your list."
 msgstr "Su conversación, archivos y rutinas se eliminarán de forma permanente. Los bots que creó permanecerán en tu lista."
 
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Its instructions changed since the import, so they stay."
-msgstr "Sus instrucciones cambiaron desde la importación, así que se mantienen."
-
-#: src/lib/agent-import-errors.ts
-msgid "Its instructions changed. Review them, then try again."
-msgstr "Sus instrucciones cambiaron. Revísalas y vuelve a intentarlo."
-
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Its instructions go back to before the import."
-msgstr "Sus instrucciones vuelven a como estaban antes de la importación."
-
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Its model changed since the import, so it stays."
-msgstr "Su modelo cambió desde la importación, así que se mantiene."
-
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Its model goes back to before the import."
-msgstr "Su modelo vuelve al que tenía antes de la importación."
-
 #: src/pages/shell/transcript.tsx
 msgid "Jump to latest"
 msgstr "Ir al más reciente"
@@ -3329,17 +3276,9 @@ msgstr "Ir al mensaje respondido: {excerpt}"
 msgid "just now"
 msgstr "ahora mismo"
 
-#: src/pages/shell/agent-import.tsx
-msgid "Keep its instructions"
-msgstr "Mantener sus instrucciones"
-
 #: src/pages/shell/dialogs.tsx
 msgid "Keep memories"
 msgstr "Conservar memorias"
-
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Kept"
-msgstr "Se conserva"
 
 #: src/pages/RoutineEditor.tsx
 msgid "key"
@@ -3856,7 +3795,6 @@ msgstr "Silenciado"
 msgid "Name"
 msgstr "Nombre"
 
-#: src/lib/agent-import-errors.ts
 #: src/pages/shell/agent-import.tsx
 msgid "Name this bot"
 msgstr "Nombra este bot"
@@ -3903,7 +3841,6 @@ msgid "New"
 msgstr ""
 
 #: src/pages/Shell.tsx
-#: src/pages/shell/agent-import.tsx
 #: src/pages/shell/bot-picker.tsx
 #: src/pages/shell/create-bot-dialog.tsx
 msgid "New bot"
@@ -4750,10 +4687,6 @@ msgstr ""
 msgid "Remove webhook"
 msgstr "Quitar webhook"
 
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Removed"
-msgstr "Se elimina"
-
 #: src/pages/ScratchpadSection.tsx
 msgid "Removed, but list refresh failed"
 msgstr "Eliminado, pero falló la actualización de la lista"
@@ -4784,10 +4717,6 @@ msgstr "Reabrir"
 #: src/pages/model-settings/connection-controls.tsx
 msgid "Replace API key"
 msgstr "Reemplazar clave de API"
-
-#: src/pages/shell/agent-import.tsx
-msgid "Replace its instructions"
-msgstr "Reemplazar sus instrucciones"
 
 #: src/pages/shell/composer-error.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
@@ -5672,10 +5601,6 @@ msgstr "Ejecución de prueba"
 msgid "Testing…"
 msgstr "Probando…"
 
-#: src/pages/shell/agent-import-undo.tsx
-msgid "The bot and what its import added will be removed."
-msgstr "Se eliminarán el bot y lo que añadió su importación."
-
 #: src/pages/shell/composer-error.tsx
 msgid "The bot can use the file but won't see the picture."
 msgstr "El bot puede usar el archivo, pero no verá la imagen."
@@ -5759,10 +5684,6 @@ msgstr "Este bot"
 msgid "This bot runs on this computer, not a Linux desktop. Shell and files use your home folder."
 msgstr "Este bot se ejecuta en esta computadora, no en un escritorio Linux. El shell y los archivos usan tu carpeta de inicio."
 
-#: src/lib/agent-import-errors.ts
-msgid "This bot was not imported."
-msgstr "Este bot no se importó."
-
 #: src/components/call/IncomingCall.tsx
 msgid "This call is no longer ringing."
 msgstr "Esta llamada ya no está sonando."
@@ -5803,10 +5724,6 @@ msgstr ""
 #: src/components/ArtifactFileCard.tsx
 msgid "This file is not valid UTF-8 text."
 msgstr ""
-
-#: src/lib/agent-import-errors.ts
-msgid "This import changed. Try again."
-msgstr "Esta importación cambió. Vuelve a intentarlo."
 
 #: src/lib/agent-import-errors.ts
 msgid "This import was already used. Choose the files again."
@@ -6011,14 +5928,6 @@ msgstr "Sin asignar"
 #: src/components/AskCard.tsx
 msgid "Undo"
 msgstr "Deshacer"
-
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Undo import"
-msgstr "Deshacer importación"
-
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Undo import?"
-msgstr "¿Deshacer la importación?"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Uninstall"
@@ -6319,10 +6228,6 @@ msgstr "¿Qué resultado demostrarás?"
 msgid "What should this routine do each time it runs?"
 msgstr "¿Qué debe hacer esta rutina cada vez que se ejecute?"
 
-#: src/pages/shell/agent-import-undo.tsx
-msgid "What the import added will be removed. The bot stays."
-msgstr "Se eliminará lo que añadió la importación. El bot se mantiene."
-
 #: src/pages/shell/bot-panel.tsx
 msgid "What this bot is for"
 msgstr "Para qué es este bot"
@@ -6358,10 +6263,6 @@ msgstr "Cuándo usar"
 #: src/pages/HostComputerPrompt.tsx
 msgid "Where should bots run?"
 msgstr "¿Dónde deben ejecutarse los bots?"
-
-#: src/pages/shell/agent-import.tsx
-msgid "Where to import"
-msgstr "Dónde importar"
 
 #: src/lib/ticket-status.ts
 msgid "Won't do"
@@ -6435,14 +6336,6 @@ msgstr "Tus predeterminados"
 #: src/pages/Auth.tsx
 msgid "Your email address"
 msgstr "Tu dirección de correo"
-
-#: src/pages/Onboarding.tsx
-msgid "Your first bot already existed, so the agent was not imported."
-msgstr "Tu primer bot ya existía, así que el agente no se importó."
-
-#: src/lib/agent-import-errors.ts
-msgid "Your first bot already exists."
-msgstr "Tu primer bot ya existe."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts

@@ -481,7 +481,6 @@ msgstr "动态"
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
-#: src/pages/shell/agent-import.tsx
 msgid "Add"
 msgstr "添加"
 
@@ -587,10 +586,6 @@ msgstr "添加服务器 URL"
 #: src/components/integrations/plugin-marketplace.tsx
 msgid "Add skills"
 msgstr ""
-
-#: src/pages/shell/agent-import.tsx
-msgid "Add to an existing bot"
-msgstr "添加到现有机器人"
 
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Add to routine"
@@ -800,10 +795,6 @@ msgstr "API 密钥请求头"
 msgid "API keys"
 msgstr "API 密钥"
 
-#: src/pages/shell/agent-import-undo.tsx
-msgid "API keys stay connected."
-msgstr "API 密钥保持连接。"
-
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Appearance"
 msgstr "外观"
@@ -876,10 +867,6 @@ msgstr "{0}"
 #: src/pages/RoutineSchedule.tsx
 msgid "at {timeSelect}"
 msgstr "{timeSelect}"
-
-#: src/pages/shell/composer.tsx
-msgid "Attach"
-msgstr "附加"
 
 #: src/pages/shell/composer.tsx
 msgid "Attach file"
@@ -1024,7 +1011,6 @@ msgstr "Bot"
 #: src/pages/IntegrationSetup.tsx
 #: src/pages/MessagingSettingsPanel.tsx
 #: src/pages/Shell.tsx
-#: src/pages/shell/agent-import.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 #: src/pages/shell/message-view.tsx
 msgid "Bot"
@@ -1139,7 +1125,6 @@ msgstr "无法读取图像"
 #: src/pages/ModelSettingsOverlay.tsx
 #: src/pages/Onboarding.tsx
 #: src/pages/PaymentWalletSettingsPanel.tsx
-#: src/pages/shell/agent-import-undo.tsx
 #: src/pages/shell/create-bot-dialog.tsx
 #: src/pages/shell/dialogs.tsx
 #: src/pages/SpaceSettingOverrides.tsx
@@ -1274,10 +1259,6 @@ msgstr "正在检查连接…"
 #: src/pages/HostComputerPrompt.tsx
 msgid "Checking…"
 msgstr "正在检查…"
-
-#: src/pages/shell/agent-import.tsx
-msgid "Choose a bot"
-msgstr "选择机器人"
 
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose a bot shape, color, or upload an image"
@@ -2198,10 +2179,6 @@ msgstr "无法接管"
 #: src/pages/McpServersOverlay.tsx
 msgid "Could not test MCP server"
 msgstr "无法测试 MCP 服务器"
-
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Could not undo the import"
-msgstr "无法撤销导入"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Could not update"
@@ -3157,24 +3134,14 @@ msgstr "此模型尚未配置图片输入。"
 msgid "Image upload area"
 msgstr "图片上传区域"
 
-#: src/pages/shell/composer.tsx
-#: src/pages/shell/create-bot-dialog.tsx
-msgid "Import"
-msgstr "导入"
-
-#: src/pages/Onboarding.tsx
+#: src/components/AccountDataSettings.tsx
 #: src/pages/shell/agent-import.tsx
-#: src/pages/shell/message-cards.tsx
 msgid "Import an agent"
 msgstr "导入 Agent"
 
 #: src/components/AccountDataSettings.tsx
 msgid "Import data"
 msgstr "导入数据"
-
-#: src/pages/shell/composer.tsx
-msgid "Import this agent as a bot?"
-msgstr "将此智能体导入为机器人？"
 
 #: src/lib/ticket-status.ts
 msgid "In progress"
@@ -3297,26 +3264,6 @@ msgstr "其中的 Bot 和群组会保留，并移出该分组。"
 msgid "Its conversation, files, and routines will be permanently deleted. Bots it created stay in your list."
 msgstr "它的对话、文件和例行任务将被永久删除。它创建的 Bot 仍留在列表中。"
 
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Its instructions changed since the import, so they stay."
-msgstr "导入后指令已被修改，因此保持不变。"
-
-#: src/lib/agent-import-errors.ts
-msgid "Its instructions changed. Review them, then try again."
-msgstr "其指令已更改。请查看后重试。"
-
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Its instructions go back to before the import."
-msgstr "指令将恢复到导入之前。"
-
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Its model changed since the import, so it stays."
-msgstr "导入后模型已被修改，因此保持不变。"
-
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Its model goes back to before the import."
-msgstr "模型将恢复到导入之前。"
-
 #: src/pages/shell/transcript.tsx
 msgid "Jump to latest"
 msgstr "跳到最新"
@@ -3329,17 +3276,9 @@ msgstr "跳转到回复的消息：{excerpt}"
 msgid "just now"
 msgstr "刚刚"
 
-#: src/pages/shell/agent-import.tsx
-msgid "Keep its instructions"
-msgstr "保留其指令"
-
 #: src/pages/shell/dialogs.tsx
 msgid "Keep memories"
 msgstr "保留记忆"
-
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Kept"
-msgstr "保留"
 
 #: src/pages/RoutineEditor.tsx
 msgid "key"
@@ -3856,7 +3795,6 @@ msgstr "已静音"
 msgid "Name"
 msgstr "名称"
 
-#: src/lib/agent-import-errors.ts
 #: src/pages/shell/agent-import.tsx
 msgid "Name this bot"
 msgstr "给这个 Bot 命名"
@@ -3903,7 +3841,6 @@ msgid "New"
 msgstr "新消息"
 
 #: src/pages/Shell.tsx
-#: src/pages/shell/agent-import.tsx
 #: src/pages/shell/bot-picker.tsx
 #: src/pages/shell/create-bot-dialog.tsx
 msgid "New bot"
@@ -4750,10 +4687,6 @@ msgstr ""
 msgid "Remove webhook"
 msgstr "移除 Webhook"
 
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Removed"
-msgstr "移除"
-
 #: src/pages/ScratchpadSection.tsx
 msgid "Removed, but list refresh failed"
 msgstr "已移除，但列表刷新失败"
@@ -4784,10 +4717,6 @@ msgstr "重新打开"
 #: src/pages/model-settings/connection-controls.tsx
 msgid "Replace API key"
 msgstr "替换 API 密钥"
-
-#: src/pages/shell/agent-import.tsx
-msgid "Replace its instructions"
-msgstr "替换其指令"
 
 #: src/pages/shell/composer-error.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
@@ -5672,10 +5601,6 @@ msgstr "测试运行"
 msgid "Testing…"
 msgstr "正在测试…"
 
-#: src/pages/shell/agent-import-undo.tsx
-msgid "The bot and what its import added will be removed."
-msgstr "此 Bot 及其导入添加的内容将被移除。"
-
 #: src/pages/shell/composer-error.tsx
 msgid "The bot can use the file but won't see the picture."
 msgstr "Bot 可以使用该文件，但看不到图片内容。"
@@ -5759,10 +5684,6 @@ msgstr "此 Bot"
 msgid "This bot runs on this computer, not a Linux desktop. Shell and files use your home folder."
 msgstr "此 Bot 运行在这台电脑上，而不是 Linux 桌面。Shell 和文件使用你的主目录。"
 
-#: src/lib/agent-import-errors.ts
-msgid "This bot was not imported."
-msgstr "此机器人不是导入的。"
-
 #: src/components/call/IncomingCall.tsx
 msgid "This call is no longer ringing."
 msgstr "这通电话已经不响了。"
@@ -5803,10 +5724,6 @@ msgstr "会删除这个产物的全部 {0} 个版本，而且无法撤销。"
 #: src/components/ArtifactFileCard.tsx
 msgid "This file is not valid UTF-8 text."
 msgstr "这个文件不是有效的 UTF-8 文本。"
-
-#: src/lib/agent-import-errors.ts
-msgid "This import changed. Try again."
-msgstr "此导入已更改。请重试。"
 
 #: src/lib/agent-import-errors.ts
 msgid "This import was already used. Choose the files again."
@@ -6011,14 +5928,6 @@ msgstr "未分配"
 #: src/components/AskCard.tsx
 msgid "Undo"
 msgstr "撤销"
-
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Undo import"
-msgstr "撤销导入"
-
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Undo import?"
-msgstr "撤销导入？"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Uninstall"
@@ -6319,10 +6228,6 @@ msgstr "你要示范什么结果？"
 msgid "What should this routine do each time it runs?"
 msgstr "每次运行时，这个例行任务应做什么？"
 
-#: src/pages/shell/agent-import-undo.tsx
-msgid "What the import added will be removed. The bot stays."
-msgstr "导入添加的内容将被删除，机器人会保留。"
-
 #: src/pages/shell/bot-panel.tsx
 msgid "What this bot is for"
 msgstr "这个 Bot 是做什么的"
@@ -6358,10 +6263,6 @@ msgstr "何时使用"
 #: src/pages/HostComputerPrompt.tsx
 msgid "Where should bots run?"
 msgstr "Bot 应在哪里运行？"
-
-#: src/pages/shell/agent-import.tsx
-msgid "Where to import"
-msgstr "导入到哪里"
 
 #: src/lib/ticket-status.ts
 msgid "Won't do"
@@ -6435,14 +6336,6 @@ msgstr "你的默认设置"
 #: src/pages/Auth.tsx
 msgid "Your email address"
 msgstr "你的邮箱"
-
-#: src/pages/Onboarding.tsx
-msgid "Your first bot already existed, so the agent was not imported."
-msgstr "你的第一个机器人已经存在，因此未导入该智能体。"
-
-#: src/lib/agent-import-errors.ts
-msgid "Your first bot already exists."
-msgstr "你的第一个机器人已存在。"
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts

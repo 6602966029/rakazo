@@ -3,14 +3,12 @@ import path from "node:path";
 import { crc32, gzipSync } from "node:zlib";
 import type { Page } from "@playwright/test";
 import { expect, test } from "@playwright/test";
-import type { AgentImportInfo, AgentImportPlan, Bot, MemoryDocument } from "@rakazo/contracts";
+import type { Bot, MemoryDocument } from "@rakazo/contracts";
 import {
   activeBotId,
   captureScreenshot,
   clickAndWaitForRpc,
   completeOnboarding,
-  expandAdvancedSection,
-  openNewBot,
   rpc,
   signup,
 } from "./helpers";
@@ -94,8 +92,8 @@ const document = [
 ].join("\n");
 
 async function openImport(page: Page) {
-  await openNewBot(page);
-  await page.getByTestId("create-bot-dialog").getByTestId("create-bot-import").click();
+  await page.goto("/app?settings=general");
+  await page.getByRole("button", { name: "Import an agent", exact: true }).click();
   const panel = page.getByTestId("agent-import");
   await expect(panel.getByTestId("agent-import-choose")).toBeVisible();
   return panel;
@@ -111,17 +109,9 @@ test("imports an OpenClaw folder and another assistant's document as new bots", 
   await page.goto("/app");
   await page.waitForURL(/\/app\/[^/]+$/);
 
-  await openNewBot(page);
-  const dialog = page.getByTestId("create-bot-dialog");
-  await dialog.getByTestId("create-bot-import").click();
-  const importPanel = page.getByTestId("agent-import");
-  await expect(importPanel.getByTestId("agent-import-choose")).toBeVisible();
-  await expect(dialog).toHaveCount(0);
+  const importPanel = await openImport(page);
   await importPanel.getByRole("button", { name: "Back", exact: true }).click();
   await expect(importPanel).toHaveCount(0);
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(dialog).toHaveCount(0);
 
   const panel = await openImport(page);
   const choose = panel.getByTestId("agent-import-choose");
@@ -501,11 +491,11 @@ test("imports Hermes and OpenClaw backups, reading them on this device", async (
   await expect(panel.getByRole("alert")).toHaveText("This backup could not be read.");
 });
 
-test("an imported bot asks before using MCP servers, and its import can be undone", async ({
+test("an imported bot asks before using MCP servers, and its setup can be finished", async ({
   page,
 }, testInfo) => {
   const stamp = Date.now();
-  await signup(page, `agent-import-undo-${stamp}@rakazo.test`, "password12", "Undo User");
+  await signup(page, `agent-import-setup-${stamp}@rakazo.test`, "password12", "Setup User");
   await completeOnboarding(page);
   await page.goto("/app");
   await page.waitForURL(/\/app\/[^/]+$/);
@@ -545,8 +535,6 @@ test("an imported bot asks before using MCP servers, and its import can be undon
   );
   await page.waitForURL(/\/app\/[^/]+$/);
   await expect(page.getByPlaceholder("Message Undoable")).toBeVisible();
-  const botId = activeBotId(page);
-
   const card = page.getByTestId("mcp-approval-card");
   await expect(card).toBeVisible();
   await expect(card.getByRole("button", { name: "Approve", exact: true })).toBeVisible();
@@ -574,69 +562,6 @@ test("an imported bot asks before using MCP servers, and its import can be undon
   const servers = await rpc<{ id: string; name: string }[]>(page, "mcp/servers/list", {});
   expect(servers.filter((server) => server.name === "docs")).toHaveLength(1);
   await page.getByRole("button", { name: "Close MCP servers" }).click();
-
-  await page.getByTestId("bot-settings-trigger").click();
-  await expandAdvancedSection(page.getByTestId("bot-settings-advanced"));
-  await page.getByTestId("agent-import-undo").click();
-  const dialog = page.getByTestId("agent-import-undo-dialog");
-  await expect(dialog.getByRole("region", { name: "Removed" }).getByRole("listitem")).toHaveText([
-    "inbox-triage",
-  ]);
-  // Its credentials were entered since, so the server stays.
-  await expect(
-    dialog.getByRole("region", { name: "Kept" }).getByText("docs", { exact: true }),
-  ).toBeVisible();
-  await captureScreenshot(page, testInfo, "agent-import-undo");
-  await clickAndWaitForRpc(
-    page,
-    dialog.getByRole("button", { name: "Undo import", exact: true }),
-    "bots/importUndo",
-  );
-  await expect(dialog).toHaveCount(0);
-  const bots = await rpc<Bot[]>(page, "bots/list", {});
-  expect(bots.some((bot) => bot.id === botId)).toBe(false);
-  const skills = await rpc<{ name: string }[]>(page, "agentSkills/list", {});
-  expect(skills.some((item) => item.name === "inbox-triage")).toBe(false);
-});
-
-test("Undo removes only the import it showed, even after another tab undid it", async ({
-  page,
-}, testInfo) => {
-  await signup(page, `agent-import-undo-shown-${Date.now()}@rakazo.test`, "password12", "Shown");
-  await completeOnboarding(page);
-  const files = [
-    { path: ".openclaw/workspace/SOUL.md", content: "Calm.\n" },
-    { path: ".openclaw/workspace/IDENTITY.md", content: "- **Name:** Pebble\n" },
-    { path: ".openclaw/workspace/MEMORY.md", content: "Project Alpha.\n" },
-  ];
-  const plan = await rpc<AgentImportPlan>(page, "bots/importPreview", { files });
-  const memory = plan.memory.map((item) => ({ id: item.id, destination: "bot" }));
-  const bot = await rpc<Bot>(page, "bots/importCreate", {
-    files,
-    name: "Pebble",
-    selection: { instructions: plan.instructions.map((item) => item.id), memory, skills: [] },
-  });
-  await rpc(page, "bots/importCreate", {
-    files,
-    destination: { kind: "existing", botId: bot.id },
-    selection: { instructions: [], memory, skills: [] },
-  });
-  await page.goto(`/app/${bot.id}`);
-  await page.getByTestId("bot-settings-trigger").click();
-  await expandAdvancedSection(page.getByTestId("bot-settings-advanced"));
-  await page.getByTestId("agent-import-undo").click();
-  const dialog = page.getByTestId("agent-import-undo-dialog");
-  await expect(dialog).toContainText("What the import added will be removed. The bot stays.");
-
-  // Another tab undoes that addition before this one confirms.
-  const shown = await rpc<AgentImportInfo>(page, "bots/importInfo", { botId: bot.id });
-  await rpc(page, "bots/importUndo", { botId: bot.id, importId: shown.id });
-  await dialog.getByRole("button", { name: "Undo import", exact: true }).click();
-  await expect(dialog.getByRole("alert")).toHaveText("This import changed. Try again.");
-  await expect(dialog).toContainText("The bot and what its import added will be removed.");
-  await captureScreenshot(page, testInfo, "agent-import-undo-changed");
-  const bots = await rpc<Bot[]>(page, "bots/list", {});
-  expect(bots.some((item) => item.id === bot.id)).toBe(true);
 });
 
 /** OpenClaw's SOUL.md as it seeds it (template without front matter), and Hermes' SOUL.md. */
@@ -691,240 +616,6 @@ test("untouched defaults start unticked, and OpenClaw runtime references are fla
   ).toBeVisible();
   await expect(instructions.getByRole("checkbox", { name: "AGENTS.md" })).toBeChecked();
   await captureScreenshot(page, testInfo, "agent-import-defaults-hermes");
-});
-
-test("imports into an existing bot only when chosen, keeping its instructions unless replaced", async ({
-  page,
-}, testInfo) => {
-  await signup(page, `agent-import-existing-${Date.now()}@rakazo.test`, "password12", "Existing");
-  await completeOnboarding(page);
-  await page.goto("/app");
-  await page.waitForURL(/\/app\/[^/]+$/);
-  const [chief] = await rpc<Bot[]>(page, "bots/list", {});
-  await rpc(page, "bots/update", { botId: chief!.id, instructions: "Chief's own instructions." });
-
-  const home = testInfo.outputPath("openclaw-existing");
-  writeFolder(home, {
-    "workspace/SOUL.md": "Calm and direct.\n",
-    "workspace/AGENTS.md": "Short replies.\n",
-    "workspace/MEMORY.md": "Project Alpha.\n",
-    "workspace/IDENTITY.md": "- **Name:** Pebble\n",
-  });
-  const panel = await openImport(page);
-  await panel.getByTestId("agent-import-folder").setInputFiles(home);
-  const preview = panel.getByTestId("agent-import-preview");
-  const destination = preview.getByTestId("agent-import-destination");
-  await expect(destination.getByRole("button", { name: "New bot" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
-  await captureScreenshot(page, testInfo, "agent-import-destination-new");
-  await destination.getByRole("button", { name: "Add to an existing bot" }).click();
-  const picker = destination.getByRole("combobox", { name: "Bot" });
-  await expect(picker).toHaveValue("");
-  await expect(preview.getByRole("button", { name: "Add", exact: true })).toBeDisabled();
-  await expect(preview.getByRole("textbox", { name: "Name" })).toHaveCount(0);
-  await picker.selectOption({ label: "Chief" });
-  const choice = destination.getByTestId("agent-import-instructions-choice");
-  await expect(choice.getByRole("button", { name: "Keep its instructions" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
-  await expect(preview.getByTestId("agent-import-instructions")).toHaveCount(0);
-  await captureScreenshot(page, testInfo, "agent-import-destination-existing");
-  await clickAndWaitForRpc(
-    page,
-    preview.getByRole("button", { name: "Add", exact: true }),
-    "bots/importCreate",
-  );
-  await page.waitForURL(new RegExp(`/app/${chief!.id}$`));
-  await expect(page.getByTestId("agent-import")).toHaveCount(0);
-  const kept = await rpc<Bot>(page, "bots/get", { botId: chief!.id });
-  expect([kept.name, kept.instructions]).toEqual(["Chief", "Chief's own instructions."]);
-  const memory = await rpc<MemoryDocument[]>(page, "memory/list", { botId: chief!.id });
-  expect(memory.map((doc) => doc.path).sort()).toEqual(["MEMORY-2.md", "MEMORY.md"]);
-
-  const again = await openImport(page);
-  await again.getByTestId("agent-import-folder").setInputFiles(home);
-  const second = again.getByTestId("agent-import-preview");
-  await second
-    .getByTestId("agent-import-destination")
-    .getByRole("button", { name: "Add to an existing bot" })
-    .click();
-  await second.getByRole("combobox", { name: "Bot" }).selectOption({ label: "Chief" });
-  await second.getByRole("button", { name: "Replace its instructions" }).click();
-  await expect(second.getByTestId("agent-import-instructions")).toBeVisible();
-  await captureScreenshot(page, testInfo, "agent-import-destination-replace");
-  await clickAndWaitForRpc(
-    page,
-    second.getByRole("button", { name: "Add", exact: true }),
-    "bots/importCreate",
-  );
-  await expect
-    .poll(async () => (await rpc<Bot>(page, "bots/get", { botId: chief!.id })).instructions)
-    .toBe("# Persona\n\nCalm and direct.\n\n# Working instructions\n\nShort replies.");
-
-  await page.getByTestId("bot-settings-trigger").click();
-  await expandAdvancedSection(page.getByTestId("bot-settings-advanced"));
-  await page.getByTestId("agent-import-undo").click();
-  const dialog = page.getByTestId("agent-import-undo-dialog");
-  await expect(dialog).toContainText("What the import added will be removed. The bot stays.");
-  await expect(dialog.getByTestId("agent-import-undo-instructions")).toHaveText(
-    "Its instructions go back to before the import.",
-  );
-  await captureScreenshot(page, testInfo, "agent-import-undo-existing");
-  await clickAndWaitForRpc(
-    page,
-    dialog.getByRole("button", { name: "Undo import", exact: true }),
-    "bots/importUndo",
-  );
-  await expect(dialog).toHaveCount(0);
-  const restored = await rpc<Bot>(page, "bots/get", { botId: chief!.id });
-  expect(restored.instructions).toBe("Chief's own instructions.");
-});
-
-async function dropOnComposer(
-  page: Page,
-  drop: {
-    folder?: { name: string; files: Record<string, string> };
-    zip?: { name: string; base64: string };
-  },
-) {
-  await page.evaluate(({ folder, zip }) => {
-    const target = window.document.querySelector("fieldset[aria-label='Message composer']");
-    if (!target) throw new Error("composer not found");
-    type Tree = { [name: string]: string | Tree };
-    const tree: Tree = {};
-    for (const [path, content] of Object.entries(folder?.files ?? {})) {
-      const parts = path.split("/");
-      let node = tree;
-      for (const part of parts.slice(0, -1)) {
-        node[part] ??= {};
-        node = node[part] as Tree;
-      }
-      node[parts.at(-1)!] = content;
-    }
-    const entry = (name: string, value: string | Tree, parent: string): unknown => {
-      const fullPath = `${parent}/${name}`;
-      if (typeof value === "string") {
-        return {
-          name,
-          fullPath,
-          isFile: true,
-          isDirectory: false,
-          file: (resolve: (file: File) => void) => resolve(new File([value], name)),
-        };
-      }
-      let listed = false;
-      const children = Object.entries(value).map(([child, inner]) => entry(child, inner, fullPath));
-      return {
-        name,
-        fullPath,
-        isFile: false,
-        isDirectory: true,
-        createReader: () => ({
-          readEntries: (resolve: (entries: unknown[]) => void) => {
-            resolve(listed ? [] : children);
-            listed = true;
-          },
-        }),
-      };
-    };
-    const files = zip
-      ? [new File([Uint8Array.from(atob(zip.base64), (c) => c.charCodeAt(0))], zip.name)]
-      : [new File([], folder!.name)];
-    const root = folder ? entry(folder.name, tree, "") : null;
-    const dataTransfer = {
-      files,
-      types: ["Files"],
-      items: files.map((file) => ({
-        kind: "file",
-        getAsFile: () => file,
-        webkitGetAsEntry: () =>
-          root ?? { name: file.name, fullPath: `/${file.name}`, isFile: true, isDirectory: false },
-      })),
-      dropEffect: "copy",
-    };
-    for (const type of ["dragenter", "dragover", "drop"]) {
-      const event = new Event(type, { bubbles: true, cancelable: true });
-      Object.defineProperty(event, "dataTransfer", { value: dataTransfer });
-      target.dispatchEvent(event);
-    }
-  }, drop);
-}
-
-test("an agent dropped into a chat is offered for import, never uploaded first", async ({
-  page,
-}, testInfo) => {
-  await signup(page, `agent-import-drop-${Date.now()}@rakazo.test`, "password12", "Dropper");
-  await completeOnboarding(page);
-  await page.goto("/app");
-  await page.waitForURL(/\/app\/[^/]+$/);
-  const [chief] = await rpc<Bot[]>(page, "bots/list", {});
-  const requests: string[] = [];
-  page.on("request", (request) => {
-    const url = request.url();
-    if (url.includes("/rpc/artifacts/") || url.includes("/rpc/bots/import")) requests.push(url);
-  });
-
-  await dropOnComposer(page, {
-    folder: {
-      name: "openclaw-home",
-      files: {
-        "openclaw.json": "{}",
-        ".env": "OPENROUTER_API_KEY=placeholder-drop-key\n",
-        "workspace/SOUL.md": "Calm and direct.\n",
-        "workspace/IDENTITY.md": "- **Name:** Pebble\n",
-      },
-    },
-  });
-  const choice = page.getByTestId("agent-drop-choice");
-  await expect(choice).toContainText("Import this agent as a bot?");
-  // Nothing has left the browser: no attachment upload and no import request yet.
-  expect(requests).toEqual([]);
-  await captureScreenshot(page, testInfo, "agent-import-drop-choice");
-
-  const preview = page.waitForRequest((request) =>
-    request.url().includes("/rpc/bots/importPreview"),
-  );
-  await choice.getByRole("button", { name: "Import", exact: true }).click();
-  expect((await preview).postData() ?? "").not.toContain("placeholder-");
-  const panel = page.getByTestId("agent-import-preview");
-  await expect(panel.getByRole("textbox", { name: "Name" })).toHaveValue("Pebble");
-  const destination = panel.getByTestId("agent-import-destination");
-  await expect(destination.getByRole("button", { name: "New bot" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
-  await destination.getByRole("button", { name: "Add to an existing bot" }).click();
-  const picker = destination.getByRole("combobox", { name: "Bot" });
-  await expect(picker).toHaveValue("");
-  await expect(picker.getByRole("option", { name: chief!.name })).toHaveCount(1);
-  await destination.getByRole("button", { name: "New bot" }).click();
-  await captureScreenshot(page, testInfo, "agent-import-drop-preview");
-  // Back leaves the preview, then closes the panel: a drop never came from the New bot dialog.
-  const importPanel = page.getByTestId("agent-import");
-  await importPanel.getByRole("button", { name: "Back", exact: true }).click();
-  await importPanel.getByRole("button", { name: "Back", exact: true }).click();
-  await expect(importPanel).toHaveCount(0);
-  await expect(page.getByTestId("create-bot-dialog")).toHaveCount(0);
-
-  const backup = Buffer.from(
-    zip({ "SOUL.md": "Direct.\n", "config.yaml": "model:\n  provider: openrouter\n" }),
-  ).toString("base64");
-  requests.length = 0;
-  await dropOnComposer(page, { zip: { name: "hermes.zip", base64: backup } });
-  await expect(choice).toBeVisible();
-  expect(requests).toEqual([]);
-  await choice.getByRole("button", { name: "Attach", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Remove hermes.zip" })).toBeVisible();
-  await captureScreenshot(page, testInfo, "agent-import-drop-attached");
-
-  await dropOnComposer(page, {
-    zip: { name: "photos.zip", base64: Buffer.from(zip({ "photo.txt": "x" })).toString("base64") },
-  });
-  await expect(page.getByRole("button", { name: "Remove photos.zip" })).toBeVisible();
-  await expect(choice).toHaveCount(0);
 });
 
 test("an item with key-looking text starts unticked and says so", async ({ page }, testInfo) => {
