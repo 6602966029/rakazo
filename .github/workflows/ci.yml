@@ -146,7 +146,8 @@ jobs:
         env:
           TURBO_SCM_BASE: HEAD^1
         run: |
-          mapfile -t packages < <(pnpm exec turbo ls --affected --output=json | jq -r '.packages.items[].path + "/"')
+          affected="$(pnpm exec turbo ls --affected --output=json | jq -r '.packages.items[].path + "/"')"
+          mapfile -t packages < <(printf "%s" "$affected")
           # These read other packages' files without importing them, so the package graph misses them.
           pnpm exec vitest run "${packages[@]}" \
             infra/updater/src/compose-env.test.ts \
