@@ -1,7 +1,10 @@
 import type { AvailabilityKind, SpaceAvailability } from "@rakazo/contracts";
 import { useEffect, useState } from "react";
+import { Text, View } from "react-native";
 import { rpc } from "../lib/api";
+import { mobileTokens } from "../lib/appearance";
 import { useI18n } from "../lib/i18n";
+import { errorText } from "../lib/user-error";
 import { MenuPicker } from "./menu-picker";
 
 type Space = { id: string; name: string };
@@ -45,6 +48,7 @@ export function SpaceAvailabilityPicker({
 }) {
   const { t } = useI18n();
   const spaces = useOwnSpaces();
+  const [error, setError] = useState<string | null>(null);
   if (spaces.length < 2 || !availability) return null;
   const several = !availability.allSpaces && availability.spaceIds.length > 1;
   const value = availability.allSpaces ? "all" : several ? "several" : availability.spaceIds[0]!;
@@ -56,20 +60,31 @@ export function SpaceAvailabilityPicker({
       : []),
   ];
   return (
-    <MenuPicker
-      label={t("Available in")}
-      choices={choices}
-      value={value}
-      onChange={(key) => {
-        if (key === value || key === "several") return;
-        const next =
-          key === "all"
-            ? { allSpaces: true, spaceIds: availability.spaceIds }
-            : { allSpaces: false, spaceIds: [key] };
-        void rpc("availability/set", { kind, id, ...next })
-          .then(onChanged)
-          .catch(() => undefined);
-      }}
-    />
+    <View>
+      <MenuPicker
+        label={t("Available in")}
+        choices={choices}
+        value={value}
+        onChange={(key) => {
+          if (key === value || key === "several") return;
+          const next =
+            key === "all"
+              ? { allSpaces: true, spaceIds: availability.spaceIds }
+              : { allSpaces: false, spaceIds: [key] };
+          setError(null);
+          // A refused choice, such as a name already used in another space, says why; choosing again retries.
+          void rpc("availability/set", { kind, id, ...next })
+            .then(onChanged)
+            .catch((reason) =>
+              setError(errorText(reason, t("Could not change where this is available"))),
+            );
+        }}
+      />
+      {error ? (
+        <Text accessibilityRole="alert" style={{ color: mobileTokens().destructive, fontSize: 13 }}>
+          {error}
+        </Text>
+      ) : null}
+    </View>
   );
 }

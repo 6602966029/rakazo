@@ -1192,6 +1192,7 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   Browse: "瀏覽",
   "All spaces": "所有空間",
   "Available in": "可用於",
+  "Could not change where this is available": "無法變更可用範圍",
   "{count} spaces": "{count} 個空間",
   "Remove from every space?": "要從所有空間中移除嗎？",
   "New skill": "新增技能",

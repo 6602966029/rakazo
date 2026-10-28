@@ -152,6 +152,20 @@ describe.skipIf(!enabled).sequential("items available across a user's spaces (Po
     ).rejects.toMatchObject({ code: "CONFLICT" });
   });
 
+  it("lets only one of two spaces claim a name at the same moment", async () => {
+    const results = await Promise.allSettled(
+      [work, home].map((spaceId) =>
+        runAsTenant(actorIn(spaceId), () =>
+          skills().create(actorIn(spaceId), { name: "race-routine", description: "Racing" }),
+        ),
+      ),
+    );
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.find((result) => result.status === "rejected")).toMatchObject({
+      reason: { code: "CONFLICT" },
+    });
+  });
+
   it("reaches spaces created later, and a new space can leave items out", async () => {
     const later = `avail-later-${suffix}`;
     await runAsSystem("availability fixture", () => createSpace(later, [owner]));

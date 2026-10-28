@@ -192,24 +192,26 @@ export function createAgentSkillsService(prisma: PrismaClient) {
       if (builtinCatalog().some((s) => s.name.toLowerCase() === resolved.name.toLowerCase())) {
         throw new ORPCError("CONFLICT", { message: "A skill with that name already exists." });
       }
-      await assertNameFreeWhereAvailable(
-        prisma,
-        "skill",
-        actor,
-        resolved.name,
-        userAddedAvailability(actor),
-      );
       try {
-        const row = await prisma.agentSkill.create({
-          data: {
-            spaceId: actor.spaceId,
-            userId: actor.userId,
-            name: resolved.name,
-            description: resolved.description,
-            content: resolved.content,
-            source: "user",
-            allSpaces: true,
-          },
+        const row = await prisma.$transaction(async (tx) => {
+          await assertNameFreeWhereAvailable(
+            tx,
+            "skill",
+            actor,
+            resolved.name,
+            userAddedAvailability(actor),
+          );
+          return tx.agentSkill.create({
+            data: {
+              spaceId: actor.spaceId,
+              userId: actor.userId,
+              name: resolved.name,
+              description: resolved.description,
+              content: resolved.content,
+              source: "user",
+              allSpaces: true,
+            },
+          });
         });
         return mapAgentSkill(row);
       } catch (error) {
@@ -239,28 +241,33 @@ export function createAgentSkillsService(prisma: PrismaClient) {
         throw new ORPCError("BAD_REQUEST", { message: "Builtin and plugin skills are read-only." });
       }
       const resolved = resolveSkillContent({ ...input, prior: existing });
-      if (!findSkillByName([existing], resolved.name)) {
-        if (builtinCatalog().some((s) => s.name.toLowerCase() === resolved.name.toLowerCase())) {
-          throw new ORPCError("CONFLICT", { message: "A skill with that name already exists." });
-        }
-        await assertNameFreeWhereAvailable(
-          prisma,
-          "skill",
-          actor,
-          resolved.name,
-          spaceAvailability(existing),
-          existing.id,
-        );
+      const renamed = !findSkillByName([existing], resolved.name);
+      if (
+        renamed &&
+        builtinCatalog().some((s) => s.name.toLowerCase() === resolved.name.toLowerCase())
+      ) {
+        throw new ORPCError("CONFLICT", { message: "A skill with that name already exists." });
       }
       // Mutate only owner-scoped user rows (never builtin/plugin), even if source was tampered.
       try {
-        const updated = await prisma.agentSkill.updateMany({
-          where: { id: existing.id, ...availableInSpace(actor), source: "user" },
-          data: {
-            name: resolved.name,
-            description: resolved.description,
-            content: resolved.content,
-          },
+        const updated = await prisma.$transaction(async (tx) => {
+          if (renamed)
+            await assertNameFreeWhereAvailable(
+              tx,
+              "skill",
+              actor,
+              resolved.name,
+              spaceAvailability(existing),
+              existing.id,
+            );
+          return tx.agentSkill.updateMany({
+            where: { id: existing.id, ...availableInSpace(actor), source: "user" },
+            data: {
+              name: resolved.name,
+              description: resolved.description,
+              content: resolved.content,
+            },
+          });
         });
         if (updated.count !== 1) throw new IsolationError();
       } catch (error) {

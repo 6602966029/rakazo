@@ -1852,6 +1852,8 @@ describe("MCP loopback endpoints", () => {
       },
       secret: { findFirst: vi.fn() },
       deploymentSettings: { findUnique: vi.fn().mockResolvedValue({ ownerUserId: "owner-1" }) },
+      $executeRaw: vi.fn(async () => 0),
+      $queryRaw: vi.fn(async () => []),
       $transaction: vi.fn(async (run: (tx: unknown) => Promise<unknown>) => run(prisma)),
     } as unknown as PrismaClient;
     const deps = {

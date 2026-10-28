@@ -1172,6 +1172,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   Browse: "浏览",
   "All spaces": "所有空间",
   "Available in": "可用于",
+  "Could not change where this is available": "无法更改可用范围",
   "{count} spaces": "{count} 个空间",
   "Remove from every space?": "要从所有空间中移除吗？",
   "New skill": "新建技能",

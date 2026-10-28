@@ -53,9 +53,11 @@ function setup(rows: ReturnType<typeof savedSkill>[] = []) {
       return { count: 1 };
     }),
   };
+  const tx = { agentSkill, $executeRaw: vi.fn(async () => 0), $queryRaw: vi.fn(async () => []) };
+  const $transaction = vi.fn(async (run: (client: typeof tx) => unknown) => run(tx));
   return {
     agentSkill,
-    service: createAgentSkillsService({ agentSkill } as unknown as PrismaClient),
+    service: createAgentSkillsService({ agentSkill, $transaction } as unknown as PrismaClient),
   };
 }
 

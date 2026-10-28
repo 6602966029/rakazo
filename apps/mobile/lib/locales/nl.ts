@@ -1176,6 +1176,7 @@ export const NL_MESSAGES: Record<string, string> = {
   Browse: "Bladeren",
   "All spaces": "Alle spaces",
   "Available in": "Beschikbaar in",
+  "Could not change where this is available": "Kon niet wijzigen waar dit beschikbaar is",
   "{count} spaces": "{count} spaces",
   "Remove from every space?": "Uit alle spaces verwijderen?",
   "New skill": "Nieuwe skill",

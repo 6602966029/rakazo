@@ -9,6 +9,11 @@ import {
   spaceAvailability,
 } from "@rakazo/db";
 
+/** Serializes one owner's writes of a kind across all their spaces, until the transaction ends. */
+export function lockOwner(tx: Prisma.TransactionClient, userId: string, scope: string) {
+  return tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`${scope}:${userId}`}, 0))`;
+}
+
 /** What a user adds themselves follows them into every space; see VISION.md. */
 export function userAddedAvailability(actor: Pick<Actor, "spaceId">): SpaceAvailability {
   return { allSpaces: true, spaceIds: [actor.spaceId] };
@@ -29,16 +34,18 @@ const CONFLICT_MESSAGE = {
  * by owner rather than through the current space.
  */
 export async function assertNameFreeWhereAvailable(
-  prisma: PrismaClient | Prisma.TransactionClient,
+  tx: Prisma.TransactionClient,
   kind: "skill" | "mcpServer",
   actor: Pick<Actor, "userId">,
   name: string,
   availability: SpaceAvailability,
   excludeId?: string,
 ): Promise<void> {
+  // Held until the caller's write commits, so two spaces can't both claim a name at once.
+  await lockOwner(tx, actor.userId, `names:${kind}`);
   const read = async () =>
     kind === "skill"
-      ? prisma.agentSkill.findMany({
+      ? tx.agentSkill.findMany({
           where: {
             userId: actor.userId,
             name: { equals: name, mode: "insensitive" },
@@ -46,7 +53,7 @@ export async function assertNameFreeWhereAvailable(
           },
           select: { spaceId: true, allSpaces: true, availableIn: AVAILABILITY_SELECT },
         })
-      : prisma.mcpServer.findMany({
+      : tx.mcpServer.findMany({
           where: {
             userId: actor.userId,
             slug: name,
@@ -54,10 +61,7 @@ export async function assertNameFreeWhereAvailable(
           },
           select: { spaceId: true, allSpaces: true, availableIn: AVAILABILITY_SELECT },
         });
-  const rows =
-    "$transaction" in prisma
-      ? await runAsSystem("owner's names across their spaces", read)
-      : await runAsSystemInTransaction(prisma, "owner's names across their spaces", read);
+  const rows = await runAsSystemInTransaction(tx, "owner's names across their spaces", read);
   if (rows.some((row) => overlaps(spaceAvailability(row), availability)))
     throw new ORPCError("CONFLICT", { message: CONFLICT_MESSAGE[kind] });
 }
@@ -216,6 +220,8 @@ export async function setAvailability(
 ): Promise<SpaceAvailability> {
   if (!input.spaceIds.length) throw new ORPCError("BAD_REQUEST", { message: "Choose a space" });
   return prisma.$transaction(async (tx) => {
+    // Plugin parts changes hold this lock while adding parts where the install is placed.
+    if (input.kind === "install") await lockOwner(tx, actor.userId, "plugin");
     await assertOwnSpaces(tx, actor, input.spaceIds);
     const visible = { id: input.id, ...availableInSpace(actor) };
     // A plugin's own skills and connectors are placed through the plugin.

@@ -1208,6 +1208,7 @@ export const JA_MESSAGES: Record<string, string> = {
   Browse: "参照",
   "All spaces": "すべてのスペース",
   "Available in": "利用できる場所",
+  "Could not change where this is available": "利用できる場所を変更できませんでした",
   "{count} spaces": "{count} 個のスペース",
   "Remove from every space?": "すべてのスペースから削除しますか？",
   "New skill": "新しいスキル",

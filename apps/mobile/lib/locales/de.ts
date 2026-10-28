@@ -1184,6 +1184,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Browse: "Durchsuchen",
   "All spaces": "Alle Spaces",
   "Available in": "Verfügbar in",
+  "Could not change where this is available": "Konnte nicht ändern, wo das verfügbar ist",
   "{count} spaces": "{count} Spaces",
   "Remove from every space?": "Aus allen Spaces entfernen?",
   "New skill": "Neuer Skill",

@@ -1215,6 +1215,7 @@ export const RU_MESSAGES: Record<string, string> = {
   Browse: "Обзор",
   "All spaces": "Все пространства",
   "Available in": "Доступно в",
+  "Could not change where this is available": "Не удалось изменить, где это доступно",
   "{count} spaces": "Пространств: {count}",
   "Remove from every space?": "Удалить из всех пространств?",
   "New skill": "Новый навык",

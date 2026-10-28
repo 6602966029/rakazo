@@ -340,7 +340,7 @@ export function AgentSkills() {
   const spaceCount = useOwnSpaces().length;
 
   async function refresh() {
-    await fetchFresh(queryClient, list);
+    return fetchFresh(queryClient, list);
   }
 
   useEffect(
@@ -476,9 +476,14 @@ export function AgentSkills() {
                     id={open.id}
                     availability={open.availability}
                     onChanged={async () => {
-                      const fresh = await rpc.agentSkills.get({ skillId: open.id });
-                      setOpen(fresh);
-                      await refresh();
+                      // Narrowed away from this space, the skill can no longer be read here.
+                      const here = (await refresh()).some((entry) => entry.id === open.id);
+                      if (!here) {
+                        selection.current += 1;
+                        setOpen(null);
+                        return;
+                      }
+                      setOpen(await rpc.agentSkills.get({ skillId: open.id }));
                     }}
                   />
                 </div>

@@ -18,7 +18,7 @@ import {
   runAsSystemInTransaction,
   spaceAvailability,
 } from "@rakazo/db";
-import { assertNameFreeWhereAvailable } from "./availability.js";
+import { assertNameFreeWhereAvailable, lockOwner } from "./availability.js";
 
 export type PluginInstallDeps = {
   prisma: PrismaClient;
@@ -234,7 +234,7 @@ export function lockPluginInstalls(tx: Prisma.TransactionClient, actor: Actor) {
   // Serialize installs for this actor, including same-source duplicates. A
   // transaction-scoped advisory lock avoids an extra global uniqueness policy
   // on capability_installs (other kinds deliberately allow multiple sources).
-  return tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`plugin:${actor.userId}`}, 0))`;
+  return lockOwner(tx, actor.userId, "plugin");
 }
 
 function installDto(row: {
