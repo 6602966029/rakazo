@@ -1,4 +1,5 @@
 import type { BackgroundJob, BackgroundJobHandlers } from "@rakazo/adapter-kit";
+import { routineWakeupJob } from "@rakazo/adapter-kit";
 import type { PrismaClient } from "@rakazo/db";
 import { createPool, currentDbContext, runAsTenant } from "@rakazo/db";
 import { Pool } from "pg";
@@ -154,6 +155,37 @@ describePostgres("Graphile background jobs (PostgreSQL contract)", () => {
       await host.stop();
       await publisher.close();
       await legacy.close();
+    }
+  });
+
+  it("starts due maintenance jobs while others are still running", async () => {
+    const publisher = new GraphileJobPublisher(testPool());
+    const host = createReservedGraphileJobWorkerHost(testPool(), { pollInterval: 25 });
+    const release = deferred();
+    const sleeping: string[] = [];
+    const woken: string[] = [];
+    try {
+      await host.start(
+        handlers({
+          "computer.sleep": async ({ computerId }) => {
+            sleeping.push(computerId);
+            await release.promise;
+          },
+          "routine.wakeup": async ({ routineId }) => {
+            woken.push(routineId);
+          },
+        }),
+      );
+      for (const computerId of ["computer-a", "computer-b", "computer-c"]) {
+        await publisher.enqueue({ name: "computer.sleep", payload: { computerId } });
+      }
+      await waitFor(() => expect(sleeping).toHaveLength(3));
+      await publisher.enqueue(routineWakeupJob("routine-due", new Date()));
+      await waitFor(() => expect(woken).toEqual(["routine-due"]));
+    } finally {
+      release.resolve();
+      await host.stop();
+      await publisher.close();
     }
   });
 
