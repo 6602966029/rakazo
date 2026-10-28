@@ -1,7 +1,7 @@
 name: Review bot
 
 # Greptile reviews PRs by default. A PR labeled review:coderabbit goes to
-# CodeRabbit instead (.coderabbit.yaml opts it in, .greptile/config.json opts it out).
+# CodeRabbit instead (.coderabbit.yaml opts it in, greptile.json opts it out).
 # The label is added when Greptile replies that it can no longer review, or,
 # while the CODERABBIT_UNTIL repository variable holds a later date
 # (YYYY-MM-DD), to every new PR.
