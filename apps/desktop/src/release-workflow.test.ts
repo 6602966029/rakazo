@@ -33,7 +33,7 @@ describe("desktop release workflow", () => {
     expect(workflow).toContain("actions/attest-build-provenance@");
     expect(workflow).not.toContain("--publish always");
     expect(workflow).toContain("DESKTOP_MAC_CSC_LINK");
-    expect(workflow).toContain("DESKTOP_WIN_CSC_LINK");
+    expect(workflow).not.toContain("DESKTOP_WIN_CSC");
     expect(workflow).not.toMatch(/secrets\.DESKTOP_CSC_(?:LINK|KEY_PASSWORD)/);
     expect(workflow).not.toContain("cache: pnpm");
     expect(workflow).toContain("apps/desktop/out/latest*.yml");
@@ -55,10 +55,19 @@ describe("desktop release workflow", () => {
     );
   });
 
-  it("builds Windows only when an Authenticode certificate is configured", () => {
+  it("builds Windows only when Azure Artifact Signing is configured", () => {
     expect(workflow).toContain(
-      `WINDOWS_SIGNING: ${expression("secrets.DESKTOP_WIN_CSC_LINK != ''")}`,
+      `WINDOWS_SIGNING: ${expression("secrets.DESKTOP_WIN_AZURE_CLIENT_SECRET != ''")}`,
     );
+    for (const option of [
+      "endpoint",
+      "codeSigningAccountName",
+      "certificateProfileName",
+      "publisherName",
+    ]) {
+      expect(workflow).toContain(`"-c.win.azureSignOptions.${option}=$`);
+    }
+    expect(workflow).toContain("is not signed by the configured publisher");
     expect(workflow).toContain(
       `include: ${expression("fromJSON(needs.validate.outputs.platforms)")}`,
     );

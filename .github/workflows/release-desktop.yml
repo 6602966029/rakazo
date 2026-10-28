@@ -88,8 +88,8 @@ jobs:
       - name: Choose release platforms
         id: platforms
         env:
-          # Windows builds only when an Authenticode certificate is configured; macOS and Linux always build.
-          WINDOWS_SIGNING: ${{ secrets.DESKTOP_WIN_CSC_LINK != '' }}
+          # Windows builds only when Azure Artifact Signing is configured; macOS and Linux always build.
+          WINDOWS_SIGNING: ${{ secrets.DESKTOP_WIN_AZURE_CLIENT_SECRET != '' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -277,23 +277,47 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         env:
-          WIN_CSC_LINK: ${{ secrets.DESKTOP_WIN_CSC_LINK }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.DESKTOP_WIN_CSC_KEY_PASSWORD }}
+          AZURE_TENANT_ID: ${{ secrets.DESKTOP_WIN_AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.DESKTOP_WIN_AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.DESKTOP_WIN_AZURE_CLIENT_SECRET }}
+          SIGNING_ENDPOINT: ${{ vars.DESKTOP_WIN_SIGNING_ENDPOINT }}
+          SIGNING_ACCOUNT: ${{ vars.DESKTOP_WIN_SIGNING_ACCOUNT }}
+          SIGNING_PROFILE: ${{ vars.DESKTOP_WIN_SIGNING_PROFILE }}
+          SIGNING_PUBLISHER: ${{ vars.DESKTOP_WIN_PUBLISHER }}
         run: |
           set -euo pipefail
-          test -n "$WIN_CSC_LINK"
-          test -n "$WIN_CSC_KEY_PASSWORD"
+          test -n "$AZURE_TENANT_ID"
+          test -n "$AZURE_CLIENT_ID"
+          test -n "$AZURE_CLIENT_SECRET"
+          test -n "$SIGNING_ENDPOINT"
+          test -n "$SIGNING_ACCOUNT"
+          test -n "$SIGNING_PROFILE"
+          test -n "$SIGNING_PUBLISHER"
       - name: Package signed x64 Windows app
         if: runner.os == 'Windows'
+        shell: bash
         env:
-          WIN_CSC_LINK: ${{ secrets.DESKTOP_WIN_CSC_LINK }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.DESKTOP_WIN_CSC_KEY_PASSWORD }}
-        run: >-
-          pnpm --filter @rakazo/desktop exec electron-builder
-          --win --x64 --publish never -c.forceCodeSigning=true
+          # Read by the TrustedSigning PowerShell module that electron-builder invokes.
+          AZURE_TENANT_ID: ${{ secrets.DESKTOP_WIN_AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ secrets.DESKTOP_WIN_AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.DESKTOP_WIN_AZURE_CLIENT_SECRET }}
+          SIGNING_ENDPOINT: ${{ vars.DESKTOP_WIN_SIGNING_ENDPOINT }}
+          SIGNING_ACCOUNT: ${{ vars.DESKTOP_WIN_SIGNING_ACCOUNT }}
+          SIGNING_PROFILE: ${{ vars.DESKTOP_WIN_SIGNING_PROFILE }}
+          SIGNING_PUBLISHER: ${{ vars.DESKTOP_WIN_PUBLISHER }}
+        run: |
+          set -euo pipefail
+          pnpm --filter @rakazo/desktop exec electron-builder \
+            --win --x64 --publish never -c.forceCodeSigning=true \
+            "-c.win.azureSignOptions.endpoint=$SIGNING_ENDPOINT" \
+            "-c.win.azureSignOptions.codeSigningAccountName=$SIGNING_ACCOUNT" \
+            "-c.win.azureSignOptions.certificateProfileName=$SIGNING_PROFILE" \
+            "-c.win.azureSignOptions.publisherName=$SIGNING_PUBLISHER"
       - name: Verify Windows Authenticode signature and publisher-bound update feed
         if: runner.os == 'Windows'
         shell: pwsh
+        env:
+          SIGNING_PUBLISHER: ${{ vars.DESKTOP_WIN_PUBLISHER }}
         run: |
           $ErrorActionPreference = "Stop"
           $executables = @(
@@ -306,12 +330,15 @@ jobs:
             if ($signature.Status -ne "Valid") {
               throw "$($executable.Name) signature is $($signature.Status)."
             }
+            if ($signature.SignerCertificate.GetNameInfo("SimpleName", $false) -ne $env:SIGNING_PUBLISHER) {
+              throw "$($executable.Name) is not signed by the configured publisher."
+            }
           }
           $config = "apps/desktop/out/win-unpacked/resources/app-update.yml"
-          if (-not (Select-String -Path $config -Pattern '^publisherName:' -Quiet)) {
+          $feed = Get-Content -Raw $config
+          if ($feed -notmatch "(?m)^publisherName:\r?\n\s+- $([regex]::Escape($env:SIGNING_PUBLISHER))\r?$") {
             throw "Windows update config is not bound to the signing publisher."
           }
-          $feed = Get-Content -Raw $config
           foreach ($expected in @("provider: github", "owner: elie222", "repo: rakazo")) {
             if ($feed -notmatch "(?m)^$([regex]::Escape($expected))\r?$") {
               throw "Windows update config missing '$expected'."
