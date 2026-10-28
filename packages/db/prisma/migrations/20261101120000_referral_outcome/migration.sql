@@ -8,12 +8,15 @@ CREATE UNIQUE INDEX "referrals_cardFingerprint_key" ON "referrals"("cardFingerpr
 UPDATE "referrals"
 SET "outcome" = COALESCE("rewardKind", CASE WHEN "declinedAt" IS NOT NULL THEN 'declined' END);
 
--- A card that already earned a reward cannot earn another.
+-- A card that already earned a reward cannot earn another. Each card goes to one referral, so
+-- histories sharing a card cannot break the unique index.
 UPDATE "referrals" r
-SET "cardFingerprint" = (
-  SELECT f."fingerprint" FROM "billing_card_fingerprints" f
-  WHERE f."organizationId" = r."organizationId"
-  ORDER BY f."createdAt"
-  LIMIT 1
-)
-WHERE r."rewardKind" IS NOT NULL;
+SET "cardFingerprint" = card."fingerprint"
+FROM (
+  SELECT DISTINCT ON (f."fingerprint") f."fingerprint", f."organizationId"
+  FROM "billing_card_fingerprints" f
+  JOIN "referrals" rewarded ON rewarded."organizationId" = f."organizationId"
+  WHERE rewarded."rewardKind" IS NOT NULL
+  ORDER BY f."fingerprint", f."createdAt"
+) card
+WHERE r."organizationId" = card."organizationId";
