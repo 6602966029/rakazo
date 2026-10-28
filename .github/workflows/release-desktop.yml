@@ -335,10 +335,9 @@ jobs:
             }
           }
           $config = "apps/desktop/out/win-unpacked/resources/app-update.yml"
+          pnpm exec tsx apps/desktop/scripts/verify-update-publisher.ts $config $env:SIGNING_PUBLISHER
+          if ($LASTEXITCODE -ne 0) { throw "Windows update config is not bound to the signing publisher." }
           $feed = Get-Content -Raw $config
-          if ($feed -notmatch "(?m)^publisherName:\r?\n\s+- $([regex]::Escape($env:SIGNING_PUBLISHER))\r?$") {
-            throw "Windows update config is not bound to the signing publisher."
-          }
           foreach ($expected in @("provider: github", "owner: elie222", "repo: rakazo")) {
             if ($feed -notmatch "(?m)^$([regex]::Escape($expected))\r?$") {
               throw "Windows update config missing '$expected'."
