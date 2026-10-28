@@ -96,7 +96,6 @@ export const BotSchema = z.object({
   title: z.string(),
   description: z.string(),
   instructions: z.string(),
-  selfUpdateInstructions: z.boolean().optional(),
   instructionHistory: z.array(InstructionVersionSchema).optional(),
   color: z.string(),
   avatarSet: BotAvatarSetSchema.optional(),
@@ -400,6 +399,7 @@ export const UpdateBotInput = z
     description: z.string().trim().max(BOT_DESCRIPTION_MAX_LENGTH).optional(),
     instructions: z.string().trim().max(BOT_INSTRUCTIONS_MAX_LENGTH).optional(),
     expectedInstructions: z.string().max(BOT_INSTRUCTIONS_MAX_LENGTH).optional(),
+    /** Ignored; installed mobile apps may still send it. */
     selfUpdateInstructions: z.boolean().optional(),
     notifyOnFinish: z.boolean().optional(),
     color: BotAvatarValueSchema.optional(),

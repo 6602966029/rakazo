@@ -47,26 +47,19 @@ export function createReferrals(deps: {
 
   /** Saves the outcome once and returns the stored one, which a concurrent settle may have set. */
   async function decide(organizationId: string, outcome: Outcome, cardFingerprint: string) {
-    const undecided = { organizationId, outcome: null, rewardKind: null, declinedAt: null };
+    const undecided = { organizationId, outcome: null };
     try {
-      await prisma.referral.updateMany({
-        where: undecided,
-        data: { ...withLegacyColumns(outcome), cardFingerprint },
-      });
+      await prisma.referral.updateMany({ where: undecided, data: { outcome, cardFingerprint } });
     } catch (error) {
       if (!isUniqueViolation(error)) throw error;
       // Another referral was already settled with this card.
-      await prisma.referral.updateMany({
-        where: undecided,
-        data: withLegacyColumns("declined"),
-      });
+      await prisma.referral.updateMany({ where: undecided, data: { outcome: "declined" } });
     }
-    return storedOutcome(
-      await prisma.referral.findUniqueOrThrow({
-        where: { organizationId },
-        select: { outcome: true, rewardKind: true, declinedAt: true },
-      }),
-    );
+    const stored = await prisma.referral.findUniqueOrThrow({
+      where: { organizationId },
+      select: { outcome: true },
+    });
+    return stored.outcome;
   }
 
   async function extendFreePeriod(organizationId: string, referrerOrganizationId: string) {
@@ -127,8 +120,6 @@ export function createReferrals(deps: {
           where: { organizationId },
           select: {
             outcome: true,
-            rewardKind: true,
-            declinedAt: true,
             rewardedAt: true,
             referrerOrganizationId: true,
             referrer: { select: { billing: true, modelCredits: { select: { mode: true } } } },
@@ -136,7 +127,7 @@ export function createReferrals(deps: {
         });
         if (!referral || referral.rewardedAt) return;
         const { billing, modelCredits } = referral.referrer;
-        let outcome = storedOutcome(referral);
+        let outcome = referral.outcome;
         if (!outcome) {
           const referrerCard =
             billing &&
@@ -174,23 +165,6 @@ export function createReferrals(deps: {
       }
     },
   };
-}
-
-// The previous release reads rewardKind and declinedAt; both go once it no longer runs.
-function withLegacyColumns(outcome: Outcome) {
-  return {
-    outcome,
-    ...(outcome === "declined" ? { declinedAt: new Date() } : {}),
-    ...(outcome === "balance" || outcome === "credits" ? { rewardKind: outcome } : {}),
-  };
-}
-
-function storedOutcome(row: {
-  outcome: string | null;
-  rewardKind: string | null;
-  declinedAt: Date | null;
-}) {
-  return row.outcome ?? row.rewardKind ?? (row.declinedAt ? "declined" : null);
 }
 
 function isUniqueViolation(error: unknown) {

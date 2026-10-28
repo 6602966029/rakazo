@@ -44,7 +44,6 @@ test("instruction proposals support edit, approval, undo and mandatory human app
   expect((await rpc<{ instructions: string }>(page, "bots/get", { botId })).instructions).toBe(
     original,
   );
-  await rpc(page, "bots/update", { botId, selfUpdateInstructions: true });
   await composer.fill("propose an instruction update");
   await page.keyboard.press("Enter");
   await expect(proposal.getByRole("button", { name: "Apply", exact: true })).toBeVisible({

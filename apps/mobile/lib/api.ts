@@ -1051,7 +1051,6 @@ export type MobileBot = Pick<
   | "color"
   | "avatarSet"
   | "instructionHistory"
-  | "selfUpdateInstructions"
   | "notifyOnFinish"
   | "threadId"
   | "pinned"

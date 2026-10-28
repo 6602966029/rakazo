@@ -44,7 +44,6 @@ const botRecord = (id: string): AccountExportRecord => ({
   name: "Chief",
   description: "",
   instructions: "Be brief",
-  selfUpdateInstructions: false,
   color: "blue",
   avatarSet: "rakazo",
   notifyOnFinish: true,
