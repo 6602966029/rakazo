@@ -1168,4 +1168,8 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Your skills": "你的技能",
   Plugins: "插件",
   Browse: "浏览",
+  "New skill": "新建技能",
+  "Could not load skill": "无法加载技能",
+  "Could not save skill": "无法保存技能",
+  "Could not delete skill": "无法删除技能",
 };

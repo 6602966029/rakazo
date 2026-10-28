@@ -1211,4 +1211,8 @@ export const RU_MESSAGES: Record<string, string> = {
   "Your skills": "Ваши навыки",
   Plugins: "Плагины",
   Browse: "Обзор",
+  "New skill": "Новый навык",
+  "Could not load skill": "Не удалось загрузить навык",
+  "Could not save skill": "Не удалось сохранить навык",
+  "Could not delete skill": "Не удалось удалить навык",
 };

@@ -1204,4 +1204,8 @@ export const JA_MESSAGES: Record<string, string> = {
   "Your skills": "あなたのスキル",
   Plugins: "プラグイン",
   Browse: "参照",
+  "New skill": "新しいスキル",
+  "Could not load skill": "スキルを読み込めませんでした",
+  "Could not save skill": "スキルを保存できませんでした",
+  "Could not delete skill": "スキルを削除できませんでした",
 };

@@ -1180,4 +1180,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Your skills": "Deine Skills",
   Plugins: "Plugins",
   Browse: "Durchsuchen",
+  "New skill": "Neuer Skill",
+  "Could not load skill": "Skill konnte nicht geladen werden",
+  "Could not save skill": "Skill konnte nicht gespeichert werden",
+  "Could not delete skill": "Skill konnte nicht gelöscht werden",
 };

@@ -145,28 +145,42 @@ export default function SkillsScreen() {
             />
           </View>
         ) : null}
-        {ownSkills.length ? (
-          <View testID="your-skills" style={styles.list}>
-            <Text style={styles.section}>{t("Your skills")}</Text>
-            {ownSkills.map((skill) => (
-              <View key={skill.id} style={styles.row}>
-                <View style={styles.skillMark}>
-                  <SkillSymbol size={17} />
-                </View>
-                <View style={styles.grow}>
-                  <Text numberOfLines={1} style={styles.title}>
-                    {skill.name}
-                  </Text>
-                  {skill.description ? (
-                    <Text numberOfLines={1} style={styles.secondary}>
-                      {skill.description}
-                    </Text>
-                  ) : null}
-                </View>
+        <View testID="your-skills" style={styles.list}>
+          <Text style={styles.section}>{t("Your skills")}</Text>
+          {ownSkills.map((skill) => (
+            <Pressable
+              key={skill.id}
+              testID="own-skill"
+              accessibilityRole="button"
+              accessibilityLabel={skill.name}
+              onPress={() => router.push({ pathname: "/skill", params: { id: skill.id } })}
+              style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+            >
+              <View style={styles.skillMark}>
+                <SkillSymbol size={17} />
               </View>
-            ))}
-          </View>
-        ) : null}
+              <View style={styles.grow}>
+                <Text numberOfLines={1} style={styles.title}>
+                  {skill.name}
+                </Text>
+                {skill.description ? (
+                  <Text numberOfLines={1} style={styles.secondary}>
+                    {skill.description}
+                  </Text>
+                ) : null}
+              </View>
+              <Chevron />
+            </Pressable>
+          ))}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push("/skill")}
+            style={({ pressed }) => [styles.row, pressed && styles.pressed]}
+          >
+            <Text style={[styles.title, styles.grow]}>{t("New skill")}</Text>
+            <Chevron />
+          </Pressable>
+        </View>
         {skillSets.length ? (
           <View testID="plugin-skill-sets" style={styles.list}>
             <Text style={styles.section}>{t("Plugins")}</Text>

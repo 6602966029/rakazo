@@ -1172,4 +1172,8 @@ export const NL_MESSAGES: Record<string, string> = {
   "Your skills": "Jouw skills",
   Plugins: "Plug-ins",
   Browse: "Bladeren",
+  "New skill": "Nieuwe skill",
+  "Could not load skill": "Kan skill niet laden",
+  "Could not save skill": "Kan skill niet opslaan",
+  "Could not delete skill": "Kan skill niet verwijderen",
 };
