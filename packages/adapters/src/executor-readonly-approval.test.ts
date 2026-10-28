@@ -298,7 +298,9 @@ function fixture({
       update: vi.fn(async () => ({ nextMessageSeq: 2, nextEventSeq: 2 })),
     },
     message: {
-      findFirst: vi.fn(async () => null),
+      findFirst: vi.fn(
+        async (_query?: { where?: { OR?: unknown } }): Promise<{ id: string } | null> => null,
+      ),
       findUnique: vi.fn(async () =>
         sourceRole ? { role: sourceRole, blocks: [{ kind: "text", text: prompt }] } : null,
       ),
