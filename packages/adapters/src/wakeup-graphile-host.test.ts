@@ -320,7 +320,8 @@ describe("reserved Graphile workloads", () => {
     const host = createReservedGraphileJobWorkerHost({} as Pool, { concurrency: 4 });
     await host.start(handlers());
     const configurations = run.mock.calls.map(([options]) => options);
-    expect(configurations.map(({ concurrency }) => concurrency)).toEqual([4, 1, 1]);
+    expect(configurations.map(({ concurrency }) => concurrency)).toEqual([4, 1, 100]);
+    expect(configurations[2].preset).toEqual({ worker: { localQueue: { size: 10 } } });
     expect(Object.keys(configurations[0].taskList)).toEqual(["run.interactive"]);
     expect(Object.keys(configurations[1].taskList)).toEqual(["run.continue"]);
     expect(Object.keys(configurations[2].taskList)).not.toContain("run.continue");
