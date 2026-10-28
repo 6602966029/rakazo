@@ -2651,6 +2651,10 @@ button.product-demo__dock-icon {
   margin-top: 36px;
 }
 
+.plugin-form[hidden] {
+  display: none;
+}
+
 .plugin-form label {
   display: grid;
   gap: 8px;

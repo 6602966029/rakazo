@@ -103,7 +103,9 @@ function SessionApp() {
   const next = searchParams.get("next") ?? "";
   // A connector sign-in started on another device lands here signed out; finish it after sign-in.
   const signInDestination =
-    next === "/integrations/setup" || next.startsWith(`${MCP_OAUTH_CALLBACK_PATH}?`)
+    next === "/integrations/setup" ||
+    next === "/admin/plugins" ||
+    next.startsWith(`${MCP_OAUTH_CALLBACK_PATH}?`)
       ? next
       : "/app";
   const ticketBoardEnabled = useSyncExternalStore(
@@ -217,6 +219,16 @@ function SessionApp() {
                 }
               />
               <Route
+                path="/admin/plugins"
+                element={
+                  user ? (
+                    <AdminPluginsPage />
+                  ) : (
+                    <Navigate to="/sign-in?next=/admin/plugins" replace />
+                  )
+                }
+              />
+              <Route
                 element={
                   user ? (
                     <SubscriptionGate fallback={<PageLoading />}>
@@ -234,7 +246,6 @@ function SessionApp() {
                 <Route path="/app/artifacts/:artifactId" element={<ArtifactsPage />} />
                 {ticketBoardEnabled ? <Route path="/app/board" element={<BoardPage />} /> : null}
                 <Route path="/app/x/:linkId" element={<NavLinkPage />} />
-                <Route path="/admin/plugins" element={<AdminPluginsPage />} />
                 <Route path="/app/:botId" element={<ShellPage />} />
               </Route>
             </Routes>

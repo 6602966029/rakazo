@@ -19,6 +19,7 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 import { readBoundedBody } from "./http-body.js";
 import { assertMcpRemoteEndpoint } from "./mcp-servers.js";
+import { hasBuiltinSkillName } from "./plugin-installs.js";
 import type { RouterDeps } from "./router.js";
 import { windowCounter } from "./window-counter.js";
 
@@ -133,19 +134,28 @@ export function pluginSubmissionRoutes(
       where: { source, email, status: "pending" },
       select: { id: true },
     });
-    const row = pending
-      ? await deps.prisma.pluginSubmission.update({ where: { id: pending.id }, data })
+    // A submission reviewed since the lookup keeps what the admin saw; this becomes a new one.
+    const updated =
+      pending &&
+      (
+        await deps.prisma.pluginSubmission.updateMany({
+          where: { id: pending.id, status: "pending" },
+          data,
+        })
+      ).count > 0;
+    const row = updated
+      ? await deps.prisma.pluginSubmission.findUniqueOrThrow({ where: { id: pending.id } })
       : await deps.prisma.pluginSubmission.create({ data });
     if (confirmations(email) <= CONFIRMATIONS_PER_EMAIL_PER_DAY) {
       sendLater(deps, pluginSubmissionReceivedEmail(email));
     }
-    if (!pending) {
+    if (!updated) {
       const reviewUrl = new URL("/admin/plugins", deps.webOrigin).href;
       for (const admin of deps.adminEmails) {
         sendLater(deps, pluginSubmissionAdminEmail(admin, row, reviewUrl));
       }
     }
-    return c.json({ id: row.id, status: row.status }, pending ? 200 : 201);
+    return c.json({ id: row.id, status: row.status }, updated ? 200 : 201);
   });
 
   return app;
@@ -190,6 +200,11 @@ export async function reviewPluginSubmission(
     if (!preview.skills.length && !preview.mcpServers.length) {
       throw new ORPCError("BAD_REQUEST", { message: "This plugin has no skills or MCP servers" });
     }
+    if (hasBuiltinSkillName(preview.skills)) {
+      throw new ORPCError("BAD_REQUEST", {
+        message: "Plugin skill conflicts with a built-in skill",
+      });
+    }
     listing = {
       pinnedSource: sourceString(preview.source, preview.resolvedSha),
       hasConnector: preview.mcpServers.length > 0,
@@ -198,12 +213,14 @@ export async function reviewPluginSubmission(
   }
   const status = input.decision === "approve" ? "approved" : "rejected";
   const reason = input.decision === "reject" ? input.reason : null;
-  // Another admin may have decided while the preview ran; only one decision lands and is emailed.
+  // During the preview another admin may decide or the author may resubmit; only the reviewed
+  // version is decided, once.
   const decided = await deps.prisma.pluginSubmission.updateMany({
-    where: { id: row.id, status: "pending" },
+    where: { id: row.id, status: "pending", updatedAt: row.updatedAt },
     data: { ...listing, status, reason, reviewedAt: new Date() },
   });
-  if (decided.count === 0) throw new ORPCError("CONFLICT", { message: "Already reviewed" });
+  if (decided.count === 0)
+    throw new ORPCError("CONFLICT", { message: "Changed or already reviewed. Reload to see it." });
   sendLater(
     deps,
     pluginSubmissionReviewedEmail({ email: row.email, name: row.name, status, reason }),

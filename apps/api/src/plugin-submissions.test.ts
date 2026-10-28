@@ -33,14 +33,17 @@ function fakePrisma(users: Array<{ id: string; email: string; emailVerified: boo
         (row) =>
           row.source === where.source && row.email === where.email && row.status === where.status,
       ) ?? null,
-    findUnique: async ({ where }: { where: { id: string } }) =>
-      rows.find((row) => row.id === where.id) ?? null,
+    findUnique: async ({ where }: { where: { id: string } }) => {
+      const row = rows.find((candidate) => candidate.id === where.id);
+      return row ? { ...row } : null;
+    },
     create: async ({ data }: { data: Record<string, unknown> }) => {
       const row = stamp({
         ...data,
         id: `sub-${rows.length + 1}`,
         status: "pending",
         createdAt: new Date(),
+        updatedAt: new Date(0),
       }) as Row;
       rows.push(row);
       return row;
@@ -56,12 +59,13 @@ function fakePrisma(users: Array<{ id: string; email: string; emailVerified: boo
       where,
       data,
     }: {
-      where: { id: string; status: string };
+      where: { id: string; status: string; updatedAt?: Date };
       data: Record<string, unknown>;
     }) => {
       const row = rows.find((candidate) => candidate.id === where.id);
       if (!row || row.status !== where.status) return { count: 0 };
-      Object.assign(row, data);
+      if (where.updatedAt && where.updatedAt !== row.updatedAt) return { count: 0 };
+      Object.assign(row, data, { updatedAt: new Date() });
       return { count: 1 };
     },
     findMany: async () => rows.filter((row) => row.status === "approved" && row.pinnedSource),
@@ -223,7 +227,7 @@ describe("reviewing submissions", () => {
       source: { gitUrl: "https://github.com/acme/plugins", subdir: "tickets" },
       resolvedSha: SHA,
       mcpServers: [],
-      skills: [{}, {}],
+      skills: [{ name: "a" }, { name: "b" }],
       skipped: [],
     });
     await reviewPluginSubmission(deps, { id: "sub-1", decision: "approve" });
@@ -263,7 +267,7 @@ describe("reviewing submissions", () => {
         source: { gitUrl: "https://github.com/acme/plugins" },
         resolvedSha: SHA,
         mcpServers: [],
-        skills: [{}],
+        skills: [{ name: "a" }],
         skipped: [],
       };
     });
@@ -272,6 +276,38 @@ describe("reviewing submissions", () => {
     ).rejects.toMatchObject({ code: "CONFLICT" });
     expect(rows[0]!.status).toBe("rejected");
     expect(email.sent).toHaveLength(0);
+  });
+
+  it("does not approve a listing the author changed during the preview", async () => {
+    const { deps, rows } = await submitted();
+    preview.mockImplementation(async () => {
+      Object.assign(rows[0]!, { name: "Changed", updatedAt: new Date() });
+      return {
+        source: { gitUrl: "https://github.com/acme/plugins" },
+        resolvedSha: SHA,
+        mcpServers: [],
+        skills: [{ name: "tickets" }],
+        skipped: [],
+      };
+    });
+    await expect(
+      reviewPluginSubmission(deps, { id: "sub-1", decision: "approve" }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(rows[0]!.status).toBe("pending");
+  });
+
+  it("refuses a plugin whose skill would clash with a built-in one", async () => {
+    const { deps } = await submitted();
+    preview.mockResolvedValue({
+      source: { gitUrl: "https://github.com/acme/plugins" },
+      resolvedSha: SHA,
+      mcpServers: [],
+      skills: [{ name: "Interrogate" }],
+      skipped: [],
+    });
+    await expect(
+      reviewPluginSubmission(deps, { id: "sub-1", decision: "approve" }),
+    ).rejects.toThrow("Plugin skill conflicts with a built-in skill");
   });
 
   it("keeps a plugin that would install only in part pending", async () => {
