@@ -1460,12 +1460,12 @@ export function handleRpcError(
     getLogger().warn(`rpc ${path.join("/")} not found`, { "error.stack": error.stack });
     throw new ORPCError("NOT_FOUND", { message: error.message, cause: error });
   }
-  // The user's own voice account is out of credit or rejected the key: theirs to fix.
+  // The user's own voice account refused the request: theirs to fix.
   if (error instanceof VoiceAccountError) {
     getLogger().warn(`rpc ${path.join("/")} voice provider account rejected the request`, {
-      reason: error.code,
+      reason: error.code ?? error.message,
     });
-    throw new ORPCError(error.code, {
+    throw new ORPCError(error.code ?? "FORBIDDEN", {
       status: voiceAccountErrorStatus(error.code),
       message: error.message,
       cause: error,
