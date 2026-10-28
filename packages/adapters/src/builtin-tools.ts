@@ -1335,7 +1335,6 @@ export const builtinAgentTools: ConnectorTool[] = [
       type: "object",
       properties: {
         name: { type: "string" },
-        title: { type: "string" },
         description: {
           type: "string",
           maxLength: BOT_DESCRIPTION_MAX_LENGTH,
@@ -1365,17 +1364,13 @@ export const builtinAgentTools: ConnectorTool[] = [
   {
     name: "update_bot",
     description:
-      "Update this bot's own name (header and list label), title, description, avatar (profile picture or color/shape), or notifyOnFinish. Call this when the user asks you to rename yourself, change your title/description, change your profile picture, or turn finish notifications on or off. Do not claim you updated the profile without calling this tool.",
+      "Update this bot's own name (header and list label), description, avatar (profile picture or color/shape), or notifyOnFinish. Call this when the user asks you to rename yourself, change your description, change your profile picture, or turn finish notifications on or off. Do not claim you updated the profile without calling this tool.",
     inputSchema: {
       type: "object",
       properties: {
         name: {
           type: "string",
           description: "Display name shown in the chat header and bot list.",
-        },
-        title: {
-          type: "string",
-          description: "Short role or headline shown in bot settings.",
         },
         description: {
           type: "string",
