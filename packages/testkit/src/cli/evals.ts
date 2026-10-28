@@ -418,13 +418,15 @@ async function main() {
   const dataDir = mkdtempSync(path.join(tmpdir(), "rakazo-evals-"));
   let postgres: StartedPostgreSqlContainer | undefined;
   let stopRequested = false;
+  const stop = new AbortController();
   const requestStop = () => {
     stopRequested = true;
+    stop.abort();
   };
   process.on("SIGINT", requestStop);
   process.on("SIGTERM", requestStop);
   try {
-    postgres = await startPostgres();
+    postgres = await startPostgres(stop.signal);
     const databaseUrl = postgres.getConnectionUri();
     Object.assign(process.env, {
       DATABASE_URL: databaseUrl,
