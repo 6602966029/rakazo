@@ -112,7 +112,7 @@ describe("public plugin submissions", () => {
     expect(submitter.text).not.toContain(valid.name);
     const admin = email.sent.find((message) => message.to === "admin@example.test")!;
     expect(admin.subject).toContain(valid.name);
-    expect(admin.text).toContain("https://app.example.test/app?settings=plugin-submissions");
+    expect(admin.text).toContain("https://app.example.test/admin/plugins");
   });
 
   it("updates a pending submission for the same repository instead of queueing it twice", async () => {

@@ -161,7 +161,7 @@ export function pluginSubmissionRoutes(deps: {
       send(pluginSubmissionReceivedEmail(row.email));
     }
     if (created) {
-      const reviewUrl = new URL("/app?settings=plugin-submissions", deps.webOrigin).href;
+      const reviewUrl = new URL("/admin/plugins", deps.webOrigin).href;
       for (const admin of deps.adminEmails) {
         send(pluginSubmissionAdminEmail(admin, row, reviewUrl));
       }

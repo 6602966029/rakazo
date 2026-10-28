@@ -114,13 +114,6 @@ export default function SettingsLayout() {
         }
       />
       <Stack.Screen
-        name="plugin-submissions"
-        options={{
-          ...glassHeaderOptions(t("Plugin submissions")),
-          contentStyle: { backgroundColor: native.groupedPage },
-        }}
-      />
-      <Stack.Screen
         name="integration-setup"
         options={glassHeaderOptions(t("Server integrations"))}
       />

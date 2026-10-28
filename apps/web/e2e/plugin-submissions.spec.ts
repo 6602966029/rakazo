@@ -31,7 +31,7 @@ async function makeAdmin(route: Route, path: "me" | "bootstrap") {
   await route.fulfill({ response, json: body });
 }
 
-test("an admin reviews plugin submissions from the emailed settings link", async ({
+test("an admin reviews plugin submissions from the emailed admin link", async ({
   page,
 }, testInfo) => {
   const stamp = Date.now();
@@ -80,17 +80,15 @@ test("an admin reviews plugin submissions from the emailed settings link", async
     await route.fulfill({ json: { json: submissions.find((row) => row.id === input.id) } });
   });
 
-  await page.goto("/app?settings=plugin-submissions");
-  const settings = page.getByTestId("user-settings");
-  await expect(settings).toHaveAttribute("data-settings-section", "plugin-submissions");
-  const panel = settings.getByTestId("plugin-submissions");
+  await page.goto("/admin/plugins");
+  const panel = page.getByTestId("plugin-submissions");
   const rows = panel.getByTestId("plugin-submission");
   await expect(rows).toHaveCount(2);
   await expect(rows.first()).toContainText("github.com/example/planning-notes");
   await expect(rows.first()).toContainText("maker@example.test");
   await rows.first().getByRole("button", { name: "Testing" }).click();
   await expect(rows.first()).toContainText("It should list three blocks.");
-  await captureScreenshot(page, testInfo, "settings-plugin-submissions");
+  await captureScreenshot(page, testInfo, "admin-plugin-submissions");
 
   const tasks = panel.getByRole("listitem", { name: "Task Board" });
   await tasks.getByRole("button", { name: "Reject", exact: true }).click();
@@ -98,7 +96,7 @@ test("an admin reviews plugin submissions from the emailed settings link", async
   const reject = dialog.getByRole("button", { name: "Reject", exact: true });
   await expect(reject).toBeDisabled();
   await dialog.getByRole("textbox", { name: "Reason" }).fill("The repository has no manifest.");
-  await captureScreenshot(page, testInfo, "settings-plugin-submission-reject");
+  await captureScreenshot(page, testInfo, "admin-plugin-submission-reject");
   await reject.click();
   await expect(dialog).toHaveCount(0);
   await expect(rows).toHaveCount(1);

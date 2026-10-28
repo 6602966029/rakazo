@@ -532,15 +532,3 @@ it("shows the approval mode as the Approvals row's value, with Rules only once t
   await view.press("Rules");
   expect(account.push).toHaveBeenCalledWith("/approvals");
 });
-
-it("shows Plugin submissions only to admins", async () => {
-  let view = await renderAccount();
-  expect(view.button("Plugin submissions")).toBeUndefined();
-
-  act(() => root?.unmount());
-  container?.remove();
-  account.me = { ...account.me, isAdmin: true };
-  view = await renderAccount();
-  await view.press("Plugin submissions");
-  expect(account.push).toHaveBeenCalledWith("/plugin-submissions");
-});

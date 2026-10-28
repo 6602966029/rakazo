@@ -972,6 +972,7 @@ msgstr "頭像工作室"
 
 #: src/components/integrations/plugin-marketplace.tsx
 #: src/components/integrations/skills-dialog.tsx
+#: src/pages/AdminPluginsPage.tsx
 #: src/pages/Auth.tsx
 #: src/pages/Board.tsx
 #: src/pages/NavLinkPage.tsx
@@ -4481,7 +4482,7 @@ msgstr "外掛程式"
 msgid "Plugin GitHub URL"
 msgstr ""
 
-#: src/pages/SettingsOverlay.tsx
+#: src/pages/AdminPluginsPage.tsx
 msgid "Plugin submissions"
 msgstr ""
 

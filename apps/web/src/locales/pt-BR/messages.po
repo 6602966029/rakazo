@@ -971,6 +971,7 @@ msgstr "Estúdio de avatar"
 
 #: src/components/integrations/plugin-marketplace.tsx
 #: src/components/integrations/skills-dialog.tsx
+#: src/pages/AdminPluginsPage.tsx
 #: src/pages/Auth.tsx
 #: src/pages/Board.tsx
 #: src/pages/NavLinkPage.tsx
@@ -4480,7 +4481,7 @@ msgstr "Plugin"
 msgid "Plugin GitHub URL"
 msgstr ""
 
-#: src/pages/SettingsOverlay.tsx
+#: src/pages/AdminPluginsPage.tsx
 msgid "Plugin submissions"
 msgstr ""
 

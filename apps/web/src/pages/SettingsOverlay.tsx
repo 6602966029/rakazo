@@ -12,7 +12,6 @@ import {
   KeyRound,
   MessageCircle,
   Monitor,
-  PackageCheck,
   Settings,
   ShieldCheck,
   Volume2,
@@ -38,7 +37,6 @@ import { MemorySettingsOverlay } from "./MemorySettingsOverlay";
 import { MessagingSettingsPanel } from "./MessagingSettingsPanel";
 import { ModelSettingsOverlay } from "./ModelSettingsOverlay";
 import { PaymentWalletSettingsPanel } from "./PaymentWalletSettingsPanel";
-import { PluginSubmissionsPanel } from "./PluginSubmissionsPanel";
 import { SpaceSettingsPanel } from "./SpaceSettingsPanel";
 import type { SettingsSpace } from "./shell/dialogs";
 import type { SettingsSection } from "./shell-overlay";
@@ -71,7 +69,6 @@ export function SettingsOverlay({
   onSandboxProviderChange,
   messagingEnabled = false,
   paymentWalletProvider = null,
-  isAdmin = false,
   memoryConfig,
   onMemoryConfigChange,
   onClose,
@@ -99,7 +96,6 @@ export function SettingsOverlay({
   messagingEnabled?: boolean;
   /** The wallet this deployment lets bots spend from; none hides Wallet. */
   paymentWalletProvider?: { id: string; name: string } | null;
-  isAdmin?: boolean;
   memoryConfig: SpaceMemoryConfig | null | undefined;
   onMemoryConfigChange: (config: SpaceMemoryConfig | null) => void;
   onClose: () => void;
@@ -122,8 +118,7 @@ export function SettingsOverlay({
     (requestedSection === "billing" && !billingEnabled) ||
     (requestedSection === "messaging" && !messagingEnabled) ||
     (requestedSection === "wallet" && !paymentWalletProvider) ||
-    (requestedSection === "updates" && !showUpdates) ||
-    (requestedSection === "plugin-submissions" && !isAdmin)
+    (requestedSection === "updates" && !showUpdates)
       ? "general"
       : requestedSection;
   const panelBusy = memoryBusy || voiceBusy;
@@ -171,9 +166,6 @@ export function SettingsOverlay({
     ...(showComputer ? [{ id: "computer" as const, label: t`Computer`, icon: Monitor }] : []),
     ...(billingEnabled ? [{ id: "billing" as const, label: t`Billing`, icon: CreditCard }] : []),
     ...(showUpdates ? [{ id: "updates" as const, label: t`Updates`, icon: CloudDownload }] : []),
-    ...(isAdmin
-      ? [{ id: "plugin-submissions" as const, label: t`Plugin submissions`, icon: PackageCheck }]
-      : []),
   ];
 
   useEffect(() => {
@@ -211,7 +203,6 @@ export function SettingsOverlay({
     messagingEnabled,
     paymentWalletProvider,
     showUpdates,
-    isAdmin,
     i18n.locale,
   ]);
 
@@ -443,7 +434,6 @@ export function SettingsOverlay({
                   ) : null}
                   {section === "billing" && billingEnabled ? <BillingSettingsPanel /> : null}
                   {section === "updates" && showUpdates ? <UpdatesSettingsPanel /> : null}
-                  {section === "plugin-submissions" && isAdmin ? <PluginSubmissionsPanel /> : null}
                   {section === "models" ? (
                     <ModelSettingsOverlay embedded scope="account" onClose={requestClose} />
                   ) : null}

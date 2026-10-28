@@ -1205,12 +1205,5 @@ export const NL_MESSAGES: Record<string, string> = {
     "Krijg een gratis maand voor elke vriend die een proefperiode start.",
   "1 free month earned": "1 gratis maand verdiend",
   "{count} free months earned": "{count} gratis maanden verdiend",
-  "Plugin submissions": "Plugin-inzendingen",
   "Submit a plugin": "Plugin indienen",
-  "Why reject {name}?": "Waarom {name} afwijzen?",
-  Reject: "Afwijzen",
-  Reason: "Reden",
-  Testing: "Testen",
-  Approved: "Goedgekeurd",
-  Rejected: "Afgewezen",
 };

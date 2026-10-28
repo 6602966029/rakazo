@@ -1213,12 +1213,5 @@ export const DE_MESSAGES: Record<string, string> = {
     "Erhalte einen Gratismonat für jeden Freund, der eine Testphase startet.",
   "1 free month earned": "1 Gratismonat verdient",
   "{count} free months earned": "{count} Gratismonate verdient",
-  "Plugin submissions": "Plugin-Einreichungen",
   "Submit a plugin": "Plugin einreichen",
-  "Why reject {name}?": "Warum {name} ablehnen?",
-  Reject: "Ablehnen",
-  Reason: "Grund",
-  Testing: "Testen",
-  Approved: "Genehmigt",
-  Rejected: "Abgelehnt",
 };

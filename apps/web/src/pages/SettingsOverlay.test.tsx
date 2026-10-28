@@ -56,9 +56,6 @@ vi.mock("../lib/rpc", () => ({
 }));
 vi.mock("./BillingSettingsPanel", () => ({ BillingSettingsPanel: () => null }));
 vi.mock("./PaymentWalletSettingsPanel", () => ({ PaymentWalletSettingsPanel: () => null }));
-vi.mock("./PluginSubmissionsPanel", () => ({
-  PluginSubmissionsPanel: () => <div data-testid="plugin-submissions" />,
-}));
 vi.mock("./MemorySettingsOverlay", () => ({
   MemorySettingsOverlay: ({
     config,
@@ -317,24 +314,6 @@ it("offers Wallet only when the deployment has a wallet provider", async () => {
     await rerender({ section: "wallet", paymentWalletProvider: { id: "link", name: "Link" } });
     expect(container.querySelector('[data-testid="settings-nav-wallet"]')).not.toBeNull();
     expect(shown()).toBe("wallet");
-  } finally {
-    await cleanup();
-  }
-});
-
-it("offers plugin submissions only to admins", async () => {
-  const { container, rerender, cleanup } = await render({ section: "plugin-submissions" });
-  const shown = () =>
-    container.querySelector("[data-settings-section]")?.getAttribute("data-settings-section");
-  try {
-    expect(container.querySelector('[data-testid="settings-nav-plugin-submissions"]')).toBeNull();
-    expect(container.querySelector('[data-testid="plugin-submissions"]')).toBeNull();
-    expect(shown()).toBe("general");
-    await rerender({ section: "plugin-submissions", isAdmin: true });
-    expect(
-      container.querySelector('[data-testid="settings-nav-plugin-submissions"]')?.textContent,
-    ).toBe("Plugin submissions");
-    expect(container.querySelector('[data-testid="plugin-submissions"]')).not.toBeNull();
   } finally {
     await cleanup();
   }
