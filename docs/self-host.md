@@ -1573,6 +1573,97 @@ settings) in a root-owned `/etc/rakazo/deploy.env` readable by the deploy user. 
 a change to the launcher itself needs
 `sudo install -m 0755 infra/compose/deploy-launcher.sh /usr/local/sbin/rakazo-deploy-main`.
 
+#### Point-in-time recovery
+
+The nightly backup can lose up to a day. Point-in-time recovery streams the database's write-ahead
+log (WAL) to S3-compatible object storage and takes a base backup every 24 hours, so the database
+can be restored to any moment in the last `PITR_RETAIN_DAYS` (default `7`) and a lost server costs
+about a minute of writes. It covers the database only; keep the nightly backup for application
+data. It is off by default and needs the production Compose file with Postgres 18.
+
+The optional `pitr` service streams WAL with `pg_receivewal` over the internal `data` network,
+using a replication-only login and a replication slot, and uploads from its own network, so
+Postgres keeps no internet access. Postgres closes a WAL segment at least every minute while
+anything is written (`archive_timeout`). Each segment and base backup is encrypted with
+[age](https://age-encryption.org) to public recipients before it leaves the container, as the
+nightly backup is, so the server cannot read its own backups. You can use the same recipients.
+
+The slot keeps WAL that has not reached the sidecar, so a sidecar restart leaves no gap. Disk use
+stays bounded if uploads stall: the sidecar holds at most `PITR_MAX_WAL_GB` (default `4`) of
+compressed WAL waiting to upload, then pauses streaming, and Postgres keeps at most that much again
+for the slot (`max_slot_wal_keep_size`). Beyond that Postgres drops the slot's WAL, recovery has a
+gap, and the sidecar takes a new base backup once it reconnects.
+
+Use a bucket of its own. Its credentials need to list, read, write and delete objects in it;
+deletes only remove backups older than the retention window. With `PITR_RETAIN_DAYS=0` nothing is
+deleted, so no delete permission is needed and the bucket's lifecycle rules handle expiry. Add to
+`.env`:
+
+```env
+COMPOSE_PROFILES=pitr
+PITR_DATABASE_PASSWORD=replace-with-openssl-rand-hex-24
+PITR_BUCKET=example-rakazo-pitr
+PITR_ENDPOINT=https://s3.example.com
+PITR_REGION=example-region
+PITR_ACCESS_KEY_ID=replace-me
+PITR_SECRET_ACCESS_KEY=replace-me
+PITR_AGE_RECIPIENTS=age1exampleprimaryrecipient age1examplerecoveryrecipient
+# Optional: PITR_PREFIX (a key prefix), PITR_PATH_STYLE=true (path-style bucket addressing),
+# PITR_RETAIN_DAYS, PITR_MAX_WAL_GB.
+```
+
+`COMPOSE_PROFILES` is comma-separated; with the updater it is `updater,pitr`. Leave `PITR_ENDPOINT`
+unset for AWS S3. Then turn it on from the checkout:
+
+```bash
+sudo infra/compose/pitr.sh enable
+```
+
+This creates the `rakazo_pitr` replication login, allows it in `pg_hba.conf`, sets
+`archive_timeout` and `max_slot_wal_keep_size`, and reloads Postgres without restarting it. The
+sidecar then takes its first base backup. Run `enable` again after changing `PITR_DATABASE_PASSWORD`
+or `PITR_MAX_WAL_GB`, or after moving Postgres to a new cluster. Uploads are grouped by the
+cluster's system identifier, so a new cluster never overwrites an old one's WAL.
+
+The sidecar's health check fails when an upload has waited over ten minutes, streaming is paused,
+nothing is streaming from the slot, or the last base backup is over 30 hours old. With
+`RAKAZO_MONITOR_COMPOSE_PROJECT` set, the host check alerts on it. For details:
+
+```bash
+sudo docker compose --env-file .env -f infra/compose/docker-compose.prod.yml exec pitr rakazo-pitr health
+```
+
+Restores run on any machine with Docker and this checkout. The identity comes on stdin and stays in
+memory inside the restore container. Prove the latest point restores, into a scratch volume that is
+removed afterwards:
+
+```bash
+sudo infra/compose/pitr.sh drill < rakazo-backup.key
+```
+
+Away from the server, set `PITR_ENV_FILE` to a file holding only the `PITR_` storage settings. To
+recover production to a moment, stop everything that writes to the database and restore into its
+volume. The current cluster is moved aside inside the volume, not deleted. The time is read as UTC
+unless it names a zone:
+
+```bash
+COMPOSE="sudo docker compose --env-file .env -f infra/compose/docker-compose.prod.yml"
+ssh deploy@app.example.com "cd /srv/rakazo && $COMPOSE stop api worker web pitr postgres"
+ssh deploy@app.example.com \
+  "cd /srv/rakazo && sudo infra/compose/pitr.sh restore '2026-01-31 09:41:00+00' rakazo-prod_postgres" \
+  < rakazo-backup.key
+ssh deploy@app.example.com "cd /srv/rakazo && $COMPOSE up -d --wait"
+```
+
+The restore uses the newest base backup that finished before the target, replays WAL up to it, and
+promotes the result, which starts a new timeline; the sidecar takes a fresh base backup for it. Pause
+CI deploys during recovery. Once the restored database checks out, remove the old cluster:
+`$COMPOSE run --rm --no-deps --entrypoint sh postgres -c 'rm -rf "$PGDATA".before-restore-*'`.
+
+To turn it off, remove `pitr` from `COMPOSE_PROFILES`, then run `sudo infra/compose/pitr.sh disable`.
+It removes the sidecar, the slot (so Postgres stops keeping WAL for it), the login and the
+settings. Uploaded backups stay in the bucket.
+
 #### Host audit trail
 
 `harden-host.sh` installs audit rules for writes to SSH keys, sudoers, accounts, `/etc/rakazo`, the
