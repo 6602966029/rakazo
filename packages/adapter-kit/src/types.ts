@@ -619,6 +619,8 @@ export interface ModelCallObserver {
 
 export type AgentRuntimeEvent =
   | { type: "text"; text: string }
+  /** Explicit provider reasoning lifecycle only; never contains reasoning text. */
+  | { type: "thinking"; active: boolean }
   /** A new assistant message starts; its text does not continue the previous text. */
   | { type: "turn" }
   /** Messages sent while the bot worked were handed to the model before this turn. */
@@ -1018,6 +1020,10 @@ export interface BrowserSnapshotNode {
   name: string;
   value?: string;
   tag?: string;
+  /** A native select's options: what the page shows, the value it keeps, and which one is chosen. */
+  options?: Array<{ label: string; value: string; selected?: boolean; disabled?: boolean }>;
+  /** How many options a long select has, when only the first ones and the chosen one are listed. */
+  optionsTotal?: number;
 }
 
 export interface BrowserSnapshotResult {
@@ -1047,8 +1053,9 @@ export type BrowserActStep =
       /** Refuse the step unless the page is on this origin when it is applied. */
       origin?: string;
       /**
-       * What `text` is: part of a saved login (a password is typed only into a password field) or
-       * an approved purchase's card detail. A card fill always carries `origin`.
+       * What `text` is: a saved login's hidden field ("password", typed only into a password
+       * field) or visible field ("username"), or an approved purchase's card detail. A card fill
+       * always carries `origin`.
        */
       field?: "username" | "password" | "card";
     }

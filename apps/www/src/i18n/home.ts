@@ -27,6 +27,7 @@ export type HomeCopy = {
     primary: string;
     menu: string;
     docs: string;
+    integrations: string;
     blog: string;
     github: string;
     getStarted: string;
@@ -883,6 +884,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       primary: "Primary",
       menu: "Menu",
       docs: "Docs",
+      integrations: "Integrations",
       blog: "Blog",
       github: "GitHub",
       getStarted: "Get started",
@@ -894,7 +896,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       getStarted: "Get started",
       download: {
         mac: "Download for macOS",
-        windows: "Download for Windows",
+        windows: "Download for Windows (Beta)",
         linux: "Download for Linux",
         ios: "Download for iOS",
         android: "Download for Android",
@@ -1031,6 +1033,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       primary: "Hauptnavigation",
       menu: "Menü",
       docs: "Docs",
+      integrations: "Integrationen",
       blog: "Blog",
       github: "GitHub",
       getStarted: "Loslegen",
@@ -1042,7 +1045,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       getStarted: "Loslegen",
       download: {
         mac: "Für macOS laden",
-        windows: "Für Windows laden",
+        windows: "Für Windows laden (Beta)",
         linux: "Für Linux laden",
         ios: "Für iOS laden",
         android: "Für Android laden",
@@ -1182,6 +1185,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       primary: "주 메뉴",
       menu: "메뉴",
       docs: "Docs",
+      integrations: "통합",
       blog: "블로그",
       github: "GitHub",
       getStarted: "시작하기",
@@ -1193,7 +1197,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       getStarted: "시작하기",
       download: {
         mac: "macOS용 다운로드",
-        windows: "Windows용 다운로드",
+        windows: "Windows용 다운로드 (Beta)",
         linux: "Linux용 다운로드",
         ios: "iOS용 다운로드",
         android: "Android용 다운로드",
@@ -1333,6 +1337,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       primary: "主导航",
       menu: "菜单",
       docs: "文档",
+      integrations: "集成",
       blog: "博客",
       github: "GitHub",
       getStarted: "开始使用",
@@ -1344,7 +1349,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       getStarted: "开始使用",
       download: {
         mac: "下载 macOS 版",
-        windows: "下载 Windows 版",
+        windows: "下载 Windows 版 (Beta)",
         linux: "下载 Linux 版",
         ios: "下载 iOS 版",
         android: "下载 Android 版",
@@ -1485,6 +1490,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       primary: "メインナビゲーション",
       menu: "メニュー",
       docs: "ドキュメント",
+      integrations: "連携",
       blog: "ブログ",
       github: "GitHub",
       getStarted: "はじめる",
@@ -1496,7 +1502,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       getStarted: "はじめる",
       download: {
         mac: "macOS 版をダウンロード",
-        windows: "Windows 版をダウンロード",
+        windows: "Windows 版をダウンロード (Beta)",
         linux: "Linux 版をダウンロード",
         ios: "iOS 版をダウンロード",
         android: "Android 版をダウンロード",
@@ -1637,6 +1643,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       primary: "Navegación principal",
       menu: "Menú",
       docs: "Documentación",
+      integrations: "Integraciones",
       blog: "Blog",
       github: "GitHub",
       getStarted: "Empezar",
@@ -1648,7 +1655,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       getStarted: "Empezar",
       download: {
         mac: "Descargar para macOS",
-        windows: "Descargar para Windows",
+        windows: "Descargar para Windows (Beta)",
         linux: "Descargar para Linux",
         ios: "Descargar para iOS",
         android: "Descargar para Android",
@@ -1789,6 +1796,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       primary: "Navigation principale",
       menu: "Menu",
       docs: "Documentation",
+      integrations: "Intégrations",
       blog: "Blog",
       github: "GitHub",
       getStarted: "Commencer",
@@ -1800,7 +1808,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       getStarted: "Commencer",
       download: {
         mac: "Télécharger pour macOS",
-        windows: "Télécharger pour Windows",
+        windows: "Télécharger pour Windows (Beta)",
         linux: "Télécharger pour Linux",
         ios: "Télécharger pour iOS",
         android: "Télécharger pour Android",
@@ -1941,6 +1949,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       primary: "Navegação principal",
       menu: "Menu",
       docs: "Documentação",
+      integrations: "Integrações",
       blog: "Blog",
       github: "GitHub",
       getStarted: "Começar",
@@ -1952,7 +1961,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       getStarted: "Começar",
       download: {
         mac: "Baixar para macOS",
-        windows: "Baixar para Windows",
+        windows: "Baixar para Windows (Beta)",
         linux: "Baixar para Linux",
         ios: "Baixar para iOS",
         android: "Baixar para Android",
@@ -2093,6 +2102,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       primary: "Hoofdnavigatie",
       menu: "Menu",
       docs: "Docs",
+      integrations: "Integraties",
       blog: "Blog",
       github: "GitHub",
       getStarted: "Aan de slag",
@@ -2104,7 +2114,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       getStarted: "Aan de slag",
       download: {
         mac: "Downloaden voor macOS",
-        windows: "Downloaden voor Windows",
+        windows: "Downloaden voor Windows (Beta)",
         linux: "Downloaden voor Linux",
         ios: "Downloaden voor iOS",
         android: "Downloaden voor Android",
@@ -2245,6 +2255,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       primary: "Основная навигация",
       menu: "Меню",
       docs: "Документация",
+      integrations: "Интеграции",
       blog: "Блог",
       github: "GitHub",
       getStarted: "Начать",
@@ -2256,7 +2267,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       getStarted: "Начать",
       download: {
         mac: "Скачать для macOS",
-        windows: "Скачать для Windows",
+        windows: "Скачать для Windows (Beta)",
         linux: "Скачать для Linux",
         ios: "Скачать для iOS",
         android: "Скачать для Android",
@@ -2397,6 +2408,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       primary: "Ana menü",
       menu: "Menü",
       docs: "Belgeler",
+      integrations: "Entegrasyonlar",
       blog: "Blog",
       github: "GitHub",
       getStarted: "Başlayın",
@@ -2408,7 +2420,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       getStarted: "Başlayın",
       download: {
         mac: "macOS için indir",
-        windows: "Windows için indir",
+        windows: "Windows için indir (Beta)",
         linux: "Linux için indir",
         ios: "iOS için indir",
         android: "Android için indir",
@@ -2549,6 +2561,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       primary: "ניווט ראשי",
       menu: "תפריט",
       docs: "תיעוד",
+      integrations: "אינטגרציות",
       blog: "בלוג",
       github: "GitHub",
       getStarted: "להתחיל",
@@ -2560,7 +2573,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       getStarted: "להתחיל",
       download: {
         mac: "הורדה ל-macOS",
-        windows: "הורדה ל-Windows",
+        windows: "הורדה ל-Windows (Beta)",
         linux: "הורדה ל-Linux",
         ios: "הורדה ל-iOS",
         android: "הורדה ל-Android",
@@ -2701,6 +2714,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       primary: "मुख्य नेविगेशन",
       menu: "मेनू",
       docs: "दस्तावेज़",
+      integrations: "इंटीग्रेशन",
       blog: "ब्लॉग",
       github: "GitHub",
       getStarted: "शुरू करें",
@@ -2712,7 +2726,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       getStarted: "शुरू करें",
       download: {
         mac: "macOS के लिए डाउनलोड करें",
-        windows: "Windows के लिए डाउनलोड करें",
+        windows: "Windows के लिए डाउनलोड करें (Beta)",
         linux: "Linux के लिए डाउनलोड करें",
         ios: "iOS के लिए डाउनलोड करें",
         android: "Android के लिए डाउनलोड करें",
@@ -2852,6 +2866,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       primary: "主要導覽",
       menu: "選單",
       docs: "說明文件",
+      integrations: "整合",
       blog: "部落格",
       github: "GitHub",
       getStarted: "開始使用",
@@ -2863,7 +2878,7 @@ const HOME_COPY: Record<Locale, HomeCopy> = {
       getStarted: "開始使用",
       download: {
         mac: "下載 macOS 版",
-        windows: "下載 Windows 版",
+        windows: "下載 Windows 版 (Beta)",
         linux: "下載 Linux 版",
         ios: "下載 iOS 版",
         android: "下載 Android 版",

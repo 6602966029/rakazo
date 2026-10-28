@@ -23,6 +23,8 @@ import {
 import type {
   ComposioProvider,
   ConnectorRegistry,
+  PluginRepoFetcher,
+  PluginTextReader,
   RemoteConnectorDependencies,
   UserDeviceGateway,
 } from "@rakazo/adapters";
@@ -129,6 +131,8 @@ import { MarkdownMemoryStore } from "@rakazo/memory";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { deleteAccountContent } from "./account-deletion.js";
+import { mountAccountExportRoute } from "./account-export.js";
+import { mountAccountImportRoute } from "./account-import.js";
 import { mountAppAssociation, nativePasskeys } from "./app-association.js";
 import { storeInboundAttachment } from "./artifacts.js";
 import { createBillingService } from "./billing.js";
@@ -227,6 +231,8 @@ type CreateAppOverrides = Partial<AppEnv> & {
   notifications?: NotificationProvider;
   billing?: BillingProvider;
   remoteConnectors?: RemoteConnectorDependencies;
+  pluginRepoFetcher?: PluginRepoFetcher;
+  pluginMarketplaceRead?: PluginTextReader;
   modelConnectionFetch?: typeof fetch;
   logger?: Logger;
   runtime?: AgentRuntime;
@@ -249,6 +255,8 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     billing: billingOverride,
     remoteConnectors,
     modelConnectionFetch,
+    pluginRepoFetcher,
+    pluginMarketplaceRead,
     logger: loggerOverride,
     runtime: runtimeOverride,
     contextStrategy,
@@ -356,6 +364,8 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       supervisorUrl: env.sandboxSupervisorUrl,
       supervisorToken: env.sandboxSupervisorToken,
       e2bApiKey: env.e2bApiKey,
+      novitaApiKey: env.novitaApiKey,
+      sandboxTemplate: env.sandboxTemplate,
       daytonaApiKey: env.daytonaApiKey,
       daytonaApiUrl: env.daytonaApiUrl,
       daytonaTarget: env.daytonaTarget,
@@ -682,6 +692,8 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
             }),
           },
     analytics,
+    pluginRepoFetcher,
+    pluginMarketplaceRead,
     cloudAgent,
     paymentWallet,
     codexCatalog,
@@ -900,11 +912,26 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     if (matched) return c.newResponse(response.body, response);
     await next();
   });
+  mountAccountExportRoute(app, { prisma, auth, artifacts, home });
   mountVoiceHttpRoutes(app, { prisma, secrets, env }, async (c) => {
     const actor = await sessionActor(c.req.raw);
     if (actor) enrichLogContext({ "user.id": actor.userId, "space.id": actor.spaceId });
     return actor;
   });
+  mountAccountImportRoute(
+    app,
+    {
+      prisma,
+      sandbox,
+      home,
+      jobs,
+      artifacts,
+      dataDir: env.dataDir,
+      messagingInstallations,
+      maxArtifactBytes: env.maxUploadSizeBytes,
+    },
+    sessionActor,
+  );
   mountWebhookHttpRoutes(app, { prisma, secrets, events, jobs });
   if (billing && billingProvider) {
     mountBillingRoutes(app, {

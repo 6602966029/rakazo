@@ -12,7 +12,6 @@ test("shows peer chips in transcript and opens view-only peer chat", async ({ pa
   const chiefId = activeBotId(page);
   await rpc(page, "bots/create", {
     name: "Researcher",
-    title: "",
     description: "",
     instructions: "",
     notifyOnFinish: true,
@@ -53,7 +52,7 @@ test("shows peer chips in transcript and opens view-only peer chat", async ({ pa
   await expect(chip).toBeVisible({ timeout: 30_000 });
   await expect(chip.getByText(/Messaged|Message from/)).toBeVisible();
   await expect(chip).toHaveAccessibleName(/Messaged Researcher|Message from Researcher/);
-  await expect(chip.locator(".rakazo-organic-avatar")).toBeVisible();
+  await expect(chip.locator(".rakazo-logo-avatar")).toBeVisible();
   await expect(chip).not.toContainText("{peer}");
   // User bubble still contains the phrase; peer body must not appear outside the chip.
   await expect(chip).not.toContainText("peer-exchange-alpha");
@@ -127,7 +126,6 @@ async function openFoldedPeerReply(page: Page, name: string, testInfo: TestInfo)
 
   const researcher = await rpc<{ id: string }>(page, "bots/create", {
     name: "Researcher",
-    title: "",
     description: "",
     instructions: "",
     notifyOnFinish: true,
@@ -301,7 +299,6 @@ test("answers a message sent while the bot works on another bot's request", asyn
   await page.waitForURL(/\/app\/[^/]+$/);
   const researcher = await rpc<{ id: string }>(page, "bots/create", {
     name: "Researcher",
-    title: "",
     description: "",
     instructions: "",
     notifyOnFinish: true,

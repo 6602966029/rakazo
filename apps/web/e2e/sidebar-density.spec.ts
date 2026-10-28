@@ -22,7 +22,6 @@ test("compact bot sidebar hides previews and preserves roster status accessibly"
   const selectedBotId = activeBotId(page);
   const previewBot = await rpc<{ id: string }>(page, "bots/create", {
     name: "Compact Sample",
-    title: "Field notes",
     description: "",
     instructions: "",
     notifyOnFinish: true,
@@ -40,8 +39,9 @@ test("compact bot sidebar hides previews and preserves roster status accessibly"
   await expect(sidebar).toHaveAttribute("data-bots-sidebar-density", "comfortable");
   await expect(selectedRow).toHaveAttribute("aria-current", "page");
   await expect(previewRow).toContainText(preview);
-  await expect(previewRow).toContainText("Field notes");
   await expect(previewRow.locator("[data-roster-bot-name]")).toHaveText("Compact Sample");
+  await page.mouse.move(1, 1);
+  await captureScreenshot(page, testInfo, "sidebar-density-comfortable");
   // Previews stay on one line and end in an ellipsis instead of wrapping.
   await expect(previewRow.locator("[data-roster-preview]")).toHaveCSS("white-space", "nowrap");
   await expect(previewRow.locator("[data-roster-preview]")).toHaveCSS("text-overflow", "ellipsis");
@@ -118,7 +118,10 @@ test("compact bot sidebar hides previews and preserves roster status accessibly"
     await expect(previewRow.locator('[data-roster-status="running"]')).toHaveText("Working…", {
       timeout: 30_000,
     });
-    await expect(previewRow.locator('[data-working="true"]')).toBeVisible();
+    await expect(previewRow.locator(".rakazo-logo-avatar")).not.toHaveAttribute(
+      "data-activity",
+      "idle",
+    );
     await expect(previewRow.locator('[data-roster-status="running"]')).toHaveClass(
       /text-status-working/,
     );

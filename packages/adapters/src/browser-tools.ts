@@ -1,5 +1,6 @@
 import type {
   AdapterContext,
+  AgentToolExecutionResult,
   BrowserActStep,
   BrowserProvider,
   ComputerRef,
@@ -8,8 +9,8 @@ import { MAX_BROWSER_UPLOAD_FILES } from "@rakazo/adapter-kit";
 import type { PurchaseCardField } from "@rakazo/contracts";
 import { PURCHASE_CARD_FIELDS } from "@rakazo/contracts";
 import { getLogger } from "@rakazo/logging";
-import type { LoginField } from "./bot-secrets.js";
 import { redactConnectorPayload } from "./connector-safety.js";
+import { TOOL_RESULT_TEXT_LIMIT } from "./pi-runtime-limits.js";
 
 const MAX_BROWSER_ACTIONS = 24;
 /** The action kinds `browser_act` takes, as its tool schema lists them. */
@@ -24,12 +25,12 @@ export const BROWSER_ACT_KINDS = [
 ] as const;
 const NAVIGATE_URL_REQUIRED = "An HTTP(S) URL without embedded credentials is required";
 
-/** Fills a saved website login by name; the model never supplies or sees the value. */
+/** Fills a saved website login's field by its label; the model never supplies or sees the value. */
 export type SecretFillStep = {
   kind: "fill_secret";
   ref: string;
   secret: string;
-  field: LoginField;
+  field: string;
 };
 /** The model never supplies or sees the value. */
 export type CardFillStep = {
@@ -45,7 +46,7 @@ export type BrowserActInput = BrowserActStep | SecretFillStep | CardFillStep | P
 export type PageToolOptions = { desktopTools?: boolean };
 export type ResolveSecretFill = (
   step: SecretFillStep,
-) => Promise<{ text: string; origin: string } | { error: string }>;
+) => Promise<{ text: string; origin: string; hidden: boolean } | { error: string }>;
 
 export type ResolveCardFill = (
   step: CardFillStep,
@@ -170,7 +171,7 @@ export async function browserActFromTool(
         continue;
       }
       const card = step.kind === "fill_card";
-      let resolved: { text: string; origin: string } | { error: string };
+      let resolved: { text: string; origin: string; hidden?: boolean } | { error: string };
       try {
         resolved = card
           ? options.resolveCardFill
@@ -206,15 +207,14 @@ export async function browserActFromTool(
           ref: step.ref,
           text,
           origin,
-          field: card ? "card" : step.field,
+          // Every page browser, older computer images included, types "password" only into a
+          // password field and "username" into a text, email or telephone field.
+          field: card ? "card" : resolved.hidden === false ? "username" : "password",
         });
       }
     }
     const result = await browser.act(computer, { actions, signal: context.signal }, context);
-    return redactConnectorPayload(
-      formatBrowserResult(result, options),
-      options.redactions?.() ?? [],
-    );
+    return redactBrowserResult(formatBrowserResult(result, options), options.redactions?.() ?? []);
   } catch (error) {
     context.signal.throwIfAborted();
     if (error instanceof BrowserToolInputError)
@@ -291,14 +291,14 @@ export function parseBrowserActions(value: unknown): BrowserActInput[] {
     }
     if (kind === "fill_secret") {
       const secret = String(action.secret ?? "").trim();
-      const field = action.field;
+      const field = typeof action.field === "string" ? action.field.trim() : "";
       if (!secret)
         throw new BrowserToolInputError(
           "browser_act fill_secret needs secret: the name of a login saved with request_secret",
         );
-      if (field !== "username" && field !== "password") {
+      if (!field) {
         throw new BrowserToolInputError(
-          'browser_act fill_secret needs field: "username" or "password"',
+          "browser_act fill_secret needs field: the label of one of the login's fields",
         );
       }
       return { kind, ref, secret, field };
@@ -315,6 +315,34 @@ export function parseBrowserActions(value: unknown): BrowserActInput[] {
     }
     return { kind, ref };
   });
+}
+
+/**
+ * Page tool results with the run's secrets taken out. A snapshot writes control names and values as
+ * quoted strings, so a secret with a quote, a backslash or a line break reads differently there:
+ * hide it in that form too.
+ */
+export function redactBrowserResult<T>(result: T, secrets: string[]): unknown {
+  const forms = secrets.flatMap((secret) => {
+    const quoted = JSON.stringify(secret).slice(1, -1);
+    return quoted === secret ? [secret] : [secret, quoted];
+  });
+  return redactConnectorPayload(result, forms);
+}
+
+/**
+ * A page tool result as the model reads it. The snapshot tree already lists every control with its
+ * ref and its notices (what was cut), so the `elements` array only repeats it: it stays in `details`
+ * and out of the text, which keeps a page under the limit that would otherwise cut the tree's middle.
+ * A page from an older computer image, whose tree is not sized for that, is sent as it is.
+ */
+export function browserResultForModel<T>(result: T): T | AgentToolExecutionResult {
+  if (!result || typeof result !== "object") return result;
+  const { elements, ...view } = result as { elements?: unknown; tree?: unknown };
+  if (!Array.isArray(elements) || typeof view.tree !== "string") return result;
+  const text = JSON.stringify(view);
+  if (text.length > TOOL_RESULT_TEXT_LIMIT) return result;
+  return { kind: "agent_tool_result", content: [{ type: "text", text }], details: result };
 }
 
 function formatBrowserResult<T extends { fallback?: "computer_act"; error?: string }>(

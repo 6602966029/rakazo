@@ -96,12 +96,12 @@ test("create group from + and see two bots in one transcript", async ({ page }, 
     .getByRole("button", { name: /^Draft team/ })
     .locator(".rakazo-group-avatar");
   await expect(groupAvatar).toBeVisible();
-  await expect(groupAvatar.locator(".rakazo-organic-avatar")).toHaveCount(2);
-  const workingAvatar = groupAvatar.locator('[data-working="true"]');
+  await expect(groupAvatar.locator(".rakazo-logo-avatar")).toHaveCount(2);
+  const workingAvatar = groupAvatar.locator('.rakazo-logo-avatar[data-activity="working"]');
   await expect(workingAvatar).toHaveCount(1);
-  await expect(workingAvatar.locator(".rakazo-organic-avatar-body-working")).toHaveCSS(
+  await expect(workingAvatar.locator(".logo-avatar-body")).toHaveCSS(
     "animation-name",
-    /rakazo-organic-/,
+    "logo-avatar-breathe",
   );
   await captureScreenshot(page, testInfo, "group-avatar-active");
   await page.unroute("**/rpc/groups/list");
@@ -146,7 +146,7 @@ test("create group from + and see two bots in one transcript", async ({ page }, 
   await expect(
     page.getByTestId("mention-chip").filter({ hasText: "Research Writer" }),
   ).toBeVisible();
-  await composer.fill("turn the sources into a draft. @Res");
+  await composer.pressSequentially("turn the sources into a draft. @Res");
   await page.getByRole("option", { name: "@Researcher", exact: true }).click();
   await expect(page.getByTestId("mention-chip").filter({ hasText: "Researcher" })).toBeVisible();
   await composer.fill(`${await composer.inputValue()}gather sources.`);
@@ -178,7 +178,7 @@ test("create group from + and see two bots in one transcript", async ({ page }, 
   await expect(
     page.getByTestId("mention-chip").filter({ hasText: "Research Writer" }),
   ).toBeVisible();
-  await composer.fill("ask me which city to use");
+  await composer.pressSequentially("ask me which city to use");
   await composer.press("Enter");
   // threads/get can observe waiting_input before the shell realtime feed paints the ask card.
   await expect

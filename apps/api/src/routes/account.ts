@@ -7,7 +7,12 @@ import {
   PushSessionEndedError,
 } from "@rakazo/adapters";
 import type { ActionApprovalRule, Actor, Me, SettingsScope } from "@rakazo/contracts";
-import { approvalModeFromPreference, approvalPreferenceFromMode } from "@rakazo/core";
+import {
+  approvalModeFromPreference,
+  approvalPreferenceFromMode,
+  previewActionApprovalRule,
+} from "@rakazo/core";
+import { urlSite } from "@rakazo/core/egress";
 import {
   findAutoReviewPreference,
   findDefaultVoiceCredential,
@@ -151,6 +156,19 @@ export function accountRoutes(ctx: RouterContext) {
       }),
     },
     approvalRules: {
+      preview: authed.approvalRules.preview.handler(async ({ context, input }) => {
+        const rules = (await listApprovalRules(deps.prisma, context.actor, input.scope)).map(
+          approvalRuleDto,
+        );
+        const rule = rules.find((entry) => entry.id === input.id);
+        if (!rule) throw new ORPCError("NOT_FOUND");
+        if (rule.matchKind === "category" && input.effect !== "remove")
+          throw new ORPCError("BAD_REQUEST");
+        return previewActionApprovalRule(rules, rule, input.effect, {
+          ...input.sample,
+          site: input.sample.site?.toLowerCase(),
+        });
+      }),
       list: authed.approvalRules.list.handler(async ({ context, input }) => {
         const rows = await listApprovalRules(deps.prisma, context.actor, input?.scope);
         return rows.map(approvalRuleDto);
@@ -165,6 +183,33 @@ export function accountRoutes(ctx: RouterContext) {
         await deps.prisma.$transaction((tx) =>
           removeApprovalRule(tx, context.actor, input.id, input.scope),
         );
+        return { ok: true as const };
+      }),
+    },
+    // The user's own list for the external-link prompt, kept apart from approval rules: a
+    // trusted link site never lets a bot fetch, and a site rule never skips the prompt.
+    trustedLinkSites: {
+      list: authed.trustedLinkSites.list.handler(async ({ context }) => {
+        const rows = await deps.prisma.trustedLinkSite.findMany({
+          where: { userId: context.actor.userId },
+          orderBy: { site: "asc" },
+        });
+        return rows.map((row) => row.site);
+      }),
+      trust: authed.trustedLinkSites.trust.handler(async ({ context, input }) => {
+        // The server names the site, so the list only ever holds sites.
+        const site = urlSite(input.url);
+        if (!site) throw new ORPCError("BAD_REQUEST", { message: "Not a web link." });
+        await deps.prisma.trustedLinkSite.createMany({
+          data: { userId: context.actor.userId, site },
+          skipDuplicates: true,
+        });
+        return { site };
+      }),
+      remove: authed.trustedLinkSites.remove.handler(async ({ context, input }) => {
+        await deps.prisma.trustedLinkSite.deleteMany({
+          where: { userId: context.actor.userId, site: input.site },
+        });
         return { ok: true as const };
       }),
     },
