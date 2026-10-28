@@ -263,6 +263,42 @@ export async function resolveToolRequest(
  * Check bot-management and instruction-proposal preconditions, and canonicalize the
  * requests whose approval card shows resolved names. Updates the request in place.
  */
+// Runs whose prompt someone other than the owner wrote; their text stays in the chat's history.
+const OUTSIDE_RUN_TRIGGERS = [
+  "webhook",
+  "messaging",
+  "bot_message",
+  "spawn",
+  "cloud_agent",
+  "tickets",
+];
+
+/** Earlier outside text in the chat can steer this run even when the run itself took in none. */
+async function threadHasOutsideHistory(
+  prisma: RunContext["deps"]["prisma"],
+  threadId: string,
+  botId: string,
+): Promise<boolean> {
+  const [message, run] = await Promise.all([
+    prisma.message.findFirst({
+      where: {
+        threadId,
+        OR: [
+          { role: "bot", botId: { not: botId } },
+          { blocks: { array_contains: [{ kind: "channel_message" }] } },
+          { blocks: { array_contains: [{ kind: "bot_message_received" }] } },
+        ],
+      },
+      select: { id: true },
+    }),
+    prisma.run.findFirst({
+      where: { threadId, trigger: { in: OUTSIDE_RUN_TRIGGERS } },
+      select: { id: true },
+    }),
+  ]);
+  return Boolean(message || run);
+}
+
 export async function prepareToolRequest(
   ctx: RunContext,
   request: ToolRequest,
@@ -305,7 +341,8 @@ export async function prepareToolRequest(
     // no tools that read outside content, and answering its question clears the checkpoint.
     const ownWords =
       !(await ctx.trust.receivedOutsideMessage()) &&
-      (run.trigger === "created" || (ctx.source.ownerStartedRun && !ctx.state.tainted));
+      (run.trigger === "created" || (ctx.source.ownerStartedRun && !ctx.state.tainted)) &&
+      !(await threadHasOutsideHistory(deps.prisma, run.threadId, bot.id));
     if (!ownWords) return { error: "Propose your instructions with propose_instructions_update." };
     if (redactSecrets(String(args.instructions), ctx.secrets) !== args.instructions)
       return { error: "Instructions cannot contain credentials." };

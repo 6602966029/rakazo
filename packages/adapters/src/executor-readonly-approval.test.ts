@@ -1241,6 +1241,26 @@ describe("first instructions through update_bot", () => {
     expect(f.results[0]).toMatchObject({ error: expect.stringContaining("name") });
     expect(f.instructionState.instructions).toBe("");
   });
+  it("refuses when the chat already holds outside messages", async () => {
+    const f = emptyBot();
+    f.prisma.message.findFirst.mockImplementation(async (query?: { where?: { OR?: unknown } }) =>
+      query?.where?.OR ? { id: "channel-message" } : null,
+    );
+    await f.run();
+    expect(f.results).toEqual([
+      { error: "Propose your instructions with propose_instructions_update." },
+    ]);
+    expect(f.instructionState.instructions).toBe("");
+  });
+  it("refuses when an outside run already wrote in the chat", async () => {
+    const f = emptyBot();
+    f.prisma.run.findFirst.mockImplementation(
+      async (query?: { where?: { trigger?: { in?: string[] } } }) =>
+        query?.where?.trigger?.in?.includes("webhook") ? { id: "webhook-run" } : null,
+    );
+    await f.run();
+    expect(f.instructionState.instructions).toBe("");
+  });
   it("leaves instructions that already exist to a proposal", async () => {
     const f = emptyBot();
     f.instructionState.instructions = "Draft only";
