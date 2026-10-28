@@ -39,7 +39,7 @@ it("uses current snapshot provenance and ignores tools before its cursor", () =>
   expect(mobileLogoAvatarActivity.getActivity("bot-a", "running")).toBe("working");
 });
 it("does not restore a stale snapshot as idle on reconnect", () => {
-  rememberMobileAvatarSnapshot({ ...snapshot, run: undefined });
+  rememberMobileAvatarSnapshot({ ...snapshot, run: null });
   const feed = beginMobileAvatarFeed({ botId: "bot-a" }, 15);
   expect(mobileLogoAvatarActivity.getActivity("bot-a", "running")).toBe("working");
   mobileLogoAvatarActivity.resetSource(feed.source);
