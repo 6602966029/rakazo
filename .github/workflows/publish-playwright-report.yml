@@ -18,9 +18,7 @@ jobs:
       (github.event.workflow_run.conclusion == 'success' ||
        github.event.workflow_run.conclusion == 'failure' ||
        github.event.workflow_run.conclusion == 'timed_out') &&
-      (github.event.workflow_run.event == 'pull_request' ||
-       (github.event.workflow_run.event == 'push' &&
-        github.event.workflow_run.head_branch == 'main'))
+      github.event.workflow_run.event == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -40,7 +38,7 @@ jobs:
           case "$result" in
             success|failure) ;;
             timed_out) ;;
-            # Pull requests that cannot affect the web app skip E2E; there is nothing to publish.
+            # Pull requests that cannot affect the browser skip E2E; there is nothing to publish.
             skipped) ;;
             *) echo "Unexpected Playwright job conclusion: $result" >&2; exit 1 ;;
           esac
@@ -70,7 +68,6 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Resolve pull request
-        if: github.event.workflow_run.event == 'pull_request'
         id: pull_request
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -144,13 +141,12 @@ jobs:
           PLAYWRIGHT_BRANCH: ${{ github.event.workflow_run.head_branch }}
           PLAYWRIGHT_PR_NUMBER: ${{ steps.pull_request.outputs.number }}
           PLAYWRIGHT_REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}
-          PLAYWRIGHT_PUBLISH_REPORT: ${{ github.event.workflow_run.event == 'push' }}
+          PLAYWRIGHT_PUBLISH_REPORT: "false"
           PLAYWRIGHT_REPORT_DIR: ${{ runner.temp }}/playwright-artifacts/playwright-report
           PLAYWRIGHT_TEST_RESULTS_DIR: ${{ runner.temp }}/playwright-artifacts/apps/web/test-results
         run: bash scripts/publish-playwright-report.sh
       - name: Link screenshot gallery from pull request
         if: >-
-          github.event.workflow_run.event == 'pull_request' &&
           steps.pull_request.outputs.number != '' &&
           steps.publish.outputs.latest_pr_run == 'true'
         env:
