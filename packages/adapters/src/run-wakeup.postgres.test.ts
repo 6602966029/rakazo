@@ -240,7 +240,8 @@ describePostgres("direct run dispatch (PostgreSQL)", () => {
     const reply = await createRun();
     const peer = await createRun({ trigger: "bot_message" });
     const routine = await createRun({ trigger: "routine" });
-    const host = new RunWorkerHost(db.prisma, new InMemoryRealtimeFanout(), { intervalMs: 25 });
+    const fanout = new InMemoryRealtimeFanout();
+    const host = new RunWorkerHost(db.prisma, fanout, new RunStarter(fanout), { intervalMs: 25 });
     const entered: string[] = [];
     try {
       await host.start({
@@ -315,7 +316,8 @@ describePostgres("direct run dispatch (PostgreSQL)", () => {
       where: { id: (await createRun()).id },
       data: { botId: other.id },
     });
-    const host = new RunWorkerHost(db.prisma, new InMemoryRealtimeFanout(), { intervalMs: 25 });
+    const fanout = new InMemoryRealtimeFanout();
+    const host = new RunWorkerHost(db.prisma, fanout, new RunStarter(fanout), { intervalMs: 25 });
     const entered: string[] = [];
     try {
       await host.start({
