@@ -1,4 +1,4 @@
--- Plugins submitted for the marketplace. Additive: the previous release never reads it.
+-- Additive: the previous release never reads this table.
 CREATE TABLE "plugin_submissions" (
     "id" TEXT NOT NULL,
     "email" TEXT NOT NULL,
@@ -13,7 +13,6 @@ CREATE TABLE "plugin_submissions" (
     "pinnedSource" TEXT,
     "hasConnector" BOOLEAN NOT NULL DEFAULT false,
     "skillCount" INTEGER NOT NULL DEFAULT 0,
-    "reviewedByUserId" TEXT,
     "reviewedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -22,4 +21,5 @@ CREATE TABLE "plugin_submissions" (
 );
 
 CREATE INDEX "plugin_submissions_status_createdAt_idx" ON "plugin_submissions"("status", "createdAt");
+
 CREATE INDEX "plugin_submissions_source_idx" ON "plugin_submissions"("source");

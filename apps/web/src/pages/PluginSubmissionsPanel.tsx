@@ -28,10 +28,6 @@ import { useSpaceQueries } from "../lib/query";
 import { rpc } from "../lib/rpc";
 import { errorText } from "../lib/user-error";
 
-function linkLabel(url: string) {
-  return url.replace(/^https?:\/\//, "").replace(/\/$/, "");
-}
-
 function ExternalLink({ href }: { href: string }) {
   return (
     <a
@@ -40,7 +36,7 @@ function ExternalLink({ href }: { href: string }) {
       rel="noreferrer"
       className="inline-flex min-w-0 items-center gap-1 text-muted-foreground hover:text-foreground"
     >
-      <span className="truncate">{linkLabel(href)}</span>
+      <span className="truncate">{href.replace(/^https?:\/\//, "").replace(/\/$/, "")}</span>
       <ArrowUpRight size={14} className="shrink-0" />
     </a>
   );

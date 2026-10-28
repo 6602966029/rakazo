@@ -15,8 +15,6 @@ import {
   PLUGIN_CATEGORIES,
 } from "@rakazo/core";
 
-export const SUBMIT_PLUGIN_URL = "https://rakazo.com/plugins/submit/";
-
 /** What the plugin screen needs, from a catalog entry or a pasted GitHub URL. */
 export type PluginParams = {
   source: string;

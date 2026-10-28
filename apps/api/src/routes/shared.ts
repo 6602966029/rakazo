@@ -30,7 +30,7 @@ export async function meDto(deps: RouterDeps, actor: Actor): Promise<Me> {
       },
     }),
     modelSetup(deps, actor),
-    isAdmin(deps.prisma, deps.env.adminEmails ?? [], actor.userId),
+    isAdmin(deps, actor.userId),
   ]);
   return {
     ticketBoardEnabled: deps.env.ticketBoardEnabled === true,

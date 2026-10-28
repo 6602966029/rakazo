@@ -1,6 +1,6 @@
 const MAX_TRACKED_KEYS = 10_000;
 
-/** Fixed-window counters per key, for open endpoints. The table is bounded: when full it starts over. */
+// Bounded: when the table fills it starts over.
 export function windowCounter(windowMs: number, now: () => number = Date.now) {
   const windows = new Map<string, { start: number; count: number }>();
   return (key: string): number => {

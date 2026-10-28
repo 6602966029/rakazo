@@ -442,6 +442,8 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     throw new Error("EMAIL_EMULATOR requires API_HOST to be a loopback host");
   }
   const email: TransactionalEmailProvider | undefined = configuredEmail ?? localEmailEmulator;
+  const onEmailError = (error: unknown) =>
+    getLogger().error("transactional email delivery failed", error);
   const stripeBilling = stripeBillingConfigFromEnv(env);
   const billingProvider: BillingProvider | undefined =
     billingOverride ?? (stripeBilling ? new StripeBillingProvider(stripeBilling) : undefined);
@@ -519,7 +521,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
           args.find((arg) => arg instanceof Error),
         ),
     },
-    onEmailError: (error) => getLogger().error("transactional email delivery failed", error),
+    onEmailError,
     afterSignIn:
       email && env.welcomeEmailEnabled
         ? (userId) =>
@@ -733,7 +735,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
     modelConnectionCheck: env.agentRuntime === "pi" ? verifyModelServesAgents : undefined,
     artifacts,
     email,
-    onEmailError: (error) => getLogger().error("transactional email delivery failed", error),
+    onEmailError,
     dataDir: env.dataDir,
     billing,
     messagingInstallations,
@@ -841,7 +843,7 @@ async function buildApp(overrides: CreateAppOverrides): Promise<AppHandles> {
       adminEmails: env.adminEmails,
       webOrigin: env.webOrigin,
       clientIp: requestClientIp,
-      onEmailError: (error) => getLogger().error("plugin submission email failed", error),
+      onEmailError,
     }),
   );
   app.route("/", marketingEmailRoutes(prisma, env.authSecret));

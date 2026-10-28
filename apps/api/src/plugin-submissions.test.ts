@@ -176,10 +176,10 @@ describe("isAdmin", () => {
 
   it("requires a listed, verified email", async () => {
     const { prisma } = fakePrisma(users);
-    const admins = ["admin@example.test"];
-    expect(await isAdmin(prisma, admins, "verified")).toBe(true);
-    expect(await isAdmin(prisma, admins, "unverified")).toBe(false);
-    expect(await isAdmin(prisma, [], "verified")).toBe(false);
+    const deps = { prisma, env: { adminEmails: ["admin@example.test"] } };
+    expect(await isAdmin(deps, "verified")).toBe(true);
+    expect(await isAdmin(deps, "unverified")).toBe(false);
+    expect(await isAdmin({ prisma, env: {} }, "verified")).toBe(false);
   });
 });
 
@@ -201,7 +201,7 @@ describe("reviewing submissions", () => {
 
   it("rejects with a reason the submitter is emailed", async () => {
     const { deps, email } = await submitted();
-    const result = await reviewPluginSubmission(deps, "admin-1", {
+    const result = await reviewPluginSubmission(deps, {
       id: "sub-1",
       decision: "reject",
       reason: "The MCP server returned errors.",
@@ -226,7 +226,7 @@ describe("reviewing submissions", () => {
       skills: [{}, {}],
       skipped: [],
     });
-    await reviewPluginSubmission(deps, "admin-1", { id: "sub-1", decision: "approve" });
+    await reviewPluginSubmission(deps, { id: "sub-1", decision: "approve" });
     expect(await approvedPluginEntries(prisma)).toEqual([
       expect.objectContaining({
         name: "acme-tickets",
@@ -250,7 +250,7 @@ describe("reviewing submissions", () => {
       skipped: [],
     });
     await expect(
-      reviewPluginSubmission(deps, "admin-1", { id: "sub-1", decision: "approve" }),
+      reviewPluginSubmission(deps, { id: "sub-1", decision: "approve" }),
     ).rejects.toThrow("This plugin has no skills or MCP servers");
     expect(rows[0]!.status).toBe("pending");
   });
@@ -268,7 +268,7 @@ describe("reviewing submissions", () => {
       };
     });
     await expect(
-      reviewPluginSubmission(deps, "admin-1", { id: "sub-1", decision: "approve" }),
+      reviewPluginSubmission(deps, { id: "sub-1", decision: "approve" }),
     ).rejects.toMatchObject({ code: "CONFLICT" });
     expect(rows[0]!.status).toBe("rejected");
     expect(email.sent).toHaveLength(0);
@@ -284,7 +284,7 @@ describe("reviewing submissions", () => {
       skipped: [{ kind: "stdio_server" }],
     });
     await expect(
-      reviewPluginSubmission(deps, "admin-1", { id: "sub-1", decision: "approve" }),
+      reviewPluginSubmission(deps, { id: "sub-1", decision: "approve" }),
     ).rejects.toThrow("This plugin would only install in part");
     expect(rows[0]!.status).toBe("pending");
   });

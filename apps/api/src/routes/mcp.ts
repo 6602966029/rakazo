@@ -15,7 +15,7 @@ import {
 } from "@rakazo/adapters";
 import type { Actor } from "@rakazo/contracts";
 import { signupSurveyAsksTeamSize } from "@rakazo/contracts";
-import { comparePlugins, containsSecret, matchesPluginQuery, pluginCategory } from "@rakazo/core";
+import { comparePlugins, containsSecret, matchesPluginQuery } from "@rakazo/core";
 import type { Prisma } from "@rakazo/db";
 import {
   AVAILABILITY_SELECT,
@@ -80,7 +80,7 @@ export function mcpRoutes(ctx: RouterContext) {
   } = ctx;
   const pluginMarketplace = createPluginMarketplace(deps.pluginMarketplaceRead);
   const requireAdmin = async (actor: Actor) => {
-    if (!(await isAdmin(deps.prisma, deps.env.adminEmails ?? [], actor.userId)))
+    if (!(await isAdmin(deps, actor.userId)))
       throw new ORPCError("FORBIDDEN", { message: "Admins only" });
   };
   /** Removes an install and, for a plugin, the servers, secrets and skills it added. */
@@ -130,9 +130,7 @@ export function mcpRoutes(ctx: RouterContext) {
         return {
           ...catalog,
           entries: [
-            ...approved
-              .map((entry) => ({ ...entry, category: pluginCategory(entry) }))
-              .filter((entry) => matchesPluginQuery(entry, input.query)),
+            ...approved.filter((entry) => matchesPluginQuery(entry, input.query)),
             ...catalog.entries.filter((entry) => !reviewed.has(entry.installedSource)),
           ].sort(comparePlugins),
         };
@@ -143,12 +141,7 @@ export function mcpRoutes(ctx: RouterContext) {
       }),
       review: authed.marketplace.review.handler(async ({ context, input }) => {
         await requireAdmin(context.actor);
-        return reviewPluginSubmission(
-          { ...deps, onEmailError: deps.onEmailError ?? (() => undefined) },
-          context.actor.userId,
-          input,
-          context.signal,
-        );
+        return reviewPluginSubmission(deps, input, context.signal);
       }),
     },
     capabilities: {

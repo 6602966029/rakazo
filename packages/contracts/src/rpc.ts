@@ -891,7 +891,7 @@ export const appContract = {
     submissions: oc
       .input(z.object({ status: PluginSubmissionStatusSchema.default("pending") }))
       .output(z.array(PluginSubmissionSchema)),
-    /** Admins only. Approving lists the plugin's current commit; the submitter is emailed either way. */
+    /** Admins only. */
     review: oc.input(PluginSubmissionReviewSchema).output(PluginSubmissionSchema),
   },
   capabilities: {

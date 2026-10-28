@@ -109,7 +109,6 @@ export interface RouterDeps {
   };
   /** Present only when the deployment bills; self-hosted installs leave it unset. */
   billing?: BillingService;
-  /** Transactional email; absent when the deployment sends none. */
   email?: TransactionalEmailProvider;
   onEmailError?: (error: unknown) => void;
   speechSummary?: VoiceDeps["speechSummary"];

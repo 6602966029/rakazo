@@ -278,26 +278,24 @@ model Referral {
   @@map("referrals")
 }
 
-/** Plugins anyone can submit for the marketplace; admins approve or reject them. */
 model PluginSubmission {
-  id               String    @id @default(cuid())
-  email            String
-  name             String
-  website          String?
-  logo             String
-  source           String
-  description      String
-  testing          String
-  status           String    @default("pending")
-  reason           String?
-  /** Set on approval: the commit listed, and what installing it adds. */
-  pinnedSource     String?
-  hasConnector     Boolean   @default(false)
-  skillCount       Int       @default(0)
-  reviewedByUserId String?
-  reviewedAt       DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  id           String    @id @default(cuid())
+  email        String
+  name         String
+  website      String?
+  logo         String
+  source       String
+  description  String
+  testing      String
+  status       String    @default("pending")
+  reason       String?
+  // Set on approval.
+  pinnedSource String?
+  hasConnector Boolean   @default(false)
+  skillCount   Int       @default(0)
+  reviewedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([status, createdAt])
   @@index([source])

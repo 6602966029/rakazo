@@ -879,8 +879,8 @@ export const PluginMarketplaceCatalogSchema = z.object({
 });
 export type PluginMarketplaceCatalog = z.infer<typeof PluginMarketplaceCatalogSchema>;
 
-/** Public, unauthenticated: anyone (or their agent) can submit a plugin for review. */
 export const PLUGIN_SUBMISSIONS_PATH = "/api/v1/plugin-submissions";
+export const SUBMIT_PLUGIN_URL = "https://rakazo.com/plugins/submit/";
 
 const HttpsUrlSchema = z
   .string()
@@ -894,7 +894,6 @@ export const PluginSubmissionInputSchema = z.object({
   name: z.string().trim().min(1).max(80),
   website: HttpsUrlSchema.optional(),
   logo: HttpsUrlSchema,
-  /** A public GitHub repository in a supported plugin format. */
   source: HttpsUrlSchema,
   description: z.string().trim().min(1).max(2000),
   testing: z.string().trim().min(1).max(4000),

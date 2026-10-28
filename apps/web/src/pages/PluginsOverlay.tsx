@@ -7,7 +7,11 @@ import type {
   IntegrationCatalogSurface,
   PluginMarketplaceEntry,
 } from "@rakazo/contracts";
-import { CONNECTION_LABEL_MAX_LENGTH, PluginPreviewSchema } from "@rakazo/contracts";
+import {
+  CONNECTION_LABEL_MAX_LENGTH,
+  PluginPreviewSchema,
+  SUBMIT_PLUGIN_URL,
+} from "@rakazo/contracts";
 import type { PluginCategory } from "@rakazo/core";
 import {
   buildFeaturedConnectorTiles,
@@ -104,7 +108,6 @@ const NO_PLUGINS: PluginMarketplaceEntry[] = [];
 const SECTION_SIZE = 6;
 const CHIP_COUNT = 6;
 const PLUGIN_PAGE_SIZE = 24;
-const SUBMIT_PLUGIN_URL = "https://rakazo.com/plugins/submit/";
 
 /** "GMAIL_SEND_EMAIL" under Gmail reads as "Send email": the app is already the page title. */
 function toolLabel(name: string, item: ConnectionCatalogItem) {
