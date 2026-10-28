@@ -383,8 +383,13 @@ export async function sleepComputerIfIdle(
       await deps.sandbox.keepAlive?.(ref);
     } catch (error) {
       // The holding run or the next idle check recovers a computer whose sandbox is gone, and
-      // the next check sends the heartbeat a rate-limited provider refused.
-      if (!isSandboxGoneError(error) && !(error instanceof SandboxRateLimitError)) throw error;
+      // the next check sends the heartbeat a rate-limited or unreachable provider missed.
+      if (
+        !isSandboxGoneError(error) &&
+        !(error instanceof SandboxRateLimitError) &&
+        !(error instanceof SandboxUnresponsiveError)
+      )
+        throw error;
     }
     return;
   }

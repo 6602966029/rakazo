@@ -1,5 +1,10 @@
 import type { AgentRunRequest, SemanticMemoryProvider } from "@rakazo/adapter-kit";
-import { DEFAULT_CONTEXT_STRATEGY, runContinueJob } from "@rakazo/adapter-kit";
+import {
+  DEFAULT_CONTEXT_STRATEGY,
+  runContinueJob,
+  SandboxUnavailableError,
+  SandboxUnresponsiveError,
+} from "@rakazo/adapter-kit";
 import type { MessageBlock, ModelRoleChoice, RunStatus } from "@rakazo/contracts";
 import { disabledBuiltinToolSet } from "@rakazo/contracts";
 import {
@@ -1613,7 +1618,16 @@ export function createRunExecutor(deps: ExecutorDeps) {
         const reportedSetupError = sanitizedError(setupError, (text) =>
           redactSecrets(text, runSecrets),
         );
-        if (!computerBusy) getLogger().error("run setup failed", reportedSetupError);
+        // An outage at the computer provider is retried like any setup failure, but is not a
+        // Rakazo bug to report.
+        if (
+          setupError instanceof SandboxUnavailableError ||
+          setupError instanceof SandboxUnresponsiveError
+        ) {
+          getLogger().warn("run setup failed", { error: reportedSetupError });
+        } else if (!computerBusy) {
+          getLogger().error("run setup failed", reportedSetupError);
+        }
         // The job reconciler re-enqueues a queued run whose job ran out of attempts, so a
         // setup that fails every time would retry forever. End the run instead.
         if (

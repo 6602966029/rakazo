@@ -19,6 +19,7 @@ import {
   SandboxDamagedError,
   SandboxRateLimitError,
   SandboxUnavailableError,
+  SandboxUnresponsiveError,
   VoiceAccountError,
 } from "@rakazo/adapter-kit";
 import type {
@@ -1480,13 +1481,17 @@ export function handleRpcError(
       cause: error,
     });
   }
-  // The computer provider did not start the computer in time: an outage on its side the user
-  // can retry, not a server failure.
-  if (error instanceof SandboxUnavailableError) {
+  // The computer provider did not start the computer in time, or could not be reached: an outage
+  // on its side the user can retry, not a server failure.
+  if (error instanceof SandboxUnavailableError || error instanceof SandboxUnresponsiveError) {
+    const unavailable =
+      error instanceof SandboxUnavailableError
+        ? error
+        : new SandboxUnavailableError({ cause: error });
     getLogger().warn(`rpc ${path.join("/")} computer unavailable`, {
-      reason: error.cause instanceof Error ? error.cause.message : undefined,
+      reason: unavailable.cause instanceof Error ? unavailable.cause.message : undefined,
     });
-    throw new ORPCError("SERVICE_UNAVAILABLE", { message: error.message, cause: error });
+    throw new ORPCError("SERVICE_UNAVAILABLE", { message: unavailable.message, cause: error });
   }
   // A provider kept another transaction busy past the wait; nothing failed, so the caller retries.
   if (error instanceof ProviderTransactionBusyError) {

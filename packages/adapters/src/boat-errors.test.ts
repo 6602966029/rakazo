@@ -149,6 +149,22 @@ describe("Boat API errors", () => {
     expect(call).toHaveBeenCalledOnce();
   });
 
+  it("reports a Boat server error as unresponsive but keeps account errors as they are", async () => {
+    const failing = (status: number, code: string) =>
+      wrapBoatCall(async () => {
+        throw new ResponseError(Response.json({ code, message: "upstream" }, { status }));
+      }, "fake-key");
+
+    const outage = await failing(500, "internal")().catch((failure: unknown) => failure);
+    expect(outage).toBeInstanceOf(SandboxUnresponsiveError);
+    expect((outage as Error).message).toContain("HTTP 500, internal");
+    expect((outage as Error).cause).toMatchObject({ response: { status: 500 } });
+
+    const billing = await failing(402, "billing_required")().catch((failure: unknown) => failure);
+    expect(billing).toBeInstanceOf(BoatApiError);
+    expect(billing).toMatchObject({ code: "billing_required" });
+  });
+
   it("retries once when the connection drops during the TLS handshake", async () => {
     const call = vi
       .fn(async () => "answered")

@@ -7,6 +7,7 @@ import {
   SandboxDamagedError,
   SandboxRateLimitError,
   SandboxUnavailableError,
+  SandboxUnresponsiveError,
   WorkspaceTooLargeError,
 } from "@rakazo/adapter-kit";
 import type { PrismaClient, ThreadEvents } from "@rakazo/db";
@@ -115,6 +116,12 @@ describe("sandbox idle", () => {
 
     await expect(sleepComputerIfIdle(harness.deps, harness.computer.id)).resolves.toBeUndefined();
     expect(harness.jobs.enqueue).toHaveBeenCalledOnce();
+
+    harness.sandbox.keepAlive.mockRejectedValueOnce(
+      new SandboxUnresponsiveError("Boat could not be reached"),
+    );
+    await expect(sleepComputerIfIdle(harness.deps, harness.computer.id)).resolves.toBeUndefined();
+    expect(harness.jobs.enqueue).toHaveBeenCalledTimes(2);
 
     harness.sandbox.keepAlive.mockRejectedValueOnce(new Error("requires PRIVATE networking"));
     await expect(sleepComputerIfIdle(harness.deps, harness.computer.id)).rejects.toThrow(
