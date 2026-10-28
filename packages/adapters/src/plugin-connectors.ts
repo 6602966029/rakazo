@@ -241,14 +241,7 @@ export async function fetchGitHubRepo(
   for (const entry of entries) {
     const path = entry.path.slice(prefix.length);
     // Fetch only component text. Other paths are retained for skipped-part reporting.
-    const relevant =
-      MANIFESTS.includes(path) ||
-      ["mcp.json", ".mcp.json"].includes(path) ||
-      /^skills\/[^/]+\/SKILL\.md$/.test(path) ||
-      (SKILL_COMPANION.test(path) && SKILL_TEXT_FILE.test(path)) ||
-      AGENT_FILE.test(path) ||
-      COMMAND_FILE.test(path);
-    if (!relevant) {
+    if (!isFetchedComponent(path)) {
       files.push({ path: entry.path, content: "" });
       continue;
     }
@@ -597,12 +590,32 @@ export type PluginCompleteness = { hasConnector: boolean; skillCount: number };
 /** Decide from a plugin directory's file list (and its MCP config, when it has one)
  * whether every part installs. Null means it cannot be told without the file. */
 /** `sizes` (bytes by path, when known) applies the same reference-file limits an install does. */
+/** The files a preview downloads; everything else is only listed. */
+function isFetchedComponent(path: string): boolean {
+  return (
+    MANIFESTS.includes(path) ||
+    ["mcp.json", ".mcp.json"].includes(path) ||
+    /^skills\/[^/]+\/SKILL\.md$/.test(path) ||
+    (SKILL_COMPANION.test(path) && SKILL_TEXT_FILE.test(path)) ||
+    AGENT_FILE.test(path) ||
+    COMMAND_FILE.test(path)
+  );
+}
+
 export function classifyPluginFiles(
   paths: string[],
   mcpConfig?: string,
   sizes?: ReadonlyMap<string, number>,
 ): PluginCompleteness | "incomplete" | null {
   if (unsupportedParts(paths).length) return "incomplete";
+  // The same totals a preview enforces, so browse never offers a plugin it would refuse.
+  const fetched = paths.filter(isFetchedComponent);
+  if (
+    paths.length > MAX_TREE_ENTRIES ||
+    fetched.length > MAX_FILES ||
+    fetched.reduce((sum, path) => sum + (sizes?.get(path) ?? 0), 0) > MAX_BYTES
+  )
+    return "incomplete";
   const skillDirs = new Map<string, string[]>();
   let skillCount = 0;
   for (const path of paths) {
