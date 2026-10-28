@@ -406,11 +406,6 @@ export class ComposioConnector implements ComposioProvider {
       accountIdsByToolkit.set(toolkit, ids);
     }
     const reconnect = [...pinnedToolkits].filter((toolkit) => !accountIdsByToolkit.has(toolkit));
-    if (reconnect.length > 0) {
-      getLogger().warn("composio connected accounts need reconnect", {
-        "composio.toolkits": reconnect.join(","),
-      });
-    }
     const toolkits = requested.filter((toolkit) => !reconnect.includes(toolkit));
     if (toolkits.length === 0) return { reconnect };
     const connectedAccounts: Record<string, string[]> = {};
@@ -528,6 +523,9 @@ export class ComposioConnector implements ComposioProvider {
       );
       const stale = reconnect.find((toolkit) => callUsesToolkit(call, toolkit));
       if (stale) {
+        getLogger().warn("composio connected accounts need reconnect", {
+          "composio.toolkits": stale,
+        });
         yield {
           type: "error",
           message: `The ${stale} connection is no longer active. Ask the user to reconnect ${stale}.`,

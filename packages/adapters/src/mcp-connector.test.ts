@@ -2,7 +2,10 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } 
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { StreamableHTTPError } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { ServerError } from "@modelcontextprotocol/sdk/server/auth/errors.js";
+import {
+  InvalidClientMetadataError,
+  ServerError,
+} from "@modelcontextprotocol/sdk/server/auth/errors.js";
 import { createLogger, createTestSink, getLogger, installLogger } from "@rakazo/logging";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { ConnectorRegistry } from "./composio-connector.js";
@@ -857,6 +860,34 @@ describe("MCP connector session cache", () => {
         vi.spyOn(Date, "now").mockReturnValue(Date.now() + 31_000);
         await connector.discoverTools(context);
         expect(requests.mock.calls.length).toBeGreaterThan(tried);
+      } finally {
+        vi.restoreAllMocks();
+        await connector.close();
+      }
+    });
+
+    it.each([
+      ["refuses the client", () => new InvalidClientMetadataError("client not recognized")],
+      [
+        "cannot register a client",
+        () => new Error("Incompatible auth server: does not support dynamic client registration"),
+      ],
+    ])("warns when the server's OAuth endpoint %s", async (_, failure) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () => {
+          throw failure();
+        }),
+      );
+      const connector = connectorWith(SERVER);
+      const error = vi.spyOn(getLogger(), "error");
+      const warn = vi.spyOn(getLogger(), "warn");
+      try {
+        expect(await connector.discoverTools(context)).toEqual(unavailableOnly());
+        expect(error).not.toHaveBeenCalled();
+        expect(warn).toHaveBeenCalledWith("mcp discovery failed for server demo", {
+          reason: expect.any(String),
+        });
       } finally {
         vi.restoreAllMocks();
         await connector.close();
