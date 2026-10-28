@@ -403,7 +403,7 @@ export async function sleepComputerIfIdle(
       providerRef: computer.providerRef,
       updatedAt: computer.updatedAt,
       executionRunId: null,
-      executionLeases: { none: { expiresAt: { gt: checkpointedAt } } },
+      executionLeases: await noBlockingExecutionLease(deps.prisma, computerId, checkpointedAt),
     },
     data: { state: "suspending", updatedAt: checkpointedAt },
   });
@@ -582,7 +582,7 @@ async function suspendStoppedComputer(
       providerRef: computer.providerRef,
       updatedAt: computer.updatedAt,
       executionRunId: null,
-      executionLeases: { none: { expiresAt: { gt: new Date() } } },
+      executionLeases: await noBlockingExecutionLease(deps.prisma, computer.id, new Date()),
     },
     data: {
       state: "suspended",
@@ -774,6 +774,33 @@ function findActiveRun(
     },
     select: { id: true },
   });
+}
+
+/**
+ * A live execution lease means a run is using the computer, except the one a run waiting for
+ * takeover keeps for up to a day so no other bot takes its screen. Once the idle check has
+ * found that the waiting run no longer holds the computer, that lease must not hold it either.
+ * The fence lets a run that resumes in the meantime block the claim again.
+ */
+async function noBlockingExecutionLease(prisma: PrismaClient, computerId: string, now: Date) {
+  const leases = await prisma.computerExecutionLease.findMany({
+    where: { computerId, expiresAt: { gt: now } },
+    select: { runId: true, fence: true },
+  });
+  const waiting =
+    leases.length === 0
+      ? []
+      : await prisma.run.findMany({
+          where: { id: { in: leases.map((lease) => lease.runId) }, status: "waiting_takeover" },
+          select: { id: true },
+        });
+  const heldForTakeover = leases.filter((lease) => waiting.some((run) => run.id === lease.runId));
+  return {
+    none: {
+      expiresAt: { gt: now },
+      ...(heldForTakeover.length > 0 ? { NOT: heldForTakeover } : {}),
+    },
+  };
 }
 
 /** When the newest takeover request of a run still waiting on this computer stops holding it. */
