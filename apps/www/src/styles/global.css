@@ -774,6 +774,12 @@ html[data-platform="web"] [data-show]:not([data-show~="web"]) {
   gap: 24px;
 }
 
+.selfhost__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 #selfhost .works-with {
   margin-top: 28px;
 }
