@@ -237,15 +237,27 @@ export function composerMentionDeletionRange(
   return start === range.start && end === range.end ? null : { start, end };
 }
 
-export function widenComposerMentionDeletion(
+export function resolveComposerMentionEdit(
   previous: string,
   next: string,
   bindings: readonly ComposerMentionBinding[],
   hints: ComposerMentionEditHints = {},
-): ComposerMentionRange | null {
-  if (next.length >= previous.length) return null;
-  const edit = editBetween(previous, next, hints);
-  return edit.length === 0
-    ? composerMentionDeletionRange(bindings, { start: edit.start, end: edit.end })
-    : null;
+): { text: string; bindings: ComposerMentionBinding[]; caret: number | null } {
+  const edit = next.length < previous.length ? editBetween(previous, next, hints) : null;
+  const mention =
+    edit?.length === 0
+      ? composerMentionDeletionRange(bindings, { start: edit.start, end: edit.end })
+      : null;
+  if (!mention)
+    return {
+      text: next,
+      bindings: updateComposerMentionBindings(previous, next, bindings, hints),
+      caret: null,
+    };
+  const text = previous.slice(0, mention.start) + previous.slice(mention.end);
+  return {
+    text,
+    bindings: mapEdit(bindings, mention.start, mention.end, 0, text),
+    caret: mention.start,
+  };
 }

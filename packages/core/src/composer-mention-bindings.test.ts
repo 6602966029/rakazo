@@ -6,9 +6,9 @@ import {
   composerMentionSegments,
   composerMentionsForPrompt,
   composerSelectedMentions,
+  resolveComposerMentionEdit,
   updateComposerMentionBindings,
   validateComposerMentionBindings,
-  widenComposerMentionDeletion,
 } from "./composer-mention-bindings.js";
 import type { ComposerMention, ComposerMentionRange } from "./composer-mentions.js";
 import { composerMentionQuery, resolveComposerSendPlan } from "./composer-mentions.js";
@@ -130,15 +130,17 @@ describe("completed mention occurrence bindings", () => {
   });
 
   it.each([
-    ["Backspace at the end", "@Bo and @Bob ", { start: 4, end: 4 }, { start: 0, end: 4 }],
-    ["a selection cutting in", "@Bob anBob ", { start: 7, end: 10 }, { start: 7, end: 13 }],
-    ["a selection-first caret", "@Bob and @Bo ", { start: 12, end: 12 }, { start: 9, end: 13 }],
-  ] as [string, string, ComposerMentionRange, ComposerMentionRange][])(
-    "widens a native deletion from %s",
-    (_label, next, before, expected) => {
+    ["Backspace at the end", "@Bo and @Bob ", { start: 4, end: 4 }, " and @Bob ", 0],
+    ["a selection cutting in", "@Bob anBob ", { start: 7, end: 10 }, "@Bob an ", 7],
+    ["Delete at the start", "@Bob and Bob ", { start: 9, end: 9 }, "@Bob and  ", 9],
+  ] as [string, string, ComposerMentionRange, string, number][])(
+    "removes the whole mention for %s",
+    (_label, next, before, expected, caret) => {
+      const result = resolveComposerMentionEdit(text, next, bindings, { before: [before] });
+      expect(result).toMatchObject({ text: expected, caret });
       expect(
-        widenComposerMentionDeletion(text, next, bindings, { before: [before], after: before }),
-      ).toEqual(expected);
+        composerMentionSegments(result.text, result.bindings).filter((s) => s.binding),
+      ).toHaveLength(1);
     },
   );
 
@@ -148,21 +150,36 @@ describe("completed mention occurrence bindings", () => {
     ["an insertion", "@Bob and @Bobx ", { start: 13, end: 13 }],
     ["a replacement", "@Bob and xyz ", { start: 9, end: 13 }],
   ] as [string, string, ComposerMentionRange][])(
-    "leaves a native deletion of %s alone",
+    "keeps the native text for %s",
     (_label, next, before) => {
-      expect(widenComposerMentionDeletion(text, next, bindings, { before: [before] })).toBeNull();
+      const hints = { before: [before] };
+      expect(resolveComposerMentionEdit(text, next, bindings, hints)).toEqual({
+        text: next,
+        bindings: updateComposerMentionBindings(text, next, bindings, hints),
+        caret: null,
+      });
     },
   );
 
-  it("uses the caret to place an ambiguous deletion outside the mention", () => {
+  it("places an ambiguous deletion with the same hints the bindings use", () => {
     const doubled = "@@Bob ";
     const mention = [{ start: 1, end: 5, mention: bot }];
+    const caret = (at: number) => ({ start: at, end: at });
     expect(
-      widenComposerMentionDeletion(doubled, "@Bob ", mention, { before: [{ start: 1, end: 1 }] }),
-    ).toBeNull();
+      resolveComposerMentionEdit(doubled, "@Bob ", mention, {
+        before: [caret(1)],
+        after: caret(0),
+      }),
+    ).toEqual({ text: "@Bob ", bindings: [{ start: 0, end: 4, mention: bot }], caret: null });
     expect(
-      widenComposerMentionDeletion(doubled, "@@Bo ", mention, { before: [{ start: 5, end: 5 }] }),
-    ).toEqual({ start: 1, end: 5 });
+      resolveComposerMentionEdit(doubled, "@Bob ", mention, {
+        before: [caret(1)],
+        after: caret(1),
+      }),
+    ).toEqual({ text: "@ ", bindings: [], caret: 1 });
+    expect(
+      resolveComposerMentionEdit(doubled, "@@Bo ", mention, { before: [caret(5)] }),
+    ).toMatchObject({ text: "@ ", caret: 1 });
   });
 
   it("preserves the bot's same-name text when stripping a separate group occurrence", () => {

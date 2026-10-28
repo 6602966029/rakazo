@@ -524,6 +524,19 @@ describe("thread composer isolation", () => {
     expect(composer.current!.snapshot().mentions).toEqual([]);
   });
 
+  it("removes the mention when its own @ is deleted after a selection-first event", () => {
+    type("@ @He");
+    press("@{name}");
+    select(2);
+    type("@@Helper ");
+    select(2);
+    select(1);
+    type("@Helper ");
+    expect(field().value).toBe("@ ");
+    expect(JSON.parse(field().dataset.selection!)).toEqual({ start: 1, end: 1 });
+    expect(composer.current!.snapshot().mentions).toEqual([]);
+  });
+
   it("deletes a stray character beside a mention without taking the mention", () => {
     type("@ @He");
     press("@{name}");

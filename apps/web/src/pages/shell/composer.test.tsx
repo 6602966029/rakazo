@@ -190,6 +190,25 @@ function type(textarea: HTMLTextAreaElement, value: string) {
   });
 }
 
+function nativeDelete(
+  textarea: HTMLTextAreaElement,
+  selection: [number, number],
+  removed: [number, number],
+  { key = "Backspace", isComposing = false } = {},
+) {
+  const setValue = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set;
+  act(() => textarea.setSelectionRange(...selection));
+  act(() => textarea.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true })));
+  act(() => {
+    setValue?.call(
+      textarea,
+      textarea.value.slice(0, removed[0]) + textarea.value.slice(removed[1]),
+    );
+    textarea.setSelectionRange(removed[0], removed[0]);
+    textarea.dispatchEvent(new InputEvent("input", { bubbles: true, isComposing }));
+  });
+}
+
 function pressEnter(textarea: HTMLTextAreaElement) {
   act(() => {
     textarea.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
@@ -280,33 +299,39 @@ describe("Composer", () => {
   });
 
   it.each([
-    ["Backspace", 9, 9, 5, 9],
-    ["Delete", 5, 5, 5, 9],
-    ["Backspace", 7, 7, 5, 9],
-    ["Backspace", 2, 7, 2, 9],
-    ["Backspace", 10, 10, 10, 10],
-  ])("widens %s at %s..%s to the whole mention", (key, start, end, nextStart, nextEnd) => {
-    const textarea = renderComposer(vi.fn());
-    type(textarea, "ask  @Bo");
-    pressEnter(textarea);
-    expect(textarea.value).toBe("ask  @Bob ");
-    act(() => textarea.setSelectionRange(start, end));
-    act(() => textarea.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true })));
-    expect([textarea.selectionStart, textarea.selectionEnd]).toEqual([nextStart, nextEnd]);
-  });
+    ["Backspace at its end", [9, 9], [8, 9], "Backspace", "ask   ", 5],
+    ["Delete at its start", [5, 5], [5, 6], "Delete", "ask   ", 5],
+    ["Backspace inside it", [7, 7], [6, 7], "Backspace", "ask   ", 5],
+    ["a selection cutting into it", [2, 7], [2, 7], "Backspace", "as ", 2],
+    ["a phone keyboard deletion", [9, 9], [8, 9], "Unidentified", "ask   ", 5],
+  ] as const)(
+    "removes the whole mention after %s",
+    (_label, selection, removed, key, value, caret) => {
+      const textarea = renderComposer(vi.fn());
+      type(textarea, "ask  @Bo");
+      pressEnter(textarea);
+      expect(textarea.value).toBe("ask  @Bob ");
+      nativeDelete(textarea, [...selection], [...removed], { key });
+      expect(textarea.value).toBe(value);
+      expect([textarea.selectionStart, textarea.selectionEnd]).toEqual([caret, caret]);
+      expect(container?.querySelector('[data-testid="mention-chip"]')).toBeNull();
+    },
+  );
 
-  it("leaves a deletion alone while an IME composition is active", () => {
-    const textarea = renderComposer(vi.fn());
-    type(textarea, "ask @Bo");
-    pressEnter(textarea);
-    act(() => textarea.setSelectionRange(8, 8));
-    act(() =>
-      textarea.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Backspace", bubbles: true, isComposing: true }),
-      ),
-    );
-    expect([textarea.selectionStart, textarea.selectionEnd]).toEqual([8, 8]);
-  });
+  it.each([
+    ["the space after it", [10, 10], [9, 10], false, "ask  @Bob", 1],
+    ["an IME composition edit", [9, 9], [8, 9], true, "ask  @Bo ", 0],
+  ] as const)(
+    "keeps the native edit for %s",
+    (_label, selection, removed, isComposing, value, cards) => {
+      const textarea = renderComposer(vi.fn());
+      type(textarea, "ask  @Bo");
+      pressEnter(textarea);
+      nativeDelete(textarea, [...selection], [...removed], { isComposing });
+      expect(textarea.value).toBe(value);
+      expect(container?.querySelectorAll('[data-testid="mention-chip"]')).toHaveLength(cards);
+    },
+  );
 
   it("moves the caret past the full token even when completion leaves text unchanged", () => {
     const textarea = renderComposer(vi.fn());
@@ -390,12 +415,8 @@ describe("Composer", () => {
         ?.click(),
     );
     expect(textarea.value).toBe("@Bob ask @Bob Jones ");
-    act(() => textarea.setSelectionRange(4, 4));
-    act(() =>
-      textarea.dispatchEvent(new KeyboardEvent("keydown", { key: "Backspace", bubbles: true })),
-    );
-    expect([textarea.selectionStart, textarea.selectionEnd]).toEqual([0, 4]);
-    type(textarea, " ask @Bob Jones ");
+    nativeDelete(textarea, [4, 4], [3, 4]);
+    expect(textarea.value).toBe(" ask @Bob Jones ");
     pressEnter(textarea);
     await act(async () => {});
     expect(onSend).toHaveBeenCalledWith("ask @Bob Jones", [jones], expect.any(String));
@@ -471,12 +492,8 @@ describe("Composer", () => {
       type(textarea, `${textarea.value}then @Bo`);
       act(() => container?.querySelectorAll<HTMLButtonElement>('[role="option"]')[1]?.click());
       const end = removed === "group" ? 18 : 8;
-      act(() => textarea.setSelectionRange(end, end));
-      act(() =>
-        textarea.dispatchEvent(new KeyboardEvent("keydown", { key: "Backspace", bubbles: true })),
-      );
-      expect([textarea.selectionStart, textarea.selectionEnd]).toEqual([end - 4, end]);
-      type(textarea, removed === "group" ? "ask @Bob then  " : "ask  then @Bob ");
+      nativeDelete(textarea, [end, end], [end - 1, end]);
+      expect(textarea.value).toBe(removed === "group" ? "ask @Bob then  " : "ask  then @Bob ");
       pressEnter(textarea);
       await act(async () => {});
       expect(onSend).toHaveBeenCalledWith(

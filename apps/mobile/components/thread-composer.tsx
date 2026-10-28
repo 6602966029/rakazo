@@ -16,11 +16,10 @@ import {
   composerMentionsForPrompt,
   composerSelectedMentions,
   mentionChipKey,
+  resolveComposerMentionEdit,
   SLASH_ACTIONS,
   serializeComposerPrompt,
   truncateSlashDescription,
-  updateComposerMentionBindings,
-  widenComposerMentionDeletion,
 } from "@rakazo/core";
 import { MAX_FONT_SCALE } from "@rakazo/ui-tokens";
 import type { Ref } from "react";
@@ -32,6 +31,13 @@ import { useMobileTokens, useResolvedAppearance } from "../lib/native";
 import type { ComposerSnapshot } from "../lib/thread-feedback";
 import { GlassSurface } from "./glass-surface";
 import { NativeSymbol } from "./native-symbol";
+
+type NativeEdit = {
+  beforeText: string;
+  afterText: string;
+  bindings: ComposerMentionBinding[];
+  beforeSelections: ComposerMentionRange[];
+};
 
 export type ThreadComposerHandle = {
   snapshot: () => ComposerSnapshot;
@@ -101,12 +107,7 @@ export function ThreadComposer({
   const [mentionBindings, setMentionBindings] = useState<ComposerMentionBinding[]>([]);
   const bindingsRef = useRef<ComposerMentionBinding[]>([]);
   const selectionHistory = useRef<ComposerMentionRange[]>([]);
-  const pendingNativeEdit = useRef<{
-    beforeText: string;
-    afterText: string;
-    bindings: ComposerMentionBinding[];
-    beforeSelections: ComposerMentionRange[];
-  } | null>(null);
+  const pendingNativeEdit = useRef<NativeEdit | null>(null);
   function updateBindings(next: ComposerMentionBinding[]) {
     bindingsRef.current = next;
     setMentionBindings(next);
@@ -203,37 +204,33 @@ export function ThreadComposer({
     ) {
       suffix += 1;
     }
-    const beforeSelections = [nativeSelection.current, ...selectionHistory.current.toReversed()];
-    const bindings = bindingsRef.current;
-    const mention = widenComposerMentionDeletion(previous, nativeValue, bindings, {
-      before: beforeSelections,
-    });
-    const value = mention
-      ? previous.slice(0, mention.start) + previous.slice(mention.end)
-      : nativeValue;
-    const caret = mention ? mention.start : value.length - suffix;
-    pendingNativeEdit.current = mention
-      ? null
-      : { beforeText: previous, afterText: value, bindings, beforeSelections };
-    updateBindings(
-      updateComposerMentionBindings(
-        previous,
-        value,
-        bindings,
-        mention
-          ? { before: [mention], after: { start: caret, end: caret } }
-          : { before: beforeSelections, after: nativeSelection.current },
-      ),
-    );
-    if (mention) nativeSelection.current = { start: caret, end: caret };
-    selectionHistory.current = mention ? [nativeSelection.current] : [];
-    draftRef.current = value;
-    setDraft(value);
-    completedSelection.current = null;
-    setSelection(mention ? nativeSelection.current : undefined);
+    const edit = {
+      beforeText: previous,
+      afterText: nativeValue,
+      bindings: bindingsRef.current,
+      beforeSelections: [nativeSelection.current, ...selectionHistory.current.toReversed()],
+    };
+    pendingNativeEdit.current = edit;
+    selectionHistory.current = [];
+    const { text: value, caret: widenedCaret } = applyNativeEdit(edit, nativeSelection.current);
+    const caret = widenedCaret ?? nativeValue.length - suffix;
+    if (widenedCaret !== null) nativeSelection.current = { start: caret, end: caret };
+    setSelection(widenedCaret === null ? undefined : nativeSelection.current);
     updateMentionQuery(value, caret);
     const slashMatch = selectedSkill === null ? /^\/([^\n]*)$/.exec(value) : null;
     setSlashQuery(slashMatch ? (slashMatch[1] ?? "") : null);
+  }
+
+  function applyNativeEdit(edit: NativeEdit, after: ComposerMentionRange) {
+    const resolved = resolveComposerMentionEdit(edit.beforeText, edit.afterText, edit.bindings, {
+      before: edit.beforeSelections,
+      after,
+    });
+    updateBindings(resolved.bindings);
+    draftRef.current = resolved.text;
+    setDraft(resolved.text);
+    completedSelection.current = null;
+    return resolved;
   }
 
   function insertMention(mention: ComposerMention) {
@@ -532,15 +529,23 @@ export function ThreadComposer({
                   const next = event.nativeEvent.selection;
                   const pending = pendingNativeEdit.current;
                   if (pending) {
-                    updateBindings(
-                      updateComposerMentionBindings(
-                        pending.beforeText,
-                        pending.afterText,
-                        pending.bindings,
-                        { before: pending.beforeSelections, after: next },
-                      ),
-                    );
                     pendingNativeEdit.current = null;
+                    const shown = draftRef.current;
+                    const resolved = applyNativeEdit(pending, next);
+                    if (resolved.caret !== null || resolved.text !== shown) {
+                      nativeSelection.current =
+                        resolved.caret === null
+                          ? next
+                          : { start: resolved.caret, end: resolved.caret };
+                      selectionHistory.current = [nativeSelection.current];
+                      setSelection(nativeSelection.current);
+                      updateMentionQuery(
+                        resolved.text,
+                        nativeSelection.current.start,
+                        nativeSelection.current.end,
+                      );
+                      return;
+                    }
                   }
                   selectionHistory.current = [...selectionHistory.current.slice(-3), next];
                   nativeSelection.current = next;
