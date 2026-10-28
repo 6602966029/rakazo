@@ -1193,6 +1193,57 @@ describe("create_space", () => {
   });
 });
 
+describe("first instructions through update_bot", () => {
+  const first = "Draft only. Ask before sending.";
+  function emptyBot(options: Parameters<typeof fixture>[0] = {}) {
+    const f = fixture({ name: "update_bot", builtin: true, ...options });
+    f.instructionState.instructions = "";
+    f.setCalls([{ args: { instructions: first }, executionId: "call-1" }]);
+    return f;
+  }
+  it.each(["user", "created"])(
+    "sets a bot's first instructions without a card in a %s run",
+    async (trigger) => {
+      const f = emptyBot({ trigger });
+      await f.run();
+      expect(f.pauseRunForInput).not.toHaveBeenCalled();
+      expect(f.results).toEqual([{ ok: true }]);
+      expect(f.instructionState.instructions).toBe(first);
+      expect(f.instructionState.instructionHistory).toHaveLength(1);
+    },
+  );
+  it("leaves instructions that already exist to a proposal", async () => {
+    const f = emptyBot();
+    f.instructionState.instructions = "Draft only";
+    await f.run();
+    expect(f.results).toEqual([
+      { error: "You already have instructions; change them with propose_instructions_update." },
+    ]);
+    expect(f.instructionState.instructions).toBe("Draft only");
+  });
+  it.each(["user", "created"])("refuses once outside content entered a %s run", async (trigger) => {
+    const f = emptyBot({ trigger });
+    f.claimedOutsideSteering(true);
+    await f.run();
+    expect(f.results).toEqual([
+      { error: "Propose your instructions with propose_instructions_update." },
+    ]);
+    expect(f.instructionState.instructions).toBe("");
+  });
+  it("refuses in a run the owner did not start", async () => {
+    const f = emptyBot({ trigger: "webhook" });
+    await f.run();
+    expect(f.instructionState.instructions).toBe("");
+  });
+  it("refuses known credentials", async () => {
+    const f = emptyBot({ secrets: ["fake-credential-value"] });
+    f.setCalls([{ args: { instructions: "Use fake-credential-value" }, executionId: "call-1" }]);
+    await f.run();
+    expect(f.results).toEqual([{ error: "Instructions cannot contain credentials." }]);
+    expect(f.instructionState.instructions).toBe("");
+  });
+});
+
 describe("self instruction proposals", () => {
   const args = { instructions: "Draft only. Ask before sending.", reason: "Learned a preference" };
   it("asks even when general rules and auto review allow it, then applies the persisted approved text", async () => {
