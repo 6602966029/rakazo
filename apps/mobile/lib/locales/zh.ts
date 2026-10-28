@@ -9,6 +9,7 @@ export const ZH_MESSAGES: Record<string, string> = {
   "Retry screen": "重试屏幕连接",
   "The screen connection closed.": "屏幕连接已关闭。",
   Approvals: "审批",
+  Rules: "规则",
   "Never ask": "从不询问",
   Auto: "自动",
   Ask: "询问",

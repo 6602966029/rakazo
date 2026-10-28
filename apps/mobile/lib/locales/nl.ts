@@ -11,6 +11,7 @@ export const NL_MESSAGES: Record<string, string> = {
   "Retry screen": "Scherm opnieuw verbinden",
   "The screen connection closed.": "De schermverbinding is gesloten.",
   Approvals: "Goedkeuringen",
+  Rules: "Regels",
   "Never ask": "Nooit vragen",
   Auto: "Auto",
   Ask: "Vragen",

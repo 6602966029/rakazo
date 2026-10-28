@@ -10,6 +10,7 @@ export const RU_MESSAGES: Record<string, string> = {
   "Retry screen": "Повторить подключение экрана",
   "The screen connection closed.": "Соединение с экраном закрыто.",
   Approvals: "Одобрения",
+  Rules: "Правила",
   "Never ask": "Не спрашивать",
   Auto: "Авто",
   Ask: "Спрашивать",
