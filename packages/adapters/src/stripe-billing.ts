@@ -48,6 +48,12 @@ const subscriptionSchema = z.object({
   cancel_at_period_end: z.boolean().nullish(),
   cancel_at: z.number().nullish(),
   ended_at: z.number().nullish(),
+  default_payment_method: z
+    .union([
+      z.string(),
+      z.object({ card: z.object({ fingerprint: z.string().nullish() }).nullish() }),
+    ])
+    .nullish(),
   items: z.object({
     data: z.array(
       z.object({
@@ -576,6 +582,16 @@ export class StripeBillingProvider implements BillingProvider {
     }
   }
 
+  async grantBalanceCredit(customerId: string, amountCents: number) {
+    if (!Number.isSafeInteger(amountCents) || amountCents <= 0)
+      throw new Error("Invalid balance credit");
+    await this.request(
+      "POST",
+      `/v1/customers/${encodeURIComponent(customerId)}/balance_transactions`,
+      { amount: -amountCents, currency: "usd", description: "Referral reward" },
+    );
+  }
+
   parseWebhook(rawBody: string, headers: Headers) {
     return parseStripeWebhook(this.config.webhookSecret, rawBody, headers, this.now());
   }
@@ -632,6 +648,7 @@ export class StripeBillingProvider implements BillingProvider {
         status: "all",
         limit: 100,
         starting_after: startingAfter,
+        expand: ["data.default_payment_method"],
       });
       const page = subscriptionListSchema.parse(
         await this.request("GET", `/v1/subscriptions?${query}`),
@@ -759,6 +776,8 @@ function toSnapshot(
 ): BillingSubscriptionSnapshot {
   const item = subscription.items.data[0];
   if (!item) throw new Error("Stripe subscription has no items");
+  const method = subscription.default_payment_method;
+  const fingerprint = typeof method === "object" ? method?.card?.fingerprint : undefined;
   return {
     creditAmountCents: creditAmount(subscription.metadata?.rakazo_credit_cents),
     subscriptionId: subscription.id,
@@ -771,6 +790,7 @@ function toSnapshot(
     cancelAtPeriodEnd: Boolean(subscription.cancel_at_period_end) || subscription.cancel_at != null,
     endedAt: fromSeconds(subscription.ended_at),
     ...(isByokPlan(subscription) ? { byokPlan: true } : {}),
+    ...(fingerprint ? { cardFingerprint: fingerprint } : {}),
   };
 }
 

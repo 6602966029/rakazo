@@ -143,6 +143,7 @@ export async function syncBillingSnapshot(
       currentPeriodEndsAt: snapshot?.currentPeriodEndsAt ?? null,
       cancelAtPeriodEnd: snapshot?.cancelAtPeriodEnd ?? false,
       endedAt: snapshot?.endedAt ?? null,
+      ...(snapshot?.cardFingerprint ? { cardFingerprint: snapshot.cardFingerprint } : {}),
       syncedAt: startedAt,
     },
   });

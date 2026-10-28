@@ -1237,4 +1237,7 @@ export const RU_MESSAGES: Record<string, string> = {
   "Could not load skill": "Не удалось загрузить навык",
   "Could not save skill": "Не удалось сохранить навык",
   "Could not delete skill": "Не удалось удалить навык",
+  "Invite friends": "Пригласить друзей",
+  "1 free month earned": "Получен 1 бесплатный месяц",
+  "{count} free months earned": "Бесплатных месяцев получено: {count}",
 };

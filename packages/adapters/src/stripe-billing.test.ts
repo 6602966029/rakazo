@@ -269,6 +269,20 @@ describe("Stripe billing HTTP boundary", () => {
       expect(mapStripeSubscriptionStatus(status)).toBe("canceled");
   });
 
+  it("reads the subscription's card fingerprint and credits the customer balance", async () => {
+    const { wire, provider } = setup();
+    const { customerId } = await provider.createCustomer(owner);
+    await provider.createCheckout({ customerId, seats: 1, trialDays: 7, ...urls });
+    wire.completeCheckout(customerId, undefined, "fp_card_1");
+    await expect(provider.getCustomerSubscription(customerId)).resolves.toMatchObject({
+      status: "trialing",
+      cardFingerprint: "fp_card_1",
+    });
+    await provider.grantBalanceCredit(customerId, 1000);
+    expect(wire.balances.get(customerId)).toBe(-1000);
+    await expect(provider.grantBalanceCredit(customerId, 0)).rejects.toThrow(/Invalid/);
+  });
+
   it("treats a scheduled cancellation as cancel at period end", async () => {
     const { wire, provider } = setup();
     const { customerId } = await provider.createCustomer(owner);

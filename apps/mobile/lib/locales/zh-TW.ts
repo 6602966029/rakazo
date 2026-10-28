@@ -1214,4 +1214,7 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   "Could not load skill": "無法載入技能",
   "Could not save skill": "無法儲存技能",
   "Could not delete skill": "無法刪除技能",
+  "Invite friends": "邀請朋友",
+  "1 free month earned": "已獲得 1 個月免費",
+  "{count} free months earned": "已獲得 {count} 個月免費",
 };

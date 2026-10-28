@@ -226,6 +226,9 @@ model Organization {
   spaces       Space[]
   billing      BillingAccount?
   modelCredits ModelCreditAccount?
+  referralCode ReferralCode?
+  referredBy   Referral?           @relation("ReferredOrganization")
+  referrals    Referral[]          @relation("ReferrerOrganization")
 
   @@unique([slug])
   @@map("organization")
@@ -246,11 +249,37 @@ model BillingAccount {
   cancelAtPeriodEnd   Boolean      @default(false)
   endedAt             DateTime?
   subscribedAt        DateTime?
+  /// The provider's identity for the subscription's card, kept after the subscription ends.
+  cardFingerprint     String?
   syncedAt            DateTime?
   createdAt           DateTime     @default(now())
   updatedAt           DateTime     @updatedAt
 
+  @@index([cardFingerprint])
   @@map("billing_accounts")
+}
+
+model ReferralCode {
+  code           String       @id
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@map("referral_codes")
+}
+
+/// Settled once, when the invited organization first subscribes: rewarded or declined.
+model Referral {
+  organizationId         String       @id
+  organization           Organization @relation("ReferredOrganization", fields: [organizationId], references: [id], onDelete: Cascade)
+  referrerOrganizationId String
+  referrer               Organization @relation("ReferrerOrganization", fields: [referrerOrganizationId], references: [id], onDelete: Cascade)
+  createdAt              DateTime     @default(now())
+  rewardedAt             DateTime?
+  declinedAt             DateTime?
+
+  @@index([referrerOrganizationId])
+  @@map("referrals")
 }
 
 model ActionApprovalRule {

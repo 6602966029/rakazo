@@ -1801,6 +1801,11 @@ export const BillingStatusSchema = z.object({
   currentPeriodEndsAt: z.string().nullable(),
   cancelAtPeriodEnd: z.boolean(),
   hasCustomer: z.boolean(),
+  /** Present once the organization has subscribed: its invite link and free months earned. */
+  referral: z
+    .object({ url: z.string().url(), rewards: z.number().int().nonnegative() })
+    .nullable()
+    .optional(),
 });
 export type BillingStatus = z.infer<typeof BillingStatusSchema>;
 
