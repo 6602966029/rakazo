@@ -8,7 +8,6 @@ import {
   captureScreenshot,
   clickAndWaitForRpc,
   completeOnboarding,
-  openNewBot,
   rpc,
   signup,
 } from "./helpers";
@@ -92,8 +91,8 @@ const document = [
 ].join("\n");
 
 async function openImport(page: Page) {
-  await openNewBot(page);
-  await page.getByTestId("create-bot-dialog").getByTestId("create-bot-import").click();
+  await page.goto("/app?settings=general");
+  await page.getByRole("button", { name: "Import an agent", exact: true }).click();
   const panel = page.getByTestId("agent-import");
   await expect(panel.getByTestId("agent-import-choose")).toBeVisible();
   return panel;
@@ -109,17 +108,9 @@ test("imports an OpenClaw folder and another assistant's document as new bots", 
   await page.goto("/app");
   await page.waitForURL(/\/app\/[^/]+$/);
 
-  await openNewBot(page);
-  const dialog = page.getByTestId("create-bot-dialog");
-  await dialog.getByTestId("create-bot-import").click();
-  const importPanel = page.getByTestId("agent-import");
-  await expect(importPanel.getByTestId("agent-import-choose")).toBeVisible();
-  await expect(dialog).toHaveCount(0);
+  const importPanel = await openImport(page);
   await importPanel.getByRole("button", { name: "Back", exact: true }).click();
   await expect(importPanel).toHaveCount(0);
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
-  await expect(dialog).toHaveCount(0);
 
   const panel = await openImport(page);
   const choose = panel.getByTestId("agent-import-choose");

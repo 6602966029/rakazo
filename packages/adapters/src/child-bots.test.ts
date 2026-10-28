@@ -381,7 +381,6 @@ describe("destroyBot", () => {
     const createDeletion = vi.fn();
     const deleteBot = vi.fn();
     const removeArtifact = vi.fn();
-    const within = vi.fn();
     const transaction = vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
       callback({
         $queryRaw: vi.fn().mockResolvedValue([]),
@@ -416,11 +415,10 @@ describe("destroyBot", () => {
         archivedAt: null,
       },
       context,
-      { deleteMemories: false, within },
+      { deleteMemories: false },
     );
 
     expect(transaction).toHaveBeenCalledOnce();
-    expect(within).not.toHaveBeenCalled();
     expect(createDeletion).not.toHaveBeenCalled();
     expect(deleteBot).not.toHaveBeenCalled();
     expect(removeArtifact).not.toHaveBeenCalled();

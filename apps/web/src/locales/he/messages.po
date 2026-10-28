@@ -486,7 +486,6 @@ msgstr "פעילות"
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/PluginsOverlay.tsx
 #: src/pages/ScratchpadSection.tsx
-#: src/pages/shell/agent-import.tsx
 msgid "Add"
 msgstr "הוספה"
 
@@ -592,10 +591,6 @@ msgstr "הוספת URL של שרת"
 #: src/components/integrations/plugin-marketplace.tsx
 msgid "Add skills"
 msgstr ""
-
-#: src/pages/shell/agent-import.tsx
-msgid "Add to an existing bot"
-msgstr "הוספה לבוט קיים"
 
 #: src/components/teach/SkillDraftCard.tsx
 msgid "Add to routine"
@@ -805,10 +800,6 @@ msgstr "header של מפתח API"
 msgid "API keys"
 msgstr "מפתחות API"
 
-#: src/pages/shell/agent-import-undo.tsx
-msgid "API keys stay connected."
-msgstr "מפתחות ה-API נשארים מחוברים."
-
 #: src/pages/AccountSettingsOverlay.tsx
 msgid "Appearance"
 msgstr "מראה"
@@ -890,10 +881,6 @@ msgstr "בשעה {0}"
 #: src/pages/RoutineSchedule.tsx
 msgid "at {timeSelect}"
 msgstr "בשעה {timeSelect}"
-
-#: src/pages/shell/composer.tsx
-msgid "Attach"
-msgstr "צירוף"
 
 #: src/pages/shell/composer.tsx
 msgid "Attach file"
@@ -1039,7 +1026,6 @@ msgstr "בוט"
 #: src/pages/IntegrationSetup.tsx
 #: src/pages/MessagingSettingsPanel.tsx
 #: src/pages/Shell.tsx
-#: src/pages/shell/agent-import.tsx
 #: src/pages/shell/avatar-studio-popover.tsx
 #: src/pages/shell/message-view.tsx
 msgid "Bot"
@@ -1155,7 +1141,6 @@ msgstr "לא ניתן לקרוא תמונות"
 #: src/pages/Onboarding.tsx
 #: src/pages/PaymentWalletSettingsPanel.tsx
 #: src/pages/PluginSubmissionsPanel.tsx
-#: src/pages/shell/agent-import-undo.tsx
 #: src/pages/shell/create-bot-dialog.tsx
 #: src/pages/shell/dialogs.tsx
 #: src/pages/SpaceSettingOverrides.tsx
@@ -1290,10 +1275,6 @@ msgstr "בודק חיבור…"
 #: src/pages/HostComputerPrompt.tsx
 msgid "Checking…"
 msgstr "בודק…"
-
-#: src/pages/shell/agent-import.tsx
-msgid "Choose a bot"
-msgstr "בחירת בוט"
 
 #: src/pages/shell/avatar-studio-popover.tsx
 msgid "Choose a bot shape, color, or upload an image"
@@ -2225,10 +2206,6 @@ msgstr "לא ניתן להשתלט"
 #: src/pages/McpServersOverlay.tsx
 msgid "Could not test MCP server"
 msgstr "לא ניתן לבדוק את שרת ה-MCP"
-
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Could not undo the import"
-msgstr "לא ניתן לבטל את הייבוא"
 
 #: src/pages/ScratchpadSection.tsx
 msgid "Could not update"
@@ -3192,24 +3169,14 @@ msgstr "קלט תמונה לא מוגדר עבור המודל הזה."
 msgid "Image upload area"
 msgstr "אזור העלאת תמונה"
 
-#: src/pages/shell/composer.tsx
-#: src/pages/shell/create-bot-dialog.tsx
-msgid "Import"
-msgstr "ייבוא"
-
-#: src/pages/Onboarding.tsx
+#: src/components/AccountDataSettings.tsx
 #: src/pages/shell/agent-import.tsx
-#: src/pages/shell/message-cards.tsx
 msgid "Import an agent"
 msgstr "ייבוא סוכן"
 
 #: src/components/AccountDataSettings.tsx
 msgid "Import data"
 msgstr "ייבוא נתונים"
-
-#: src/pages/shell/composer.tsx
-msgid "Import this agent as a bot?"
-msgstr "לייבא את הסוכן הזה כבוט?"
 
 #: src/lib/ticket-status.ts
 msgid "In progress"
@@ -3341,26 +3308,6 @@ msgstr "הבוטים והקבוצות שבו יישמרו ויוצאו מהמק�
 msgid "Its conversation, files, and routines will be permanently deleted. Bots it created stay in your list."
 msgstr "השיחה, הקבצים והרוטינות שלו יימחקו לצמיתות. בוטים שהוא יצר יישארו ברשימה."
 
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Its instructions changed since the import, so they stay."
-msgstr "ההוראות שלו השתנו מאז הייבוא, ולכן הן נשארות."
-
-#: src/lib/agent-import-errors.ts
-msgid "Its instructions changed. Review them, then try again."
-msgstr "ההוראות שלו השתנו. יש לעבור עליהן ולנסות שוב."
-
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Its instructions go back to before the import."
-msgstr "ההוראות שלו יחזרו למצב שלפני הייבוא."
-
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Its model changed since the import, so it stays."
-msgstr "המודל שלו השתנה מאז הייבוא, ולכן הוא נשאר."
-
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Its model goes back to before the import."
-msgstr "המודל שלו יחזור לזה שלפני הייבוא."
-
 #: src/pages/shell/transcript.tsx
 msgid "Jump to latest"
 msgstr "מעבר לאחרונות"
@@ -3373,17 +3320,9 @@ msgstr "מעבר להודעה שנענתה: {excerpt}"
 msgid "just now"
 msgstr "הרגע"
 
-#: src/pages/shell/agent-import.tsx
-msgid "Keep its instructions"
-msgstr "שמירת ההוראות שלו"
-
 #: src/pages/shell/dialogs.tsx
 msgid "Keep memories"
 msgstr "שמירת הזיכרונות"
-
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Kept"
-msgstr "יישמר"
 
 #: src/pages/RoutineEditor.tsx
 msgid "key"
@@ -3901,7 +3840,6 @@ msgstr ""
 msgid "Name"
 msgstr "שם"
 
-#: src/lib/agent-import-errors.ts
 #: src/pages/shell/agent-import.tsx
 msgid "Name this bot"
 msgstr "שם לבוט"
@@ -3948,7 +3886,6 @@ msgid "New"
 msgstr ""
 
 #: src/pages/Shell.tsx
-#: src/pages/shell/agent-import.tsx
 #: src/pages/shell/bot-picker.tsx
 #: src/pages/shell/create-bot-dialog.tsx
 msgid "New bot"
@@ -4825,10 +4762,6 @@ msgstr ""
 msgid "Remove webhook"
 msgstr "הסרת ה-webhook"
 
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Removed"
-msgstr "יוסר"
-
 #: src/pages/ScratchpadSection.tsx
 msgid "Removed, but list refresh failed"
 msgstr "הוסר, אבל רענון הרשימה נכשל"
@@ -4859,10 +4792,6 @@ msgstr "פתיחה מחדש"
 #: src/pages/model-settings/connection-controls.tsx
 msgid "Replace API key"
 msgstr "החלפת מפתח API"
-
-#: src/pages/shell/agent-import.tsx
-msgid "Replace its instructions"
-msgstr "החלפת ההוראות שלו"
 
 #: src/pages/shell/composer-error.tsx
 #: src/pages/VoiceSettingsOverlay.tsx
@@ -5760,10 +5689,6 @@ msgstr ""
 msgid "Testing…"
 msgstr "בודק…"
 
-#: src/pages/shell/agent-import-undo.tsx
-msgid "The bot and what its import added will be removed."
-msgstr "הבוט ומה שהייבוא שלו הוסיף יוסרו."
-
 #: src/pages/shell/composer-error.tsx
 msgid "The bot can use the file but won't see the picture."
 msgstr "הבוט יוכל להשתמש בקובץ, אבל לא יראה את התמונה."
@@ -5851,10 +5776,6 @@ msgstr "הבוט הזה"
 msgid "This bot runs on this computer, not a Linux desktop. Shell and files use your home folder."
 msgstr "הבוט הזה פועל על המחשב הזה, לא על שולחן עבודה של Linux. המעטפת והקבצים משתמשים בתיקיית הבית."
 
-#: src/lib/agent-import-errors.ts
-msgid "This bot was not imported."
-msgstr "הבוט הזה לא יובא."
-
 #: src/components/call/IncomingCall.tsx
 msgid "This call is no longer ringing."
 msgstr ""
@@ -5895,10 +5816,6 @@ msgstr "פעולה זו מוחקת את כל {0} הגרסאות של התוצר.
 #: src/components/ArtifactFileCard.tsx
 msgid "This file is not valid UTF-8 text."
 msgstr "הקובץ אינו טקסט UTF-8 תקין."
-
-#: src/lib/agent-import-errors.ts
-msgid "This import changed. Try again."
-msgstr "הייבוא הזה השתנה. יש לנסות שוב."
 
 #: src/lib/agent-import-errors.ts
 msgid "This import was already used. Choose the files again."
@@ -6103,14 +6020,6 @@ msgstr "ללא שיוך"
 #: src/components/AskCard.tsx
 msgid "Undo"
 msgstr "ביטול"
-
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Undo import"
-msgstr "ביטול ייבוא"
-
-#: src/pages/shell/agent-import-undo.tsx
-msgid "Undo import?"
-msgstr "לבטל את הייבוא?"
 
 #: src/pages/PluginsOverlay.tsx
 msgid "Uninstall"
@@ -6411,10 +6320,6 @@ msgstr "איזו תוצאה תודגם?"
 msgid "What should this routine do each time it runs?"
 msgstr "מה הרוטינה הזו צריכה לעשות בכל הרצה?"
 
-#: src/pages/shell/agent-import-undo.tsx
-msgid "What the import added will be removed. The bot stays."
-msgstr "מה שהייבוא הוסיף יוסר. הבוט נשאר."
-
 #: src/pages/shell/bot-panel.tsx
 msgid "What this bot is for"
 msgstr "למה הבוט הזה משמש"
@@ -6450,10 +6355,6 @@ msgstr "מתי להשתמש"
 #: src/pages/HostComputerPrompt.tsx
 msgid "Where should bots run?"
 msgstr "איפה הבוטים ירוצו?"
-
-#: src/pages/shell/agent-import.tsx
-msgid "Where to import"
-msgstr "לאן לייבא"
 
 #: src/lib/ticket-status.ts
 msgid "Won't do"
@@ -6527,14 +6428,6 @@ msgstr "ברירות המחדל שלך"
 #: src/pages/Auth.tsx
 msgid "Your email address"
 msgstr "כתובת האימייל"
-
-#: src/pages/Onboarding.tsx
-msgid "Your first bot already existed, so the agent was not imported."
-msgstr "הבוט הראשון שלך כבר היה קיים, ולכן הסוכן לא יובא."
-
-#: src/lib/agent-import-errors.ts
-msgid "Your first bot already exists."
-msgstr "הבוט הראשון שלך כבר קיים."
 
 #. js-lingui-explicit-id
 #: src/lib/run-error.ts

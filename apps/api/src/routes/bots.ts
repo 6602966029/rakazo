@@ -44,13 +44,7 @@ import {
 } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import type { AgentImportServices } from "../agent-import.js";
-import {
-  agentImportInfo,
-  agentImportSetupState,
-  createImportedBot,
-  previewAgentImport,
-  undoAgentImport,
-} from "../agent-import.js";
+import { agentImportSetupState, createImportedBot, previewAgentImport } from "../agent-import.js";
 import { deleteAgentSecret, listAgentSecrets, putAgentSecret } from "../agent-secrets.js";
 import { changedBotSettings } from "../bot-setting-analytics.js";
 import { requireIdentityConfirmation } from "../identity-confirmation.js";
@@ -285,14 +279,8 @@ export function botsRoutes(ctx: RouterContext) {
         // An imported bot starts inert: no intro run, paused routines, unapproved servers.
         return bot;
       }),
-      importInfo: authed.bots.importInfo.handler(async ({ context, input }) =>
-        agentImportInfo(agentImportServices as AgentImportServices, context.actor, input.botId),
-      ),
       importSetupState: authed.bots.importSetupState.handler(async ({ context, input }) =>
         agentImportSetupState(agentImportServices as AgentImportServices, context.actor, input),
-      ),
-      importUndo: authed.bots.importUndo.handler(async ({ context, input }) =>
-        undoAgentImport(agentImportServices as AgentImportServices, context.actor, input),
       ),
       duplicate: authed.bots.duplicate.handler(async ({ context, input }) => {
         const source = await repos.getBot(context.actor, input.botId);

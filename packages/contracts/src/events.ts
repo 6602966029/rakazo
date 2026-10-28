@@ -274,7 +274,7 @@ export const MessageBlock = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("import_setup"),
     items: z.array(AgentImportSetupItemSchema),
-    /** Set by Undo, which also empties `items`; the checklist is then hidden. */
+    /** Set on checklists an earlier Undo retired, with `items` emptied; it is then hidden. */
     undone: z.boolean().optional(),
   }),
   z.object({
