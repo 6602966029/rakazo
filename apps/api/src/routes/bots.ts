@@ -12,6 +12,7 @@ import {
   normalizeSecretDestination,
   pageUrlOrigin,
   revealBotSecret,
+  SPACE_VAULT_NOT_IN_USE,
   screenLeaseIdForRun,
   storeBotSecret,
   toComputerRef,
@@ -24,7 +25,7 @@ import type {
   SettingsScope,
   VaultPutInput,
 } from "@rakazo/contracts";
-import { BotSecretAuth } from "@rakazo/contracts";
+import { BotSecretAuth, resolveBotAvatarSet } from "@rakazo/contracts";
 import { ACTIVE_RUN_STATUSES, displayName } from "@rakazo/core";
 import type { Prisma } from "@rakazo/db";
 import {
@@ -32,6 +33,7 @@ import {
   botProfileLabelsChanged,
   ComputerLimitError,
   commitBotUpdate,
+  expireComputerExecutionLeases,
   InstructionConflictError,
   IsolationError,
   recordComputerRunEnd,
@@ -73,6 +75,7 @@ const BOT_SECRET_INPUT_ERRORS = [
   "Credential cannot be used with this authentication method",
   "Remove the existing credential before changing its destination",
   "Credential limit reached",
+  SPACE_VAULT_NOT_IN_USE,
 ];
 
 /** A credential the user typed that cannot be stored, as a bad request. Never echoes the value. */
@@ -94,7 +97,7 @@ function mapBotSecretStoreError(error: unknown): unknown {
   // Login decoding failures: a JSON parse message can quote the submitted value, so never forward it.
   if (error instanceof SyntaxError || (error instanceof Error && error.name === "ZodError")) {
     return new ORPCError("BAD_REQUEST", {
-      message: "A website login needs a username and password",
+      message: "A website login needs a label and a value for every field",
     });
   }
   return error;
@@ -189,18 +192,15 @@ export function botIntroPrompt(input: {
 }
 
 /**
- * Creating a bot asks only for a name and a look, so the bot finds out what it
- * is for itself. Queue one hidden-prompt turn (like a routine or skill test
- * run) that greets the user and asks. The executor limits the "created"
- * trigger to that question and the bot's own profile (see executor.ts), and
- * answering resumes the run as the user's turn.
+ * Creating a bot asks only for a name and a look, so one hidden-prompt turn greets the user and
+ * asks what the bot is for. The executor limits the "created" trigger to that question and the
+ * bot's own profile, and answering resumes the run as the user's turn.
  */
 export async function enqueueBotIntroRun(deps: RouterDeps, actor: Actor, bot: Bot): Promise<void> {
   const threadId = bot.threadId;
   if (!threadId) return;
-  // Scripted is the deterministic test/eval runtime, not a real deployment: an
-  // extra automatic run there competes with whatever response a test or eval
-  // harness queued next, for a bot it doesn't otherwise get to opt out of.
+  // In the scripted test/eval runtime an automatic run would compete with the harness's next
+  // queued response.
   if (deps.env.agentRuntime === "scripted") return;
   if ((await modelSetup(deps, actor)).needsModel) return;
   const [user, space] = await Promise.all([
@@ -303,6 +303,7 @@ export function botsRoutes(ctx: RouterContext) {
             instructions: source.instructions,
             notifyOnFinish: source.notifyOnFinish,
             color: source.color,
+            avatarSet: resolveBotAvatarSet(source.avatarSet),
             computerMode: source.computer?.scope === "dedicated" ? "dedicated" : "team",
             modelProvider: source.modelProvider,
             modelId: source.modelId,
@@ -378,6 +379,7 @@ export function botsRoutes(ctx: RouterContext) {
             selfUpdateInstructions: input.selfUpdateInstructions,
             notifyOnFinish: input.notifyOnFinish,
             color: input.color,
+            avatarSet: input.avatarSet,
             pinned: input.pinned,
             memoryScope: input.memoryScope,
             sectionId: input.sectionId,
@@ -467,8 +469,9 @@ export function botsRoutes(ctx: RouterContext) {
             if (bot.computer.state === "running") {
               await checkpointAndStopComputer(deps, bot.computer, ref, ctx);
             }
-            await deps.prisma.computerExecutionLease.deleteMany({
-              where: { computerId: bot.computer.id, botId: bot.id },
+            await expireComputerExecutionLeases(deps.prisma, {
+              computerId: bot.computer.id,
+              botId: bot.id,
             });
             await deps.prisma.computer.update({
               where: { id: bot.computer.id },
@@ -724,13 +727,8 @@ export function botsRoutes(ctx: RouterContext) {
       list: authed.agentSecrets.list.handler(async ({ context }) =>
         listAgentSecrets({ prisma: deps.prisma, secrets: deps.secrets }, context.actor),
       ),
-      put: authed.agentSecrets.put.handler(async ({ context, input, signal }) =>
-        putAgentSecret(
-          { prisma: deps.prisma, secrets: deps.secrets },
-          context.actor,
-          input,
-          signal,
-        ),
+      put: authed.agentSecrets.put.handler(async ({ context, input }) =>
+        putAgentSecret({ prisma: deps.prisma, secrets: deps.secrets }, context.actor, input),
       ),
       remove: authed.agentSecrets.remove.handler(async ({ context, input }) =>
         deleteAgentSecret({ prisma: deps.prisma, secrets: deps.secrets }, context.actor, input.id),

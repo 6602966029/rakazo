@@ -1,8 +1,6 @@
 import type { ComposerMentionBinding } from "@rakazo/core";
 import { validateComposerMentionBindings } from "@rakazo/core";
 
-/** Per-thread composer draft persistence (survives tab reloads and discards). */
-
 export const COMPOSER_DRAFT_STORAGE_PREFIX = "rakazo.composerDraft.";
 const COMPOSER_BINDINGS_STORAGE_PREFIX = "rakazo.composerBindings.";
 
