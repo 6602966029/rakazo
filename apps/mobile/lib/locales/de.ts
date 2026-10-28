@@ -328,7 +328,6 @@ export const DE_MESSAGES: Record<string, string> = {
   "Photo library": "Fotomediathek",
   "Pull request": "Pull Request",
   React: "Reagieren",
-  "Remove mention {name}": "Erwähnung {name} entfernen",
   "Remove skill {name}": "Skill {name} entfernen",
   Reply: "Antworten",
   "Replying to": "Antwort auf",

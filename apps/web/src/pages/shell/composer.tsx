@@ -4,12 +4,12 @@ import type { ComposerMention, ComposerMentionRange, SlashActionId } from "@raka
 import {
   bindComposerMention,
   clampMentionHighlightIndex,
+  composerMentionDeletionRange,
   composerMentionQuery,
   composerMentionsForPrompt,
   composerSelectedMentions,
   mentionChipKey,
   newClientId,
-  removeBoundComposerMention,
   replyAttachment,
   resolveMentionPickerKey,
   SLASH_ACTIONS,
@@ -19,7 +19,7 @@ import {
 } from "@rakazo/core";
 import { Button } from "@rakazo/ui-web";
 import { ArrowUp, Box, Paperclip, Plus, Settings, Square, X } from "lucide-react";
-import type { ClipboardEvent, DragEvent, RefObject } from "react";
+import type { ClipboardEvent, DragEvent, KeyboardEvent, RefObject } from "react";
 import { memo, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   HoldToTalkControls,
@@ -44,13 +44,14 @@ import { previewMessageText } from "./chat-shared";
 import { ComposerError } from "./composer-error";
 import {
   ComposerChip,
-  MentionChipIcon,
+  ComposerMentionHighlights,
   MentionOptionIcon,
   slashActionLabel,
 } from "./composer-mentions";
 import { useComposerLayout } from "./use-composer-layout";
 
 const ATTACHMENT_ACCEPT = attachmentPickerAccept(navigator.userAgent);
+const COMPOSER_TEXT = "rk-scroll whitespace-pre-wrap break-words px-0.5 py-0.5 text-body1";
 export const Composer = memo(function Composer({
   artifactTarget,
   activeName,
@@ -207,12 +208,13 @@ export const Composer = memo(function Composer({
   }, [replyId, quote, onDraftEdited]);
   const {
     textareaRef,
+    mirrorRef,
     attachButtonRef,
     composerActionsRef,
     composerBarRef,
     composerFieldRef,
     expanded,
-  } = useComposerLayout(draft, selectedSkill !== null || selectedMentions.length > 0);
+  } = useComposerLayout(draft, selectedSkill !== null);
   const pendingCaret = useRef<ComposerMentionRange | null>(null);
   const completedSelection = useRef<number | null>(null);
   useLayoutEffect(() => {
@@ -262,10 +264,7 @@ export const Composer = memo(function Composer({
     };
   }, []);
   const canSend =
-    draft.trim().length > 0 ||
-    selectedSkill !== null ||
-    selectedMentions.length > 0 ||
-    pendingAttachments.length > 0;
+    draft.trim().length > 0 || selectedSkill !== null || pendingAttachments.length > 0;
 
   function markEdited() {
     onDraftEdited?.();
@@ -328,18 +327,6 @@ export const Composer = memo(function Composer({
     pendingCaret.current = { start: completion.caret, end: completion.caret };
   }
 
-  function removeMention(mention: ComposerMention) {
-    const field = textareaRef.current;
-    const removed = removeBoundComposerMention(draft, mentionBindings, mention, {
-      start: field?.selectionStart ?? draft.length,
-      end: field?.selectionEnd ?? draft.length,
-    });
-    markEdited();
-    commitComposition({ text: removed.text, bindings: removed.bindings });
-    setMentionQuery(null);
-    pendingCaret.current = removed.selection;
-  }
-
   function insertSkill(skill: AgentSkillCatalogEntry) {
     markEdited();
     setSelectedSkill(skill);
@@ -354,13 +341,24 @@ export const Composer = memo(function Composer({
     onSlashAction?.(action);
   }
 
-  function removeLastChip() {
+  function removeSkill() {
     markEdited();
-    if (selectedMentions.length > 0) {
-      removeMention(selectedMentions[selectedMentions.length - 1]!);
-      return;
-    }
-    if (selectedSkill) setSelectedSkill(null);
+    setSelectedSkill(null);
+  }
+
+  function widenMentionDeletion(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key !== "Backspace" && event.key !== "Delete") return;
+    if (event.nativeEvent.isComposing) return;
+    const field = event.currentTarget;
+    const { selectionStart: start, selectionEnd: end } = field;
+    const range =
+      start !== end
+        ? { start, end }
+        : event.key === "Backspace"
+          ? { start: start - 1, end }
+          : { start, end: end + 1 };
+    const mention = composerMentionDeletionRange(mentionBindings, range);
+    if (mention) field.setSelectionRange(mention.start, mention.end);
   }
 
   const mentionOptions = useMemo(() => {
@@ -508,8 +506,7 @@ export const Composer = memo(function Composer({
     });
   }
 
-  const showComposerPlaceholder =
-    draft.length === 0 && selectedSkill === null && selectedMentions.length === 0;
+  const showComposerPlaceholder = draft.length === 0 && selectedSkill === null;
 
   const replyName = replyTarget ? (replyTargetName ?? previewMessageText(replyTarget)) : "";
   const replyNameRef = useRef(replyName);
@@ -748,6 +745,7 @@ export const Composer = memo(function Composer({
         </Button>
         <div
           ref={composerFieldRef}
+          data-testid="composer-field"
           className={`flex min-w-0 flex-wrap items-end gap-1.5 ${
             expanded ? "col-span-3 row-start-1 px-1.5" : "col-start-2"
           }`}
@@ -760,124 +758,115 @@ export const Composer = memo(function Composer({
               }
               label={selectedSkill.name}
               removeLabel={t`Remove skill ${selectedSkill.name}`}
-              onRemove={() => {
-                markEdited();
-                setSelectedSkill(null);
-              }}
+              onRemove={removeSkill}
             />
           ) : null}
-          {selectedMentions.map((mention) => (
-            <ComposerChip
-              key={mentionChipKey(mention)}
-              data-testid="mention-chip"
-              data-mention-kind={mention.kind}
-              icon={<MentionChipIcon mention={mention} />}
-              label={mention.name}
-              removeLabel={t`Remove mention ${mention.name}`}
-              onRemove={() => removeMention(mention)}
-            />
-          ))}
           <HoldToTalkStrip talk={talk} />
-          <textarea
-            ref={textareaRef}
-            hidden={talk.recording !== null}
-            value={draft}
-            onChange={(event) => {
-              completedSelection.current = null;
-              updateDraft(
-                event.target.value,
-                event.target.selectionStart,
-                event.target.selectionEnd,
-              );
-            }}
-            onBeforeInput={(event) => rememberSelection(event.currentTarget)}
-            onSelect={(event) => {
-              const field = event.currentTarget;
-              if (pendingCaret.current !== null) return;
-              rememberSelection(field);
-              if (
-                completedSelection.current === field.selectionStart &&
-                field.selectionStart === field.selectionEnd
-              )
-                return;
-              completedSelection.current = null;
-              setMentionQuery(
-                composerMentionQuery(
-                  field.value,
-                  field.selectionStart,
-                  field.selectionEnd,
-                  knownMentions,
-                  mentionBindings,
-                )?.query ?? null,
-              );
-            }}
-            onPaste={handlePaste}
-            onKeyDown={(event) => {
-              rememberSelection(event.currentTarget);
-              if (
-                event.key === "Backspace" &&
-                draft.length === 0 &&
-                (selectedSkill !== null || selectedMentions.length > 0)
-              ) {
-                event.preventDefault();
-                removeLastChip();
-                return;
+          <div className="relative min-w-[8rem] flex-1" hidden={talk.recording !== null}>
+            <textarea
+              ref={textareaRef}
+              value={draft}
+              onChange={(event) => {
+                completedSelection.current = null;
+                updateDraft(
+                  event.target.value,
+                  event.target.selectionStart,
+                  event.target.selectionEnd,
+                );
+              }}
+              onBeforeInput={(event) => rememberSelection(event.currentTarget)}
+              onSelect={(event) => {
+                const field = event.currentTarget;
+                if (pendingCaret.current !== null) return;
+                rememberSelection(field);
+                if (
+                  completedSelection.current === field.selectionStart &&
+                  field.selectionStart === field.selectionEnd
+                )
+                  return;
+                completedSelection.current = null;
+                setMentionQuery(
+                  composerMentionQuery(
+                    field.value,
+                    field.selectionStart,
+                    field.selectionEnd,
+                    knownMentions,
+                    mentionBindings,
+                  )?.query ?? null,
+                );
+              }}
+              onPaste={handlePaste}
+              onKeyDown={(event) => {
+                if (event.key === "Backspace" && draft.length === 0 && selectedSkill !== null) {
+                  event.preventDefault();
+                  removeSkill();
+                  return;
+                }
+                widenMentionDeletion(event);
+                rememberSelection(event.currentTarget);
+                const action = resolveMentionPickerKey({
+                  key: event.key,
+                  shiftKey: event.shiftKey,
+                  ctrlKey: event.ctrlKey,
+                  metaKey: event.metaKey,
+                  enterToSend,
+                  isComposing: event.nativeEvent.isComposing || event.keyCode === 229,
+                  optionCount: mentionOptions.length,
+                  highlightedIndex: activeMentionIndex,
+                });
+                if (action.type === "complete") {
+                  const mention = mentionOptions[action.index];
+                  if (!mention) return;
+                  event.preventDefault();
+                  insertMention(mention);
+                  return;
+                }
+                if (action.type === "move") {
+                  event.preventDefault();
+                  setMentionHighlightKey(mentionChipKey(mentionOptions[action.index]!));
+                  return;
+                }
+                if (action.type === "dismiss") {
+                  event.preventDefault();
+                  completedSelection.current = event.currentTarget.selectionStart;
+                  setMentionQuery(null);
+                  setMentionHighlightKey(null);
+                  return;
+                }
+                if (action.type === "send") {
+                  event.preventDefault();
+                  void send();
+                }
+              }}
+              disabled={disabled}
+              placeholder={
+                showComposerPlaceholder
+                  ? activeName
+                    ? t`Message ${activeName}`
+                    : t`Message…`
+                  : undefined
               }
-              const action = resolveMentionPickerKey({
-                key: event.key,
-                shiftKey: event.shiftKey,
-                ctrlKey: event.ctrlKey,
-                metaKey: event.metaKey,
-                enterToSend,
-                isComposing: event.nativeEvent.isComposing || event.keyCode === 229,
-                optionCount: mentionOptions.length,
-                highlightedIndex: activeMentionIndex,
-              });
-              if (action.type === "complete") {
-                const mention = mentionOptions[action.index];
-                if (!mention) return;
-                event.preventDefault();
-                insertMention(mention);
-                return;
-              }
-              if (action.type === "move") {
-                event.preventDefault();
-                setMentionHighlightKey(mentionChipKey(mentionOptions[action.index]!));
-                return;
-              }
-              if (action.type === "dismiss") {
-                event.preventDefault();
-                completedSelection.current = event.currentTarget.selectionStart;
-                setMentionQuery(null);
-                setMentionHighlightKey(null);
-                return;
-              }
-              if (action.type === "send") {
-                event.preventDefault();
-                void send();
-              }
-            }}
-            disabled={disabled}
-            placeholder={
-              showComposerPlaceholder
-                ? activeName
-                  ? t`Message ${activeName}`
-                  : t`Message…`
-                : undefined
-            }
-            aria-label={activeName ? t`Message ${activeName}` : t`Message`}
-            role="combobox"
-            aria-autocomplete="list"
-            aria-haspopup="listbox"
-            aria-expanded={mentionPickerOpen}
-            aria-controls={mentionPickerOpen ? mentionListboxId : undefined}
-            aria-activedescendant={activeMentionOptionId}
-            name="chat-message"
-            autoComplete="off"
-            dir="auto"
-            rows={1}
-            className="rk-scroll max-h-25 min-h-[24px] min-w-[8rem] flex-1 resize-none overflow-y-auto bg-transparent py-0.5 text-body1 text-foreground outline-none placeholder:text-muted-foreground disabled:opacity-40"
-          />
+              aria-label={activeName ? t`Message ${activeName}` : t`Message`}
+              role="combobox"
+              aria-autocomplete="list"
+              aria-haspopup="listbox"
+              aria-expanded={mentionPickerOpen}
+              aria-controls={mentionPickerOpen ? mentionListboxId : undefined}
+              aria-activedescendant={activeMentionOptionId}
+              name="chat-message"
+              autoComplete="off"
+              dir="auto"
+              rows={1}
+              className={`${COMPOSER_TEXT} block max-h-25 min-h-[24px] w-full resize-none overflow-y-auto bg-transparent text-transparent caret-foreground outline-none placeholder:text-muted-foreground selection:bg-ring/30 selection:text-transparent disabled:opacity-40 forced-colors:text-[CanvasText]`}
+            />
+            <ComposerMentionHighlights
+              ref={mirrorRef}
+              text={draft}
+              bindings={mentionBindings}
+              targets={mentionTargets ?? []}
+              className={`${COMPOSER_TEXT} pointer-events-none absolute inset-0 overflow-y-hidden text-foreground [unicode-bidi:plaintext] forced-colors:hidden ${disabled ? "opacity-40" : ""}`}
+            />
+          </div>
         </div>
         <div
           ref={composerActionsRef}

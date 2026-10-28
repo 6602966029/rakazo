@@ -206,35 +206,46 @@ export function composerMentionsForPrompt(
   });
 }
 
-/** Remove one target's occurrences and transform both selection endpoints. */
-export function removeBoundComposerMention(
+export type ComposerMentionSegment = { text: string; binding?: ComposerMentionBinding };
+
+export function composerMentionSegments(
   text: string,
   bindings: readonly ComposerMentionBinding[],
-  target: Pick<ComposerMention, "kind" | "id">,
-  selection: ComposerMentionRange,
-) {
-  const removed = bindings
-    .filter((binding) => mentionChipKey(binding.mention) === mentionChipKey(target))
-    .sort((a, b) => a.start - b.start);
-  let next = text;
-  for (const range of [...removed].reverse())
-    next = next.slice(0, range.start) + next.slice(range.end);
-  const position = (value: number) => {
-    let result = value;
-    for (const range of removed) {
-      if (value <= range.start) break;
-      result -= Math.min(value, range.end) - range.start;
-      if (value < range.end) break;
-    }
-    return Math.max(0, Math.min(next.length, result));
-  };
-  const retained = bindings
-    .filter((binding) => mentionChipKey(binding.mention) !== mentionChipKey(target))
-    .map((binding) => ({ ...binding, start: position(binding.start), end: position(binding.end) }))
-    .filter((binding) => validBinding(next, binding));
-  return {
-    text: next,
-    bindings: retained,
-    selection: { start: position(selection.start), end: position(selection.end) },
-  };
+): ComposerMentionSegment[] {
+  const segments: ComposerMentionSegment[] = [];
+  let index = 0;
+  for (const binding of bindings) {
+    if (binding.start < index) continue;
+    if (binding.start > index) segments.push({ text: text.slice(index, binding.start) });
+    segments.push({ text: text.slice(binding.start, binding.end), binding });
+    index = binding.end;
+  }
+  if (index < text.length) segments.push({ text: text.slice(index) });
+  return segments;
+}
+
+export function composerMentionDeletionRange(
+  bindings: readonly ComposerMentionBinding[],
+  range: ComposerMentionRange,
+): ComposerMentionRange | null {
+  let { start, end } = range;
+  for (const binding of bindings) {
+    if (binding.start >= range.end || binding.end <= range.start) continue;
+    start = Math.min(start, binding.start);
+    end = Math.max(end, binding.end);
+  }
+  return start === range.start && end === range.end ? null : { start, end };
+}
+
+export function widenComposerMentionDeletion(
+  previous: string,
+  next: string,
+  bindings: readonly ComposerMentionBinding[],
+  hints: ComposerMentionEditHints = {},
+): ComposerMentionRange | null {
+  if (next.length >= previous.length) return null;
+  const edit = editBetween(previous, next, hints);
+  return edit.length === 0
+    ? composerMentionDeletionRange(bindings, { start: edit.start, end: edit.end })
+    : null;
 }
