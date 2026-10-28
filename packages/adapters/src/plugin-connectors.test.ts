@@ -194,6 +194,11 @@ describe("portable plugin parser", () => {
         new Map([[refs[0]!, 120_000]]),
       ),
     ).toBe("incomplete");
+    const manySkills = Array.from({ length: 5 }, (_, s) => [
+      `skills/s${s}/SKILL.md`,
+      ...Array.from({ length: 40 }, (_, r) => `skills/s${s}/references/r${r}.md`),
+    ]).flat();
+    expect(classifyPluginFiles(manySkills)).toBe("incomplete");
     expect(classifyPluginFiles(["skills/a/SKILL.md", refs[0]!], undefined, big)).toEqual({
       hasConnector: false,
       skillCount: 1,
