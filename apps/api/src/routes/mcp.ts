@@ -27,6 +27,7 @@ import {
 import { getLogger } from "@rakazo/logging";
 import {
   assertNameFreeWhereAvailable,
+  lockOwner,
   serverAvailability,
   serverSecretSpace,
 } from "../availability.js";
@@ -474,6 +475,10 @@ export function mcpRoutes(ctx: RouterContext) {
               stored ?? undefined,
               () =>
                 deps.prisma.$transaction(async (tx) => {
+                  // A rename claims a name; availability changes take that lock before the secret,
+                  // so this takes it first too and the two can never wait on each other.
+                  if (config.slug !== existing.slug)
+                    await lockOwner(tx, context.actor.userId, "names:mcpServer");
                   await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('mcp-oauth-material'), hashtext(${input.id}))`;
                   const current = await tx.mcpServer.findFirst({
                     where: {

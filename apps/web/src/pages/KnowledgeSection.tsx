@@ -476,14 +476,18 @@ export function AgentSkills() {
                     id={open.id}
                     availability={open.availability}
                     onChanged={async () => {
+                      // Another skill may have been opened while this was saving; leave it alone.
+                      const opened = selection.current;
                       // Narrowed away from this space, the skill can no longer be read here.
                       const here = (await refresh()).some((entry) => entry.id === open.id);
+                      if (selection.current !== opened) return;
                       if (!here) {
                         selection.current += 1;
                         setOpen(null);
                         return;
                       }
-                      setOpen(await rpc.agentSkills.get({ skillId: open.id }));
+                      const fresh = await rpc.agentSkills.get({ skillId: open.id });
+                      if (selection.current === opened) setOpen(fresh);
                     }}
                   />
                 </div>
