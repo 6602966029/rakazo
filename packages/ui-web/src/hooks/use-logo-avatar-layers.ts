@@ -44,13 +44,17 @@ export function useLogoAvatarLayers(
       outgoing: false,
       opacity: 1,
     };
-    const outgoing = running
-      ? layers.flatMap((layer) => {
-          const element = ref.current?.querySelector(`[data-logo-layer="${layer.key}"]`);
-          const opacity = element ? Number(getComputedStyle(element).opacity) : 0;
-          return opacity > 0 ? [{ ...layer, entering: false, outgoing: true, opacity }] : [];
-        })
-      : [];
+    // Keep only the most visible pose: rapid changes restart every fade, so keeping
+    // all of them would grow the layer stack without bound.
+    let outgoing: Layer[] = [];
+    if (running) {
+      for (const layer of layers) {
+        const element = ref.current.querySelector(`[data-logo-layer="${layer.key}"]`);
+        const opacity = element ? Number(getComputedStyle(element).opacity) : 0;
+        if (opacity > (outgoing[0]?.opacity ?? 0))
+          outgoing = [{ ...layer, entering: false, outgoing: true, opacity }];
+      }
+    }
     resetFades.current = true;
     setLayers([...outgoing, next]);
   }, [activity, layers, ref, running]);
