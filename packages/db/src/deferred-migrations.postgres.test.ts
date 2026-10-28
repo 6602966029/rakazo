@@ -1,18 +1,26 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Client } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { DEFERRED_MIGRATION_MARKER, heldBackMigrations } from "./deferred-migrations.js";
+import {
+  DEFERRED_MIGRATION_MARKER,
+  deployMigrations,
+  heldBackMigrations,
+} from "./deferred-migrations.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 const dbTests = process.env.VERIFY_DATABASE && databaseUrl ? describe.sequential : describe.skip;
+const dbPackageDir = fileURLToPath(new URL("..", import.meta.url));
 
 dbTests("deferred migrations", () => {
   const stamp = `${process.pid}_${Date.now()}`;
-  const dir = mkdtempSync(path.join(tmpdir(), "deferred-migrations-"));
-  const deferred = `29990101000000_deferred_${stamp}`;
+  const table = `deferred_probe_${stamp}`;
+  const added = `29990101000000_add_${stamp}`;
+  const dropped = `29990101000001_drop_${stamp}`;
   const freshSchema = `deferred_fresh_${stamp}`;
+  const dir = mkdtempSync(path.join(tmpdir(), "deferred-migrations-"));
   let client: Client;
 
   function migration(name: string, sql: string) {
@@ -20,16 +28,29 @@ dbTests("deferred migrations", () => {
     writeFileSync(path.join(dir, name, "migration.sql"), sql);
   }
 
+  async function columns() {
+    const { rows } = await client.query<{ column_name: string }>(
+      "SELECT column_name FROM information_schema.columns WHERE table_name = $1 ORDER BY 1",
+      [table],
+    );
+    return rows.map((row) => row.column_name);
+  }
+
   beforeAll(async () => {
-    migration("29990101000000_plain", "SELECT 1;\n");
-    migration(deferred, `${DEFERRED_MIGRATION_MARKER}\nSELECT 1;\n`);
+    cpSync(path.join(dbPackageDir, "prisma/migrations"), dir, { recursive: true });
+    migration(added, `CREATE TABLE "${table}" (id INT, gone INT);\n`);
+    migration(dropped, `${DEFERRED_MIGRATION_MARKER}\nALTER TABLE "${table}" DROP COLUMN gone;\n`);
     client = new Client({ connectionString: databaseUrl });
     await client.connect();
     await client.query(`CREATE SCHEMA "${freshSchema}"`);
   });
 
   afterAll(async () => {
-    await client.query('DELETE FROM "_deferred_migrations" WHERE name = $1', [deferred]);
+    await client.query(`DROP TABLE IF EXISTS "${table}"`);
+    await client.query("DELETE FROM _prisma_migrations WHERE migration_name = ANY($1)", [
+      [added, dropped],
+    ]);
+    await client.query('DELETE FROM "_deferred_migrations" WHERE name = $1', [dropped]);
     await client.query(`DROP SCHEMA "${freshSchema}"`);
     await client.end();
     rmSync(dir, { recursive: true, force: true });
@@ -41,8 +62,10 @@ dbTests("deferred migrations", () => {
     await expect(heldBackMigrations(fresh.toString(), dir)).resolves.toEqual([]);
   });
 
-  it("holds a new deferred migration back once, then lets it run", async () => {
-    await expect(heldBackMigrations(databaseUrl!, dir)).resolves.toEqual([deferred]);
-    await expect(heldBackMigrations(databaseUrl!, dir)).resolves.toEqual([]);
+  it("applies ordinary migrations at once and a deferred drop on the next run", async () => {
+    await deployMigrations({ migrationUrl: databaseUrl!, dbPackageDir, migrationsDir: dir });
+    expect(await columns()).toEqual(["gone", "id"]);
+    await deployMigrations({ migrationUrl: databaseUrl!, dbPackageDir, migrationsDir: dir });
+    expect(await columns()).toEqual(["id"]);
   });
 });

@@ -1,4 +1,6 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { cpSync, mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { Client } from "pg";
 
@@ -49,5 +51,37 @@ export async function heldBackMigrations(
     return firstSeen.map((row) => row.name);
   } finally {
     await client.end();
+  }
+}
+
+/** `prisma migrate deploy` from the database package, without the migrations held back this run. */
+export async function deployMigrations(input: {
+  migrationUrl: string;
+  dbPackageDir: string;
+  migrationsDir?: string;
+}) {
+  const migrationsDir = input.migrationsDir ?? path.join(input.dbPackageDir, "prisma/migrations");
+  const held = await heldBackMigrations(input.migrationUrl, migrationsDir);
+  let migrationsPath = migrationsDir;
+  if (held.length) {
+    migrationsPath = mkdtempSync(path.join(tmpdir(), "rakazo-migrations-"));
+    cpSync(migrationsDir, migrationsPath, {
+      recursive: true,
+      filter: (source) => !held.includes(path.relative(migrationsDir, source).split(path.sep)[0]!),
+    });
+    process.stdout.write(`Holding back until the next migration run: ${held.join(", ")}\n`);
+  }
+  try {
+    execFileSync("pnpm", ["exec", "prisma", "migrate", "deploy"], {
+      cwd: input.dbPackageDir,
+      stdio: "inherit",
+      env: {
+        ...process.env,
+        DATABASE_MIGRATION_URL: input.migrationUrl,
+        RAKAZO_MIGRATIONS_PATH: migrationsPath,
+      },
+    });
+  } finally {
+    if (migrationsPath !== migrationsDir) rmSync(migrationsPath, { recursive: true, force: true });
   }
 }
