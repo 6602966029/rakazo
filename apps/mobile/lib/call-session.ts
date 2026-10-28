@@ -102,6 +102,9 @@ export type CallEnded = { callId?: string; farewell?: string };
 /** A call that cannot reach the microphone or the server this many turns in a row hangs up. */
 const MAX_TURN_FAILURES = 3;
 
+/** A turn failure the caption already explains and the server logged if it answered: not a bug. */
+export class ExpectedTurnFailure extends Error {}
+
 /** A dropped live feed is reconnected from the last seq it saw, backing off as it retries. */
 const FEED_RETRY_MIN_MS = 250;
 const FEED_RETRY_MAX_MS = 5_000;
@@ -481,7 +484,7 @@ async function handleTranscript(raw: string): Promise<void> {
 }
 
 function failTurn(error: unknown): void {
-  reportMobileError(error, "voice.turn");
+  if (!(error instanceof ExpectedTurnFailure)) reportMobileError(error, "voice.turn");
   failures += 1;
   if (failures >= MAX_TURN_FAILURES) {
     endCall();
@@ -671,7 +674,8 @@ async function dictateTurn(handlers: DictationHandlers, signal: AbortSignal): Pr
 async function recordClip(signal: AbortSignal): Promise<CallClip | null> {
   const { AudioModule, RecordingPresets, setAudioModeAsync } = await import("expo-audio");
   const permission = await AudioModule.requestRecordingPermissionsAsync();
-  if (!permission.granted) throw new Error(t("Allow microphone access to call a bot."));
+  if (!permission.granted)
+    throw new ExpectedTurnFailure(t("Allow microphone access to call a bot."));
   let recorder: AudioRecorder | undefined;
   let heardSpeech = false;
   try {
@@ -735,7 +739,7 @@ async function transcribeClip(clip: CallClip, signal: AbortSignal): Promise<stri
     code?: string;
   };
   if (!res.ok) {
-    throw new Error(
+    throw new ExpectedTurnFailure(
       voiceAccountErrorText(body) ?? errorText(body.error ?? "", t("Could not transcribe that.")),
     );
   }

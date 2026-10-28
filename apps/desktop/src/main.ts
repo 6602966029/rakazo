@@ -90,6 +90,10 @@ const APP_DOCUMENT_READY_TIMEOUT_MS = 20_000;
 const DESKTOP_STACK_PROBE_PATH = "/.well-known/rakazo-desktop-stack";
 const DESKTOP_STACK_TOKEN_HEADER = "x-rakazo-desktop-stack-token";
 let mainWindow: BrowserWindow | null = null;
+
+/** The server or the network refused the page; the setup window says so and the server logs its side. */
+class ServerUnavailable extends Error {}
+
 const appWindowTargets = new WeakMap<BrowserWindow, string>();
 let setupWindow: BrowserWindow | null = null;
 const bundledRendererInstallations = new Set<string>();
@@ -445,7 +449,7 @@ function loadAppUrl(win: BrowserWindow, url: string): Promise<AppDocumentState> 
       }
       if (mainStatus !== undefined && mainStatus >= 400) {
         contents.removeListener("render-process-gone", onGone);
-        reject(new Error(`The server answered with HTTP ${mainStatus}.`));
+        reject(new ServerUnavailable(`The server answered with HTTP ${mainStatus}.`));
         return;
       }
       void waitForMountedAppDocument(contents)
@@ -470,7 +474,7 @@ function loadAppUrl(win: BrowserWindow, url: string): Promise<AppDocumentState> 
       _validatedURL: string,
       isMainFrame: boolean,
     ) => {
-      if (isMainFrame) settle(new Error(errorDescription || "Page failed to load."));
+      if (isMainFrame) settle(new ServerUnavailable(errorDescription || "Page failed to load."));
     };
     const onGone = (_event: Electron.Event, details: Electron.RenderProcessGoneDetails) => {
       settle(new Error(`Renderer stopped (${details.reason}).`));
@@ -488,7 +492,7 @@ function loadAppUrl(win: BrowserWindow, url: string): Promise<AppDocumentState> 
         settle();
       },
       (error: unknown) => {
-        settle(error instanceof Error ? error : new Error(String(error)));
+        settle(new ServerUnavailable(error instanceof Error ? error.message : String(error)));
       },
     );
   });
@@ -500,9 +504,16 @@ async function waitForMountedAppDocument(
   const deadline = Date.now() + APP_DOCUMENT_READY_TIMEOUT_MS;
   while (Date.now() < deadline) {
     if (contents.isCrashed()) throw new Error("Renderer stopped after load.");
-    const state = (await contents.executeJavaScript(APP_DOCUMENT_STATE_SCRIPT)) as
-      | AppDocumentState
-      | "pending";
+    let state: AppDocumentState | "pending";
+    try {
+      state = (await contents.executeJavaScript(APP_DOCUMENT_STATE_SCRIPT)) as
+        | AppDocumentState
+        | "pending";
+    } catch (error) {
+      // A reload or redirect during startup disposes the frame being asked; ask the next document.
+      if (contents.isDestroyed()) throw error;
+      state = "pending";
+    }
     if (state !== "pending") return state;
     await new Promise((r) => setTimeout(r, 50));
   }
@@ -925,7 +936,7 @@ async function openAppOnce(targetUrl: string, switching: boolean) {
   try {
     const documentError = await probeDocument(targetUrl);
     if (documentError !== null) {
-      throw new Error(documentError);
+      throw new ServerUnavailable(documentError);
     }
     await installBundledRenderer(
       targetUrl,
@@ -949,7 +960,7 @@ async function openAppOnce(targetUrl: string, switching: boolean) {
     if (pendingPreviousWindow !== null) pendingPreviousWindow.hide();
     return true;
   } catch (error) {
-    reportDesktopError(error, "desktop.startup");
+    if (!(error instanceof ServerUnavailable)) reportDesktopError(error, "desktop.startup");
     pendingPreviousWindow = null;
     // Keep the previous app window so Cancel / close can restore it.
     if (previous !== null && !previous.isDestroyed()) mainWindow = previous;
