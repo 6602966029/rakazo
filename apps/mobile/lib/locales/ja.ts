@@ -1156,8 +1156,10 @@ export const JA_MESSAGES: Record<string, string> = {
   "{variable} is reserved. Choose another name.":
     "{variable} は予約されています。別の名前を選んでください。",
   "Delete this Space's credentials?": "このスペースの認証情報を削除しますか？",
-  "Copy username": "ユーザー名をコピー",
-  "Copy password": "パスワードをコピー",
+  "Copy {label}": "{label}をコピー",
+  Hidden: "非表示にする",
+  "Add field": "フィールドを追加",
+  Label: "ラベル",
   "Could not show the credential": "認証情報を表示できませんでした",
   Wallet: "ウォレット",
   "Connect {name}": "{name}に接続",

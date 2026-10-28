@@ -1163,8 +1163,10 @@ export const RU_MESSAGES: Record<string, string> = {
   "{variable} is reserved. Choose another name.":
     "{variable} зарезервировано. Выберите другое имя.",
   "Delete this Space's credentials?": "Удалить учетные данные этого пространства?",
-  "Copy username": "Скопировать имя пользователя",
-  "Copy password": "Скопировать пароль",
+  "Copy {label}": "Скопировать: {label}",
+  Hidden: "Скрыто",
+  "Add field": "Добавить поле",
+  Label: "Название",
   "Could not show the credential": "Не удалось показать учетные данные",
   Wallet: "Кошелёк",
   "Connect {name}": "Подключить {name}",
