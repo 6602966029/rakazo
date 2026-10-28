@@ -1480,7 +1480,7 @@ function createBoatSdk(
       const headers = { Authorization: `Bearer ${config.apiKey}` };
       const signal = AbortSignal.timeout(BOAT_DELETE_TIMEOUT_MS);
       try {
-        await withAbort(gate.wait(), signal);
+        await withAbort(gate.wait(signal), signal);
         const response = await fetch(url, {
           method: "DELETE",
           headers: {
@@ -1494,7 +1494,7 @@ function createBoatSdk(
           throw await boatResponseError(response, config.apiKey, signal);
         }
         for (let pause = 500; !signal.aborted; pause = nextPoll(pause)) {
-          await withAbort(gate.wait(), signal);
+          await withAbort(gate.wait(signal), signal);
           const status = await fetch(url, { headers, signal });
           if (status.status === 404) return;
           if (!status.ok) {
