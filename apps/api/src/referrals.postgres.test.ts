@@ -103,6 +103,35 @@ dbTests("referrals", () => {
     await expect(service.status(referrer)).resolves.toMatchObject({ referral: { rewards: 0 } });
   });
 
+  it("remembers a card after the organization switches to another one", async () => {
+    const referrer = await newOrganization("switch-referrer");
+    const referrerCustomer = await startTrial(referrer);
+    const switcher = await newOrganization("switcher");
+    const switcherCustomer = await startTrial(switcher, "first-card");
+    provider.subscriptions.find((s) => s.customerId === switcherCustomer)!.cardFingerprint =
+      "second-card";
+    await service.sync(switcherCustomer);
+    const friend = await newOrganization("switch-friend");
+    await service.claimReferral(friend, await inviteCode(referrer));
+    await startTrial(friend, "first-card");
+    expect(provider.balanceCredits.get(referrerCustomer)).toBeUndefined();
+  });
+
+  it("finishes a reward a restart interrupted without granting it twice", async () => {
+    const referrer = await newOrganization("restart-referrer");
+    const referrerCustomer = await startTrial(referrer);
+    const friend = await newOrganization("restart-friend");
+    await service.claimReferral(friend, await inviteCode(referrer));
+    const friendCustomer = await startTrial(friend);
+    await prisma.referral.update({
+      where: { organizationId: friend.organizationId },
+      data: { rewardedAt: null },
+    });
+    await service.sync(friendCustomer);
+    expect(provider.balanceCredits.get(referrerCustomer)).toBe(BYOK_MONTHLY_PRICE_CENTS);
+    await expect(service.status(referrer)).resolves.toMatchObject({ referral: { rewards: 1 } });
+  });
+
   it("ignores a claim after subscribing, for its own code, or for an unknown code", async () => {
     const referrer = await newOrganization("ignored");
     const referrerCustomer = await startTrial(referrer);

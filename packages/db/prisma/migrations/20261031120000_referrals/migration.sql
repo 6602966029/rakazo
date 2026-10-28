@@ -1,7 +1,15 @@
--- Additive: the previous release never reads these tables or the new column.
-ALTER TABLE "billing_accounts" ADD COLUMN "cardFingerprint" TEXT;
+-- Additive: the previous release never reads these tables.
+CREATE TABLE "billing_card_fingerprints" (
+    "fingerprint" TEXT NOT NULL,
+    "organizationId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-CREATE INDEX "billing_accounts_cardFingerprint_idx" ON "billing_accounts"("cardFingerprint");
+    CONSTRAINT "billing_card_fingerprints_pkey" PRIMARY KEY ("fingerprint","organizationId")
+);
+
+CREATE INDEX "billing_card_fingerprints_organizationId_idx" ON "billing_card_fingerprints"("organizationId");
+
+ALTER TABLE "billing_card_fingerprints" ADD CONSTRAINT "billing_card_fingerprints_organizationId_fkey" FOREIGN KEY ("organizationId") REFERENCES "organization"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 CREATE TABLE "referral_codes" (
     "code" TEXT NOT NULL,

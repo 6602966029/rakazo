@@ -1207,6 +1207,8 @@ export const DE_MESSAGES: Record<string, string> = {
   "Could not save skill": "Skill konnte nicht gespeichert werden",
   "Could not delete skill": "Skill konnte nicht gelöscht werden",
   "Invite friends": "Freunde einladen",
+  "Get a free month for each friend who starts a trial.":
+    "Erhalte einen Gratismonat für jeden Freund, der eine Testphase startet.",
   "1 free month earned": "1 Gratismonat verdient",
   "{count} free months earned": "{count} Gratismonate verdient",
 };

@@ -110,8 +110,12 @@ export class BillingEmulator implements BillingProvider {
       if (subscription.priceId === BYOK_PRICE_ID) subscription.cancelAtPeriodEnd = true;
   }
 
-  async grantBalanceCredit(customerId: string, amountCents: number) {
+  private readonly balanceReferences = new Set<string>();
+
+  async grantBalanceCredit(customerId: string, amountCents: number, referenceId: string) {
     this.requireCustomer(customerId);
+    if (this.balanceReferences.has(referenceId)) return;
+    this.balanceReferences.add(referenceId);
     this.balanceCredits.set(customerId, (this.balanceCredits.get(customerId) ?? 0) + amountCents);
   }
 

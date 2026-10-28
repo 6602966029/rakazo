@@ -1231,6 +1231,8 @@ export const JA_MESSAGES: Record<string, string> = {
   "Could not save skill": "スキルを保存できませんでした",
   "Could not delete skill": "スキルを削除できませんでした",
   "Invite friends": "友だちを招待",
+  "Get a free month for each friend who starts a trial.":
+    "友だちがトライアルを開始するたびに、1か月無料になります。",
   "1 free month earned": "1か月分の無料期間を獲得",
   "{count} free months earned": "{count}か月分の無料期間を獲得",
 };

@@ -278,9 +278,21 @@ describe("Stripe billing HTTP boundary", () => {
       status: "trialing",
       cardFingerprint: "fp_card_1",
     });
-    await provider.grantBalanceCredit(customerId, 1000);
+    await provider.grantBalanceCredit(customerId, 1000, "referral_1");
+    await provider.grantBalanceCredit(customerId, 1000, "referral_1");
     expect(wire.balances.get(customerId)).toBe(-1000);
-    await expect(provider.grantBalanceCredit(customerId, 0)).rejects.toThrow(/Invalid/);
+    // A credit Stripe made whose response was lost, retried after the idempotency key expired.
+    wire.balanceTransactions.push({
+      id: "cbtxn_lost",
+      customer: customerId,
+      amount: -1000,
+      metadata: { rakazo_reference: "referral_2" },
+    });
+    await provider.grantBalanceCredit(customerId, 1000, "referral_2");
+    expect(wire.balances.get(customerId)).toBe(-1000);
+    await expect(provider.grantBalanceCredit(customerId, 0, "referral_3")).rejects.toThrow(
+      /Invalid/,
+    );
   });
 
   it("treats a scheduled cancellation as cancel at period end", async () => {

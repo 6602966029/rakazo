@@ -78,7 +78,8 @@ export function createReferrals(deps: {
 
     /**
      * Called whenever the invited organization's subscription grants access, after its card is
-     * stored. Failures are logged and retried by the next sync, never blocking it.
+     * stored. The grant is idempotent and recorded only once it succeeds, so a failure or restart
+     * at any point is retried by the next sync, which it never blocks.
      */
     async settle(organizationId: string, cardFingerprint: string | undefined) {
       if (!enabled || !cardFingerprint) return;
@@ -97,8 +98,8 @@ export function createReferrals(deps: {
         // Each organization stores its card before this check, so of two using one card, the
         // later one always sees the earlier.
         const cardUsedElsewhere =
-          (await prisma.billingAccount.count({
-            where: { cardFingerprint, organizationId: { not: organizationId } },
+          (await prisma.billingCardFingerprint.count({
+            where: { fingerprint: cardFingerprint, organizationId: { not: organizationId } },
           })) > 0;
         if (
           !referrerBilling ||
@@ -110,23 +111,19 @@ export function createReferrals(deps: {
           await decline(organizationId);
           return;
         }
-        const claimed = await prisma.referral.updateMany({
+        const referenceId = `referral_${organizationId}`;
+        // Monthly credit invoices turn what is paid into credits, so a balance would buy nothing.
+        if (referral.referrer.modelCredits?.mode === "credits")
+          await reconcileCreditPurchase(prisma, referral.referrerOrganizationId, {
+            id: referenceId,
+            amountCents: rewardCents!,
+          });
+        else
+          await provider.grantBalanceCredit!(referrerBilling.customerId, rewardCents!, referenceId);
+        await prisma.referral.updateMany({
           where: { organizationId, rewardedAt: null, declinedAt: null },
           data: { rewardedAt: new Date() },
         });
-        if (claimed.count === 0) return;
-        try {
-          // Monthly credit invoices turn what is paid into credits, so a balance would buy nothing.
-          if (referral.referrer.modelCredits?.mode === "credits")
-            await reconcileCreditPurchase(prisma, referral.referrerOrganizationId, {
-              id: `referral_${organizationId}`,
-              amountCents: rewardCents!,
-            });
-          else await provider.grantBalanceCredit!(referrerBilling.customerId, rewardCents!);
-        } catch (error) {
-          await prisma.referral.update({ where: { organizationId }, data: { rewardedAt: null } });
-          throw error;
-        }
       } catch (error) {
         getLogger().error("referral reward failed", error);
       }

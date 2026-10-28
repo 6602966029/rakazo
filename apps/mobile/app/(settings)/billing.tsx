@@ -118,7 +118,7 @@ export default function BillingScreen() {
         ) : null}
       </SettingsGroup>
       {referral ? (
-        <SettingsGroup>
+        <SettingsGroup footer={t("Get a free month for each friend who starts a trial.")}>
           <SettingsRow
             title={t("Invite friends")}
             detail={

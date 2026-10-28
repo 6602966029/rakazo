@@ -13,6 +13,12 @@ export class StripeEmulator {
   readonly subscriptions: StripeSubscriptionRecord[] = [];
   /** Customer balance in cents; negative is credit owed to the customer, as in Stripe. */
   readonly balances = new Map<string, number>();
+  readonly balanceTransactions: Array<{
+    id: string;
+    customer: string;
+    amount: number;
+    metadata: Record<string, string>;
+  }> = [];
   /** Largest page the list endpoint returns; lower it to exercise pagination. */
   pageSize = 100;
   /** Upcoming responses fail with these Stripe errors, in order. */
@@ -228,6 +234,11 @@ export class StripeEmulator {
       return Response.json({ object: "list", has_more: start + limit < matching.length, data });
     }
     const balance = /^\/v1\/customers\/([^/]+)\/balance_transactions$/.exec(path);
+    if (method === "GET" && balance) {
+      const id = decodeURIComponent(balance[1]!);
+      const data = this.balanceTransactions.filter((entry) => entry.customer === id);
+      return Response.json({ object: "list", has_more: false, data });
+    }
     if (method === "POST" && balance) {
       const id = decodeURIComponent(balance[1]!);
       if (this.customers.get(id)?.deleted !== false)
@@ -239,8 +250,21 @@ export class StripeEmulator {
         });
       const next = (this.balances.get(id) ?? 0) + Number(form.amount);
       this.balances.set(id, next);
-      return Response.json({
+      const metadata = Object.fromEntries(
+        Object.entries(form).flatMap(([key, value]) => {
+          const name = /^metadata\[(.+)\]$/.exec(key)?.[1];
+          return name ? [[name, value]] : [];
+        }),
+      );
+      const transaction = {
         id: `cbtxn_fake_${++this.sequence}`,
+        customer: id,
+        amount: Number(form.amount),
+        metadata,
+      };
+      this.balanceTransactions.push(transaction);
+      return Response.json({
+        ...transaction,
         object: "customer_balance_transaction",
         amount: Number(form.amount),
         currency: form.currency,
