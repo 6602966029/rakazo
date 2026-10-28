@@ -375,7 +375,6 @@ export function botsRoutes(ctx: RouterContext) {
             name: input.name,
             description: input.description,
             instructions: input.instructions,
-            selfUpdateInstructions: input.selfUpdateInstructions,
             notifyOnFinish: input.notifyOnFinish,
             color: input.color,
             avatarSet: input.avatarSet,

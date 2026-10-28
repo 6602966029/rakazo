@@ -273,8 +273,6 @@ model Referral {
   cardFingerprint        String?      @unique
   outcome                String?
   rewardedAt             DateTime?
-  rewardKind             String?
-  declinedAt             DateTime?
 
   @@index([referrerOrganizationId])
   @@map("referrals")
@@ -579,10 +577,8 @@ model Bot {
   space             Space             @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   userId            String
   name              String
-  title             String            @default("")
   description       String            @default("")
   instructions      String            @default("")
-  selfUpdateInstructions Boolean @default(false)
   instructionHistory Json @default("[]")
   pendingInstructionsRunId String?
   color             String
