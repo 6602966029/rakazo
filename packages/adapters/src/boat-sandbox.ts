@@ -1312,10 +1312,11 @@ export class BoatSandboxProvider implements SandboxProvider {
   }
 
   private async rawCommand(id: string, command: string, timeoutSeconds: number) {
-    const response = await this.client.command({
-      sandboxId: id,
-      commandRequest: { command, timeoutSeconds },
-    });
+    // Bounds the wait for a rate-limited Boat too, so cancellation cleanup cannot hang on it.
+    const response = await this.client.command(
+      { sandboxId: id, commandRequest: { command, timeoutSeconds } },
+      { signal: AbortSignal.timeout(timeoutSeconds * 1_000 + 5_000) },
+    );
     if (!isFinishedCommand(response)) {
       return this.waitForCommand(id, response.processId, timeoutSeconds * 1_000 + 5_000);
     }
