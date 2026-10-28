@@ -27,6 +27,9 @@ const PeerMessagesOverlay = lazyOverlay(() =>
 const PluginsOverlay = lazyOverlay(() =>
   import("../PluginsOverlay").then((module) => module.PluginsOverlay),
 );
+const SkillsDialog = lazyOverlay(() =>
+  import("../../components/integrations/skills-dialog").then((module) => module.SkillsDialog),
+);
 const McpServersOverlay = lazyOverlay(() =>
   import("../McpServersOverlay").then((module) => module.McpServersOverlay),
 );
@@ -42,7 +45,7 @@ function voiceStatusRefreshTimeout(): Promise<never> {
   });
 }
 
-/** The integrations and MCP overlays the URL opens. */
+/** The integrations, skills and MCP overlays the URL opens. */
 export function AppOverlays({
   overlay,
   setOverlay,
@@ -66,6 +69,7 @@ export function AppOverlays({
           onOpenMcp={() => setOverlay({ kind: "mcp" })}
         />
       ) : null}
+      {overlay?.kind === "skills" ? <SkillsDialog onClose={() => setOverlay(null)} /> : null}
       {overlay?.kind === "mcp" ? (
         <McpServersOverlay
           editServerId={overlay.serverId}
