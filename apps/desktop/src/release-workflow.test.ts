@@ -57,8 +57,13 @@ describe("desktop release workflow", () => {
 
   it("always builds Windows and signs it once Azure Artifact Signing is configured", () => {
     expect(workflow).toContain(
-      `WINDOWS_SIGNING: ${expression("secrets.DESKTOP_WIN_AZURE_CLIENT_SECRET != ''")}`,
+      `WINDOWS_SIGNING: ${expression("secrets.DESKTOP_WIN_AZURE_CLIENT_ID != ''")}`,
     );
+    expect(workflow).not.toContain("AZURE_CLIENT_SECRET");
+    expect(workflow).toContain("environment: desktop-release");
+    expect(workflow).toContain("id-token: write");
+    expect(workflow).toContain("azure/login@");
+    expect(workflow).toContain("TimeStamperCertificate");
     expect(workflow).toContain(
       "if: runner.os == 'Windows' && needs.validate.outputs.windows_signed == 'true'",
     );
