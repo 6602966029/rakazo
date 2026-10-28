@@ -132,6 +132,19 @@ const questions: Scenario = {
         ],
       },
     ]),
+    bot([
+      {
+        kind: "ask",
+        text: "Where should we meet?",
+        status: "answered",
+        answer: "Paris",
+        actions: [
+          { id: "berlin", label: "Berlin" },
+          { id: "seoul", label: "Seoul" },
+        ],
+      },
+    ]),
+    user("Paris"),
     stale,
     bot([
       {
