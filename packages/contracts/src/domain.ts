@@ -642,6 +642,25 @@ export type TaughtSkill = z.infer<typeof TaughtSkillSchema>;
 export const AgentSkillSourceSchema = z.enum(["user", "builtin", "plugin"]);
 export type AgentSkillSource = z.infer<typeof AgentSkillSourceSchema>;
 
+/** Where an account-owned item is available: every space, or these (starting with the one it was added in). */
+export const SpaceAvailabilitySchema = z.object({
+  allSpaces: z.boolean(),
+  spaceIds: z.array(Id).min(1),
+});
+export type SpaceAvailability = z.infer<typeof SpaceAvailabilitySchema>;
+
+export const AvailabilityKindSchema = z.enum(["skill", "mcpServer", "install"]);
+export type AvailabilityKind = z.infer<typeof AvailabilityKindSchema>;
+
+/** One of the user's own items, across all their spaces, for choosing what a space can use. */
+export const AccountItemSchema = z.object({
+  kind: AvailabilityKindSchema,
+  id: Id,
+  name: z.string(),
+  availability: SpaceAvailabilitySchema,
+});
+export type AccountItem = z.infer<typeof AccountItemSchema>;
+
 export const AgentSkillSchema = z.object({
   id: Id,
   name: z.string(),
@@ -649,6 +668,8 @@ export const AgentSkillSchema = z.object({
   content: z.string(),
   source: AgentSkillSourceSchema,
   readOnly: z.boolean(),
+  /** Absent for built-in skills, which every space has. */
+  availability: SpaceAvailabilitySchema.optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -660,6 +681,7 @@ export const AgentSkillCatalogEntrySchema = AgentSkillSchema.pick({
   description: true,
   source: true,
   readOnly: true,
+  availability: true,
 });
 export type AgentSkillCatalogEntry = z.infer<typeof AgentSkillCatalogEntrySchema>;
 
@@ -773,6 +795,7 @@ export const CapabilityInstallSchema = z.object({
   digest: z.string().nullable(),
   secretConfigured: z.boolean(),
   config: z.record(z.string(), z.unknown()),
+  availability: SpaceAvailabilitySchema.optional(),
   createdAt: z.string(),
 });
 export type CapabilityInstall = z.infer<typeof CapabilityInstallSchema>;
@@ -990,6 +1013,7 @@ export const McpServerSchema = z.object({
   health: McpServerHealthSchema,
   enabled: z.boolean(),
   revision: z.number().int().positive(),
+  availability: SpaceAvailabilitySchema.optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

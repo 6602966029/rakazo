@@ -44,6 +44,7 @@ import {
 import type { McpServer as McpServerRow, Prisma, PrismaClient, Routine } from "@rakazo/db";
 import {
   appendEventInTransaction,
+  availableInSpace,
   createThreadMessageInTransaction,
   InstructionConflictError,
   IsolationError,
@@ -179,8 +180,15 @@ async function takenNames(db: Reader, actor: Actor) {
     where: { ...owner, scope: "user", botId: null },
     select: { path: true },
   });
-  const skills = await db.agentSkill.findMany({ where: owner, select: { name: true } });
-  const servers = await db.mcpServer.findMany({ where: owner, select: { slug: true } });
+  // Names already taken here include the owner's items from other spaces that reach this one.
+  const skills = await db.agentSkill.findMany({
+    where: availableInSpace(actor),
+    select: { name: true },
+  });
+  const servers = await db.mcpServer.findMany({
+    where: availableInSpace(actor),
+    select: { slug: true },
+  });
   return {
     spaceMemoryPaths: documents.map((document) => document.path),
     skillNames: [...skills, ...BUILTIN_AGENT_SKILLS].map((skill) => skill.name),
@@ -609,7 +617,7 @@ export async function createImportedBot<PreparedKey>(
       select: { id: true },
     });
     const slugs = new Set(
-      (await tx.mcpServer.findMany({ where: owner, select: { slug: true } })).map(
+      (await tx.mcpServer.findMany({ where: availableInSpace(actor), select: { slug: true } })).map(
         (row) => row.slug,
       ),
     );
