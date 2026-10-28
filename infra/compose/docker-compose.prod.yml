@@ -494,6 +494,8 @@ services:
       timeout: 5s
       retries: 3
       start_period: 2m
+      # Probe every second while starting, so a deploy hands runs over as soon as it can.
+      start_interval: 1s
     init: true
     logging: *logging
     security_opt:
