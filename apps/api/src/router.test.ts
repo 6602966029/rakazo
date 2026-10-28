@@ -17,6 +17,7 @@ import {
   IntegrationProviderSettings,
   LocalAgentHomeStore,
   listPiCatalog,
+  ModelSignInError,
   modelCredentialDto,
   parseModelSecret,
   screenLeaseIdForRun,
@@ -4723,6 +4724,20 @@ describe("model credential persistence", () => {
     // A new account stays a new account.
     await call(handler, "models/beginOAuth", { provider: "openai-codex", credentialId: null });
     expect(begin).toHaveBeenLastCalledWith(expect.objectContaining({ credentialId: null }));
+  });
+
+  it("tells the user to restart a pasted-code sign-in that is gone", async () => {
+    const { deps, handler } = persistDeps();
+    const message = "Sign-in session not found. Start sign-in again.";
+    Object.assign(deps.oauthLogins, {
+      submit: vi.fn().mockRejectedValue(new ModelSignInError(message)),
+    });
+    const response = await call(handler, "models/submitOAuthCode", {
+      loginId: "login-1",
+      code: "pasted-code",
+    });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ json: { message } });
   });
 
   it("names a second subscription account by the email it signed in with", async () => {
