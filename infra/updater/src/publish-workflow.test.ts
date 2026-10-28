@@ -160,6 +160,18 @@ describe("server image publish workflow", () => {
     }
   });
 
+  it("lets only the newest waiting main revision replace a queued one, never a running one", () => {
+    const locks = ["check", "test", "test-integration", "test-e2e", "publish-server-image"].map(
+      (name) => ci.jobs[name]?.concurrency,
+    );
+    expect(new Set(locks.map((lock) => lock?.group)).size).toBe(locks.length);
+    for (const lock of locks) {
+      expect(lock?.group).toMatch(/main/);
+      expect(lock?.queue).toBeUndefined();
+      expect(lock?.["cancel-in-progress"]).toBeUndefined();
+    }
+  });
+
   it("keeps pull requests read-only and every action pinned to a commit", () => {
     const validate = workflow.jobs.validate;
     expect(validate.if).toBe("github.event_name == 'pull_request'");

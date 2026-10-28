@@ -7,8 +7,10 @@ on:
 permissions:
   contents: read
 
-# Superseded PR checks cancel together; main revisions validate independently.
-# Only the production switch and mobile publication retain release locks below.
+# Superseded PR checks cancel together. On main, each job that leads to a deploy holds a per-job
+# lock: one revision runs while only the newest waits, so a burst of merges deploys its last commit
+# without stopping work already in progress. Main reruns only what the deploy needs and the E2E
+# screenshot baseline; the pull request already ran the rest against the then-current main.
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
@@ -19,8 +21,54 @@ env:
   TESTCONTAINERS_HUB_IMAGE_NAME_PREFIX: mirror.gcr.io/
 
 jobs:
+  # Pull requests skip suites their files cannot affect; a job skipped by `if` still satisfies a
+  # required check. `web` is anything beyond the mobile app and agent notes; `server` also excludes
+  # www and docs/, which www renders.
+  changes:
+    name: Changed areas
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      web: ${{ steps.areas.outputs.web }}
+      server: ${{ steps.areas.outputs.server }}
+    steps:
+      - uses: actions/checkout@v5
+        if: github.event_name == 'pull_request'
+        with:
+          persist-credentials: false
+          # The merge commit's first parent is the base, so this diff is exactly what the PR adds.
+          fetch-depth: 2
+          filter: blob:none
+          sparse-checkout: .github
+      - id: areas
+        shell: bash
+        run: |
+          set -euo pipefail
+          web=true
+          server=true
+          if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then
+            files="$(git diff --name-only HEAD^1 HEAD)"
+            web=false
+            server=false
+            while IFS= read -r file; do
+              case "$file" in
+                apps/mobile/package.json | apps/www/package.json) ;;
+                .agents/* | .claude/* | apps/mobile/*) continue ;;
+                apps/www/* | docs/*) web=true; continue ;;
+                */*) ;;
+                *.md) continue ;;
+              esac
+              web=true
+              server=true
+              break
+            done <<<"$files"
+          fi
+          echo "web=$web server=$server"
+          { echo "web=$web"; echo "server=$server"; } >> "$GITHUB_OUTPUT"
+
   lint:
     name: Lint
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -41,6 +89,8 @@ jobs:
   check:
     name: Typecheck
     runs-on: ubuntu-latest
+    concurrency:
+      group: ci-typecheck-${{ github.ref == 'refs/heads/main' && 'main' || github.run_id }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -58,6 +108,8 @@ jobs:
 
   build:
     name: Production builds
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.web == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -88,6 +140,8 @@ jobs:
   test:
     name: Unit tests
     runs-on: ubuntu-latest
+    concurrency:
+      group: ci-unit-${{ github.ref == 'refs/heads/main' && 'main' || github.run_id }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -115,6 +169,8 @@ jobs:
 
   native-computer:
     name: Native computer (${{ matrix.os }})
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.server == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
@@ -146,7 +202,11 @@ jobs:
 
   test-integration:
     name: Postgres journeys
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
     runs-on: ubuntu-latest
+    concurrency:
+      group: ci-postgres-${{ github.ref == 'refs/heads/main' && 'main' || github.run_id }}
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
@@ -162,6 +222,8 @@ jobs:
 
   test-postgres-upgrade:
     name: Postgres upgrade
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.server == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -170,17 +232,26 @@ jobs:
           persist-credentials: false
       - run: bash infra/compose/upgrade-postgres.docker-test.sh
 
+  # Still runs on main, one revision at a time, because main's screenshots are the baseline that
+  # pull-request galleries compare against. The deploy does not wait for it.
   test-e2e:
     name: Web E2E
+    needs: changes
+    concurrency:
+      group: ci-e2e-${{ github.ref == 'refs/heads/main' && 'main' || github.run_id }}
     uses: ./.github/workflows/playwright.yml
     with:
       upload_artifacts: true
+      # Skipped inside the called workflow so the required "Web E2E / Web E2E" check still reports.
+      skip: ${{ needs.changes.outputs.web != 'true' }}
 
   # Publishes sha-<commit> and edge alongside the checks, so the production deploy pulls the
   # image this run built instead of building on the production host.
   publish-server-image:
     name: Publish server images
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    concurrency:
+      group: ci-images-main
     uses: ./.github/workflows/publish-server-image.yml
     permissions:
       contents: read
@@ -191,7 +262,7 @@ jobs:
   publish-mobile-update:
     name: Publish compatible mobile update
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [lint, check, build, test, test-integration, test-e2e]
+    needs: [check, test, test-integration]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     concurrency:
