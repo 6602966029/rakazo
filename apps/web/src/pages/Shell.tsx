@@ -779,6 +779,7 @@ function SpaceShell() {
         navLinks={desktopBridge() ? [] : (bootstrapMe?.navLinks ?? [])}
         openSettings={openSettings}
         openIntegrations={() => setOverlay({ kind: "integrations" })}
+        openSkills={() => setOverlay({ kind: "skills" })}
       />
 
       {/* Keep the composer's z-index inside the chat so phone overlays like the side panel cover it. */}
