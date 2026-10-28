@@ -263,24 +263,29 @@ export const fleetTools: ToolHandlers = {
       );
     }
     const { instructions, ...profile } = args;
-    if (argumentGiven(instructions)) {
-      const first = String(instructions).trim();
-      if (first.length > BOT_INSTRUCTIONS_MAX_LENGTH)
-        return call.finish({
-          error: `instructions must be at most ${BOT_INSTRUCTIONS_MAX_LENGTH} characters.`,
-        });
-      const set = await commitOwnInstructions(ctx, {
-        instructions: first,
-        reason: "Set in chat",
-        previousInstructions: "",
+    if (!argumentGiven(instructions))
+      return call.finish(await updateOwnBotFromTool(deps, run, thread.id, bot, profile, context));
+    const first = String(instructions).trim();
+    if (first.length > BOT_INSTRUCTIONS_MAX_LENGTH)
+      return call.finish({
+        error: `instructions must be at most ${BOT_INSTRUCTIONS_MAX_LENGTH} characters.`,
       });
-      if ("error" in set)
-        return call.finish({
-          error: "You already have instructions; change them with propose_instructions_update.",
-        });
-      if (!Object.values(profile).some(argumentGiven)) return call.finish({ ok: true });
-    }
-    return call.finish(await updateOwnBotFromTool(deps, run, thread.id, bot, profile, context));
+    // The profile goes first, so a rejected field leaves the instructions unset for a retry.
+    const profileGiven = Object.values(profile).some(argumentGiven);
+    const updated = profileGiven
+      ? await updateOwnBotFromTool(deps, run, thread.id, bot, profile, context)
+      : undefined;
+    if (updated && "error" in updated) return call.finish(updated);
+    const set = await commitOwnInstructions(ctx, {
+      instructions: first,
+      reason: "Set in chat",
+      previousInstructions: "",
+    });
+    if ("error" in set)
+      return call.finish({
+        error: `${updated ? "Your profile was updated, but you" : "You"} already have instructions; change them with propose_instructions_update.`,
+      });
+    return call.finish(updated ?? { ok: true });
   },
   archive_bot: archiveBot,
   delete_bot: archiveBot,

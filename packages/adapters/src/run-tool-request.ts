@@ -22,7 +22,6 @@ import { isFleetApprovalTool, prepareFleetRequest } from "./fleet-tools.js";
 import { assertConnectorToolArgs, CATALOG_EXECUTE } from "./lazy-tool-catalog.js";
 import { paidRequestEffect, restorePaidRequest } from "./paid-request.js";
 import type { RunContext } from "./run-context.js";
-import { isRunTainted } from "./run-context.js";
 import {
   approvalReplayEffectToolName,
   CATALOG_APPROVAL_TOOL,
@@ -301,12 +300,12 @@ export async function prepareToolRequest(
   }
   if (name === "update_bot" && !argumentGiven(args.bot_id) && argumentGiven(args.instructions)) {
     if (isSubagentToolExecution(executionId)) return { error: "Helpers cannot set instructions." };
-    // Only the owner's own words may become instructions unseen. The creation intro has no tools
-    // that read outside content, so only an outside message can taint it.
+    // Only the owner's own words may become instructions unseen: no outside message, and no
+    // outside tool result in this attempt's context, restored or new. The creation intro has
+    // no tools that read outside content, and answering its question clears the checkpoint.
     const ownWords =
-      run.trigger === "created"
-        ? !(await ctx.trust.receivedOutsideMessage())
-        : ctx.source.ownerStartedRun && !(await isRunTainted(ctx));
+      !(await ctx.trust.receivedOutsideMessage()) &&
+      (run.trigger === "created" || (ctx.source.ownerStartedRun && !ctx.state.tainted));
     if (!ownWords) return { error: "Propose your instructions with propose_instructions_update." };
     if (redactSecrets(String(args.instructions), ctx.secrets) !== args.instructions)
       return { error: "Instructions cannot contain credentials." };

@@ -262,9 +262,14 @@ function fixture({
         computerId: "computer-1",
         computer: { id: "computer-1", scope: "dedicated" },
       })),
-      update: vi.fn(async ({ data }: { data: Record<string, unknown> }) =>
-        Object.assign(instructionState, data),
-      ),
+      update: vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
+        id: run.botId,
+        name: bot.name,
+        description: bot.description,
+        color: "#8B5CF6",
+        notifyOnFinish: true,
+        ...Object.assign(instructionState, data),
+      })),
       updateMany: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
         Object.assign(instructionState, data);
         return { count: 1 };
@@ -1212,6 +1217,30 @@ describe("first instructions through update_bot", () => {
       expect(f.instructionState.instructionHistory).toHaveLength(1);
     },
   );
+  it("sets them on a later attempt, as when the owner answers the intro question", async () => {
+    const f = emptyBot();
+    f.prisma.attempt.count.mockResolvedValue(2);
+    await f.run();
+    expect(f.results).toEqual([{ ok: true }]);
+    expect(f.instructionState.instructions).toBe(first);
+  });
+  it("sets them after a profile edit earlier in the run", async () => {
+    const f = emptyBot();
+    f.setCalls([
+      { args: { description: "Drafts replies" }, executionId: "call-1" },
+      { args: { instructions: first }, executionId: "call-2" },
+    ]);
+    await f.run();
+    expect(f.results.at(-1)).toEqual({ ok: true });
+    expect(f.instructionState.instructions).toBe(first);
+  });
+  it("leaves instructions unset when another field in the same call is rejected", async () => {
+    const f = emptyBot();
+    f.setCalls([{ args: { name: "N".repeat(200), instructions: first }, executionId: "call-1" }]);
+    await f.run();
+    expect(f.results[0]).toMatchObject({ error: expect.stringContaining("name") });
+    expect(f.instructionState.instructions).toBe("");
+  });
   it("leaves instructions that already exist to a proposal", async () => {
     const f = emptyBot();
     f.instructionState.instructions = "Draft only";
