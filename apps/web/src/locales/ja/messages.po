@@ -725,6 +725,10 @@ msgstr "このツールを常に許可"
 msgid "Always allowed"
 msgstr "常に許可済み"
 
+#: src/components/markdown-link-prompt.tsx
+msgid "Always open {site}"
+msgstr "{site} を常に開く"
+
 #: src/lib/model-connection-preflight.ts
 msgid "An API key is stored for this provider, not a subscription sign-in."
 msgstr "このプロバイダーにはサブスクリプションのログインではなく、APIキーが保存されています。"
@@ -1817,6 +1821,7 @@ msgstr "コンピューターの画面に接続できませんでした"
 #: src/components/ConfirmIdentityDialog.tsx
 #: src/components/PasskeyOffer.tsx
 #: src/components/PasskeySettings.tsx
+#: src/components/TrustedLinkSitesSettings.tsx
 #: src/lib/account-security.ts
 #: src/lib/sso-flow.ts
 #: src/lib/user-error.ts
@@ -4665,6 +4670,7 @@ msgstr "再読み込み"
 #: src/components/ApprovalRulesSettings.tsx
 #: src/components/integrations/plugin-marketplace.tsx
 #: src/components/LoginFields.tsx
+#: src/components/TrustedLinkSitesSettings.tsx
 #: src/components/VaultSettings.tsx
 #: src/pages/McpServersOverlay.tsx
 #: src/pages/ModelRoleSettings.tsx
@@ -4688,6 +4694,10 @@ msgstr "{0}をグループから外す"
 #: src/components/VaultSettings.tsx
 msgid "Remove {secretName}? Bots will no longer be able to use it."
 msgstr "{secretName}を削除しますか？ボットはこれを使用できなくなります。"
+
+#: src/components/TrustedLinkSitesSettings.tsx
+msgid "Remove {site}"
+msgstr "{site} を削除"
 
 #: src/pages/RoutineEditor.tsx
 msgid "Remove change trigger"
@@ -5958,6 +5968,10 @@ msgstr "トライアル"
 #: src/pages/BillingSettingsPanel.tsx
 msgid "Trial ends {day}"
 msgstr "トライアル終了: {day}"
+
+#: src/components/TrustedLinkSitesSettings.tsx
+msgid "Trusted sites"
+msgstr "信頼済みサイト"
 
 #: src/pages/ActivityList.tsx
 #: src/pages/Onboarding.tsx
