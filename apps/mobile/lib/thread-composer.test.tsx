@@ -221,6 +221,14 @@ describe("thread composer isolation", () => {
     act(() => input.select({ nativeEvent: { selection: { start, end } } }));
   }
 
+  it("keeps inserted text when removing a chip afterwards", () => {
+    type("ask @He");
+    press("@{name}");
+    act(() => composer.current!.insert("shared text"));
+    press("Remove mention {name}");
+    expect(composer.current!.snapshot().promptText).toBe("ask  \nshared text");
+  });
+
   it("keeps a selected bot at its inline position and continues typing after it", () => {
     type("i need u to message @He");
     press("@{name}");
