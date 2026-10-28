@@ -1,0 +1,57 @@
+name: Plugin submission
+description: List your plugin or MCP server in the Rakazo marketplace
+title: "[Plugin]: "
+labels:
+  - plugin
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This issue is public. Do not include API keys, passwords, or test credentials; we will ask for access privately if we need it.
+
+  - type: input
+    id: website
+    attributes:
+      label: Website URL
+      placeholder: https://acme.com
+
+  - type: input
+    id: logo
+    attributes:
+      label: Logo URL
+      description: Square SVG or PNG
+      placeholder: https://acme.com/logo.svg
+    validations:
+      required: true
+
+  - type: input
+    id: source
+    attributes:
+      label: MCP server URL or public GitHub repository
+      placeholder: https://github.com/acme/plugin
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      placeholder: What your plugin does and how it helps people
+    validations:
+      required: true
+
+  - type: textarea
+    id: testing
+    attributes:
+      label: Testing instructions
+      placeholder: How to try it in Rakazo
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: tested
+    attributes:
+      label: Testing
+      options:
+        - label: I've tested this plugin in Rakazo and it works as expected
+          required: true

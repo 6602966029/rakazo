@@ -1,0 +1,57 @@
+---
+import SiteFrame from "../../components/SiteFrame.astro";
+import { GITHUB_URL } from "../../site";
+
+const fields = [
+  { name: "title", label: "Plugin name", placeholder: "Acme", required: true },
+  { name: "website", label: "Website URL", placeholder: "https://acme.com", type: "url" },
+  {
+    name: "logo",
+    label: "Logo URL",
+    placeholder: "https://acme.com/logo.svg",
+    type: "url",
+    required: true,
+  },
+  {
+    name: "source",
+    label: "MCP server URL or public GitHub repository",
+    placeholder: "https://github.com/acme/plugin",
+    type: "url",
+    required: true,
+  },
+];
+---
+
+<SiteFrame
+  title="Submit a plugin to Rakazo"
+  description="List your plugin or MCP server in the Rakazo marketplace."
+>
+  <h1>Submit a plugin</h1>
+  <p>List your plugin or MCP server in the Rakazo marketplace. We review every submission.</p>
+  <form class="plugin-form" method="get" action={`${GITHUB_URL}/issues/new`}>
+    <input type="hidden" name="template" value="plugin.yml" />
+    {
+      fields.map((field) => (
+        <label>
+          <span>{field.label}</span>
+          <input
+            name={field.name}
+            type={field.type ?? "text"}
+            placeholder={field.placeholder}
+            required={field.required}
+          />
+        </label>
+      ))
+    }
+    <label>
+      <span>Description</span>
+      <textarea name="description" rows="3" placeholder="What your plugin does and how it helps people" required
+      ></textarea>
+    </label>
+    <label>
+      <span>Testing instructions</span>
+      <textarea name="testing" rows="3" placeholder="How to try it in Rakazo, without secrets" required></textarea>
+    </label>
+    <button class="button button--primary" type="submit">Continue on GitHub</button>
+  </form>
+</SiteFrame>
