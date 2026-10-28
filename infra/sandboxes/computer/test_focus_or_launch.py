@@ -205,6 +205,7 @@ typedef unsigned char KeyCode;
 #define True 1
 #define False 0
 #define None 0L
+#define NoSymbol 0L
 #define CurrentTime 0L
 #define AllPlanes (~0UL)
 #define ZPixmap 2
@@ -294,6 +295,14 @@ void XFixesDestroyRegion(Display *display, XserverRegion region);
 #endif
 """
 
+XKBLIB_H = """\
+#ifndef XSTUB_XKBLIB_H
+#define XSTUB_XKBLIB_H
+#include <X11/Xlib.h>
+KeySym XkbKeycodeToKeysym(Display *display, KeyCode keycode, int group, int level);
+#endif
+"""
+
 XTEST_H = """\
 #ifndef XSTUB_XTEST_H
 #define XSTUB_XTEST_H
@@ -352,6 +361,7 @@ void png_write_end(png_structp png, png_infop info);
 
 XSTUB_C = """\
 #include <X11/Xlib.h>
+#include <X11/XKBlib.h>
 #include <X11/extensions/XShm.h>
 #include <X11/extensions/Xdamage.h>
 #include <X11/extensions/Xfixes.h>
@@ -428,6 +438,9 @@ XIOErrorHandler XSetIOErrorHandler(XIOErrorHandler handler) {
 
 KeySym XStringToKeysym(const char *name) { (void)name; return 0x61; }
 KeyCode XKeysymToKeycode(Display *display, KeySym keysym) { (void)display; (void)keysym; return 38; }
+KeySym XkbKeycodeToKeysym(Display *display, KeyCode keycode, int group, int level) {
+  (void)display; (void)group; (void)level; return keycode == 38 ? 0x61 : 0;
+}
 
 int XDestroyImage(XImage *image) { free(image); return 1; }
 
@@ -751,6 +764,7 @@ class ControlArgvTest(unittest.TestCase):
             (include / "X11" / "extensions").mkdir(parents=True)
             headers = {
                 "X11/Xlib.h": XLIB_H,
+                "X11/XKBlib.h": XKBLIB_H,
                 "X11/Xutil.h": XUTIL_H,
                 "X11/extensions/XShm.h": XSHM_H,
                 "X11/extensions/Xdamage.h": XDAMAGE_H,
@@ -1175,6 +1189,9 @@ class XcaptureKeyTest(unittest.TestCase):
                 #define DefaultDepth(dpy, screen) ((void)(dpy), (void)(screen), 24)
                 #define DefaultVisual(dpy, screen) ((void)(dpy), (void)(screen), (Visual *)0)
                 #define RootWindow(dpy, screen) ((void)(dpy), (void)(screen), (Window)1)
+                #define XConnectionNumber(dpy) ((void)(dpy), -1)
+                typedef int (*XIOErrorHandler)(Display *);
+                XIOErrorHandler XSetIOErrorHandler(XIOErrorHandler handler);
                 Display *XOpenDisplay(const char *name);
                 int XCloseDisplay(Display *display);
                 int XSync(Display *display, Bool discard);
@@ -1322,6 +1339,7 @@ class XcaptureKeyTest(unittest.TestCase):
               (void)display; (void)window; (void)attributes; return 0;
             }
             int XFlush(Display *display) { (void)display; return 1; }
+            XIOErrorHandler XSetIOErrorHandler(XIOErrorHandler handler) { (void)handler; return NULL; }
             int XFree(void *data) { (void)data; return 0; }
             int XDestroyImage(XImage *image) { (void)image; return 0; }
 
