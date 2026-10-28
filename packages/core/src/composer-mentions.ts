@@ -431,13 +431,3 @@ export function resolveComposerSendPlan(input: {
     isNoOp: !shouldSend && !shouldOpenGroup && !shouldRunRoutines,
   };
 }
-
-export function mentionStillInPrompt(
-  text: string,
-  mention: MentionName,
-  knownMentions: readonly MentionName[] = [],
-): boolean {
-  return composerMentionSpans(text, [...knownMentions, mention]).some(
-    (span) => span.name === mention.name.trim().toLowerCase(),
-  );
-}

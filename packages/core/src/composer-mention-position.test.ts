@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   completeComposerMention,
   composerMentionQuery,
-  mentionStillInPrompt,
   removeComposerMention,
   resolveComposerSendPlan,
 } from "./composer-mentions.js";
@@ -56,23 +55,21 @@ describe("inline mention completion", () => {
   it("does not retain or remove a shorter name inside a recognized longer mention", () => {
     const short = { kind: "group", id: "group-bob", name: "Bob" } as const;
     const long = { kind: "bot", id: "bot-bob", name: "Bob Smith" } as const;
-    const names = [short, long];
     const text = "ask @Bob Smith ";
-    const mentions = names.filter((mention) => mentionStillInPrompt(text, mention, names));
-    expect(mentions).toEqual([long]);
-    expect(removeComposerMention(text, short, names)).toBe(text);
-    expect(resolveComposerSendPlan({ text, mentions, hasAttachments: false })).toMatchObject({
+    expect(removeComposerMention(text, short, [short, long])).toBe(text);
+    expect(
+      resolveComposerSendPlan({ text, mentions: [long], hasAttachments: false }),
+    ).toMatchObject({
       trimmed: "ask @Bob Smith",
       rerouteGroupId: null,
       mentionPayload: [{ kind: "bot", id: "bot-bob" }],
     });
   });
 
-  it("retains and removes a separate shorter occurrence without changing the longer name", () => {
+  it("removes a separate shorter occurrence without changing the longer name", () => {
     const short = { name: "Bob" },
       long = { name: "Bob Smith" };
     const text = "@Bob and ask @Bob Smith ";
-    expect(mentionStillInPrompt(text, short, [short, long])).toBe(true);
     expect(removeComposerMention(text, short, [short, long])).toBe(" and ask @Bob Smith ");
   });
   it("strips a separate group occurrence without stripping a longer bot name on send", () => {
