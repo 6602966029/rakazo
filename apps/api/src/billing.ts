@@ -364,7 +364,7 @@ export function createBillingService(deps: {
           currentPeriodEndsAt: account?.currentPeriodEndsAt?.toISOString() ?? null,
           cancelAtPeriodEnd: account?.cancelAtPeriodEnd ?? false,
           hasCustomer: Boolean(account),
-          referral: await referrals.status(organizationId, account, isOwner),
+          referral: await referrals.status(organizationId, isOwner),
         };
       }
       const { organizationId, isOwner } = await organization(actor);
@@ -385,7 +385,6 @@ export function createBillingService(deps: {
         currentPeriodEndsAt: account?.currentPeriodEndsAt?.toISOString() ?? null,
         cancelAtPeriodEnd: account?.cancelAtPeriodEnd ?? false,
         hasCustomer: Boolean(account),
-        referral: await referrals.status(organizationId, account, isOwner),
       };
     },
 
