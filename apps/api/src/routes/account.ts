@@ -356,22 +356,31 @@ function approvalRuleDto(row: {
 }
 
 async function loadAutoReviewSettings(deps: RouterDeps, actor: Actor, scope?: SettingsScope) {
-  const [role, preference] = await Promise.all([
-    // The account page judges the account's approval model; a Space, the one that applies there.
-    effectiveModelRole(
-      deps.prisma,
-      actor,
-      "approval",
-      { env: process.env },
-      scope === "account" ? "account" : undefined,
-    ),
+  const [checkerAvailable, preference] = await Promise.all([
+    approvalCheckerAvailable(deps, actor, scope),
     findAutoReviewPreference(deps.prisma, actor, scope),
   ]);
+  // Unsaved, Auto shows only when it can run; without a checker it behaves like Ask anyway.
   const stored = {
-    enabled: preference?.enabled ?? true,
+    enabled: preference?.enabled ?? checkerAvailable,
     skipApprovals: preference?.skipApprovals ?? false,
   };
-  const settings = { ...stored, mode: approvalModeFromPreference(stored) };
+  return { ...stored, mode: approvalModeFromPreference(stored), checkerAvailable };
+}
+
+async function approvalCheckerAvailable(
+  deps: RouterDeps,
+  actor: Actor,
+  scope?: SettingsScope,
+): Promise<boolean> {
+  // The account page judges the account's approval model; a Space, the one that applies there.
+  const role = await effectiveModelRole(
+    deps.prisma,
+    actor,
+    "approval",
+    { env: process.env },
+    scope === "account" ? "account" : undefined,
+  );
   const deploymentChecker = role.primarySource === "deployment" ? role.primary : null;
   const memberChoices = [
     ...(deploymentChecker || !role.primary ? [] : [role.primary]),
@@ -390,7 +399,7 @@ async function loadAutoReviewSettings(deps: RouterDeps, actor: Actor, scope?: Se
           select: { id: true },
         })
       : null;
-    return { ...settings, checkerAvailable: environmentAvailable || Boolean(credential) };
+    return environmentAvailable || Boolean(credential);
   }
   const connections = await Promise.all(
     memberChoices.map((choice) =>
@@ -399,7 +408,7 @@ async function loadAutoReviewSettings(deps: RouterDeps, actor: Actor, scope?: Se
         : findModelCredential(deps.prisma, actor, choice.provider, choice.modelId),
     ),
   );
-  const checkerAvailable =
+  return (
     connections.some(Boolean) ||
     (deploymentChecker !== null && environmentAvailable) ||
     (
@@ -408,8 +417,8 @@ async function loadAutoReviewSettings(deps: RouterDeps, actor: Actor, scope?: Se
           hasHostedModelCredits(deps.prisma, actor, provider),
         ),
       )
-    ).some(Boolean);
-  return { ...settings, checkerAvailable };
+    ).some(Boolean)
+  );
 }
 
 function requireBilling(deps: RouterDeps): BillingService {
