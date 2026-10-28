@@ -195,11 +195,9 @@ export class BoatSandboxProvider implements SandboxProvider {
   private baseSnapshotBuild?: Promise<void>;
   private baseSnapshotRetryAt = 0;
 
-  constructor(
-    config: { apiKey: string; apiUrl?: string },
-    api: BoatSandboxSdk = createBoatSdk(config),
-  ) {
-    this.client = boatClient(api, config.apiKey);
+  constructor(config: { apiKey: string; apiUrl?: string }, api?: BoatSandboxSdk) {
+    const gate = new BoatRequestGate();
+    this.client = boatClient(api ?? createBoatSdk(config, gate), config.apiKey, gate);
   }
 
   describe() {
@@ -1258,9 +1256,7 @@ export class BoatSandboxProvider implements SandboxProvider {
         { signal: signal ? AbortSignal.any([signal, timeout]) : timeout },
       )) {
         if (frame.type === "stdout" || frame.type === "stderr") {
-          output[frame.type] = `${output[frame.type]}${frame.data ?? ""}`.slice(
-            -BOAT_COMMAND_TAIL_BYTES,
-          );
+          output[frame.type] = utf8Tail(`${output[frame.type]}${frame.data ?? ""}`);
         } else if (frame.type === "exit") {
           return { ...output, exitCode: frame.exitCode ?? 1, timedOut: false };
         } else if (frame.type === "error") {
@@ -1384,8 +1380,7 @@ function boatSandboxGone(sandboxId: string, cause?: unknown): Error {
 }
 
 /** Turns raw SDK failures into actionable errors, rate limits, and gone sandboxes. */
-function boatClient(api: BoatSandboxSdk, apiKey: string): BoatSandboxSdk {
-  const gate = new BoatRequestGate();
+function boatClient(api: BoatSandboxSdk, apiKey: string, gate: BoatRequestGate): BoatSandboxSdk {
   const boatCall = <Args extends unknown[], Result>(
     call: (...args: Args) => Promise<Result>,
     idempotent = false,
@@ -1466,7 +1461,10 @@ function boatClient(api: BoatSandboxSdk, apiKey: string): BoatSandboxSdk {
   };
 }
 
-function createBoatSdk(config: { apiKey: string; apiUrl?: string }): BoatSandboxSdk {
+function createBoatSdk(
+  config: { apiKey: string; apiUrl?: string },
+  gate: BoatRequestGate,
+): BoatSandboxSdk {
   const apiUrl = (config.apiUrl ?? BOAT_API_BASE).replace(/\/$/, "");
   const api = new BoatApi(
     new Configuration({
@@ -1482,6 +1480,7 @@ function createBoatSdk(config: { apiKey: string; apiUrl?: string }): BoatSandbox
       const headers = { Authorization: `Bearer ${config.apiKey}` };
       const signal = AbortSignal.timeout(BOAT_DELETE_TIMEOUT_MS);
       try {
+        await withAbort(gate.wait(), signal);
         const response = await fetch(url, {
           method: "DELETE",
           headers: {
@@ -1495,6 +1494,7 @@ function createBoatSdk(config: { apiKey: string; apiUrl?: string }): BoatSandbox
           throw await boatResponseError(response, config.apiKey, signal);
         }
         for (let pause = 500; !signal.aborted; pause = nextPoll(pause)) {
+          await withAbort(gate.wait(), signal);
           const status = await fetch(url, { headers, signal });
           if (status.status === 404) return;
           if (!status.ok) {
@@ -1508,6 +1508,16 @@ function createBoatSdk(config: { apiKey: string; apiUrl?: string }): BoatSandbox
       throw new Error(`Boat ${sandboxId} was not deleted within 60 seconds`);
     },
   });
+}
+
+/** The end of `text` within the byte budget a status poll reads, never splitting a character. */
+function utf8Tail(text: string): string {
+  if (text.length * 3 <= BOAT_COMMAND_TAIL_BYTES) return text;
+  const bytes = Buffer.from(text);
+  if (bytes.length <= BOAT_COMMAND_TAIL_BYTES) return text;
+  let start = bytes.length - BOAT_COMMAND_TAIL_BYTES;
+  while (start < bytes.length && ((bytes[start] ?? 0) & 0xc0) === 0x80) start += 1;
+  return bytes.subarray(start).toString();
 }
 
 function nextPoll(pause: number, max = BOAT_POLL_MAX_MS): number {

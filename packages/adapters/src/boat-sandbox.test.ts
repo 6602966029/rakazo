@@ -1026,6 +1026,22 @@ describe("BoatSandboxProvider", () => {
     expect(status).not.toHaveBeenCalled();
   });
 
+  it("keeps the same byte budget of streamed output that a status poll reads", async () => {
+    const { provider, computer } = await boat();
+    await provider.prepare(computer, context);
+
+    let stdout = "";
+    for await (const event of provider.execute(
+      computer,
+      { argv: ["echo", "é".repeat(600_000)], timeoutMs: 20 * 60_000 },
+      context,
+    )) {
+      if (event.type === "stdout") stdout += event.data;
+    }
+    expect(Buffer.byteLength(stdout)).toBeLessThanOrEqual(1_000_000);
+    expect(stdout).toMatch(/^é+\n$/);
+  });
+
   it("polls a long command with backoff when the sandbox cannot stream its output", async () => {
     const polledAt: number[] = [];
     const commandStatus = FakeBoatApi.prototype.commandStatus;
