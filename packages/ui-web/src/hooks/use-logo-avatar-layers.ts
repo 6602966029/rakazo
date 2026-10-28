@@ -19,6 +19,7 @@ export function useLogoAvatarLayers(
   ref: RefObject<SVGSVGElement | null>,
   activity: LogoAvatarActivity,
   running: boolean,
+  animated: boolean,
 ) {
   const serial = useRef(0);
   const clock = useRef<{ last: number; elapsed: number; running: boolean } | null>(null);
@@ -61,7 +62,8 @@ export function useLogoAvatarLayers(
 
   useLayoutEffect(() => {
     const element = ref.current;
-    if (!element) return;
+    // Static avatars have no tracks to sync; skipping avoids a style flush per change.
+    if (!element || !animated) return;
     const now = Number(document.timeline?.currentTime ?? 0);
     const previous = clock.current;
     const elapsed = previous
@@ -78,7 +80,7 @@ export function useLogoAvatarLayers(
       }
     }
     resetFades.current = false;
-  }, [layers, ref, running]);
+  }, [animated, layers, ref, running]);
 
   const finish = useCallback((key: number, name: string) => {
     if (name === "logo-avatar-layer-out")

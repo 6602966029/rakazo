@@ -47,6 +47,7 @@ export const LogoAvatar = memo(function LogoAvatar({
     ref,
     activity,
     canMove && visible && !reducedMotion,
+    canMove,
   );
   const eyeInk = contrastRatio(traits.color, botEyeColor) >= 3.5 ? botEyeColor : tokens.foreground;
   return (

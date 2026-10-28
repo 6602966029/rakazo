@@ -1,7 +1,7 @@
 import type { LogoAvatarActivity } from "@rakazo/core";
 import { logoAvatarStatusActivity } from "@rakazo/core";
 import type { ReactNode } from "react";
-import { createContext, useCallback, useContext, useSyncExternalStore } from "react";
+import { createContext, startTransition, useContext, useEffect, useRef, useState } from "react";
 
 export interface BotAvatarActivitySource {
   subscribe(listener: () => void): () => void;
@@ -23,8 +23,18 @@ export function BotAvatarActivityProvider({
 }) {
   return <Activity value={source}>{children}</Activity>;
 }
+/** Updates as a transition: a busy thread must not starve urgent work such as navigation. */
 export function useBotAvatarActivity(identity: string, status?: string): LogoAvatarActivity {
   const source = useContext(Activity);
-  const get = useCallback(() => source.getActivity(identity, status), [source, identity, status]);
-  return useSyncExternalStore(source.subscribe, get, () => logoAvatarStatusActivity(status));
+  const [, setVersion] = useState(0);
+  const activity = source.getActivity(identity, status);
+  const rendered = useRef(activity);
+  rendered.current = activity;
+  useEffect(() => {
+    const refresh = () => startTransition(() => setVersion((version) => version + 1));
+    const unsubscribe = source.subscribe(refresh);
+    if (source.getActivity(identity, status) !== rendered.current) refresh();
+    return unsubscribe;
+  }, [source, identity, status]);
+  return activity;
 }
