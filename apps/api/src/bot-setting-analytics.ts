@@ -14,6 +14,7 @@ const SETTINGS: Partial<Record<Field, AnalyticsBotSetting>> = {
   memoryScope: "memory",
   voiceId: "voice",
   autoSpeak: "auto_speak",
+  modelProvider: "model",
   modelId: "model",
   thinkingLevel: "thinking",
   teamChatAmbientEnabled: "team_chat",

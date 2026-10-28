@@ -39,6 +39,12 @@ describe("changedBotSettings", () => {
     ).toEqual(["instructions", "avatar", "model"]);
   });
 
+  it("counts a provider change that keeps the model id", () => {
+    expect(
+      changedBotSettings(bot, { botId: bot.id, modelProvider: "openrouter", modelId: "claude" }),
+    ).toEqual(["model"]);
+  });
+
   it("leaves sidebar organization out", () => {
     expect(changedBotSettings(bot, { botId: bot.id, pinned: true, sectionId: null })).toEqual([]);
   });
