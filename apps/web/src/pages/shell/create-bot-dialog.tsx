@@ -108,12 +108,7 @@ export function CreateBotDialog({
             </DialogTitle>
           </DialogHeader>
           <div className="flex justify-center py-2">
-            <BotAvatar
-              color={color}
-              identity={look.identity}
-              size={96}
-              avatarSet={avatarSet}
-            />
+            <BotAvatar color={color} identity={look.identity} size={96} avatarSet={avatarSet} />
           </div>
           <Input
             ref={nameRef}
