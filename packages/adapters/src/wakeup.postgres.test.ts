@@ -1,5 +1,5 @@
 import type { BackgroundJob, BackgroundJobHandlers } from "@rakazo/adapter-kit";
-import { routineWakeupJob } from "@rakazo/adapter-kit";
+import { messagingDeliverJob, routineWakeupJob } from "@rakazo/adapter-kit";
 import type { PrismaClient } from "@rakazo/db";
 import { createPool, currentDbContext, runAsTenant } from "@rakazo/db";
 import { Pool } from "pg";
@@ -182,6 +182,34 @@ describePostgres("Graphile background jobs (PostgreSQL contract)", () => {
       await waitFor(() => expect(sleeping).toHaveLength(3));
       await publisher.enqueue(routineWakeupJob("routine-due", new Date()));
       await waitFor(() => expect(woken).toEqual(["routine-due"]));
+    } finally {
+      release.resolve();
+      await host.stop();
+      await publisher.close();
+    }
+  });
+
+  it("delivers outgoing messages one drain at a time", async () => {
+    const publisher = new GraphileJobPublisher(testPool());
+    const host = createReservedGraphileJobWorkerHost(testPool(), { pollInterval: 25 });
+    const release = deferred();
+    const draining: string[] = [];
+    try {
+      await host.start(
+        handlers({
+          "messaging.deliver": async ({ runId }) => {
+            draining.push(runId ?? "drain");
+            await release.promise;
+          },
+        }),
+      );
+      await publisher.enqueue(messagingDeliverJob("run-first"));
+      await waitFor(() => expect(draining).toEqual(["run-first"]));
+      await publisher.enqueue(messagingDeliverJob("run-second"));
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      expect(draining).toEqual(["run-first"]);
+      release.resolve();
+      await waitFor(() => expect(draining).toEqual(["run-first", "run-second"]));
     } finally {
       release.resolve();
       await host.stop();
