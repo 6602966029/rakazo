@@ -462,27 +462,27 @@ export function AgentSkills() {
           ))
         : null}
       {editorOpen ? (
-        <div className="px-2.5 pb-2">
+        <div className="pb-2">
           {open ? (
-            <div className="flex items-center gap-2 pb-1">
+            <div className="flex min-h-7 items-center gap-2">
               <div className="min-w-0 truncate text-[14px] font-normal text-foreground" dir="auto">
                 {open.name}
               </div>
               <SkillSourceBadge source={open.source} />
-            </div>
-          ) : null}
-          {open?.source === "user" ? (
-            <div className="pb-2">
-              <AvailabilityControl
-                kind="skill"
-                id={open.id}
-                availability={open.availability}
-                onChanged={async () => {
-                  const fresh = await rpc.agentSkills.get({ skillId: open.id });
-                  setOpen(fresh);
-                  await refresh();
-                }}
-              />
+              {open.source === "user" ? (
+                <div className="ms-auto">
+                  <AvailabilityControl
+                    kind="skill"
+                    id={open.id}
+                    availability={open.availability}
+                    onChanged={async () => {
+                      const fresh = await rpc.agentSkills.get({ skillId: open.id });
+                      setOpen(fresh);
+                      await refresh();
+                    }}
+                  />
+                </div>
+              ) : null}
             </div>
           ) : null}
           <Textarea

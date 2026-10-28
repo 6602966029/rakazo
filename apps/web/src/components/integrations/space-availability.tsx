@@ -100,16 +100,23 @@ export function AvailabilityControl({
   };
 
   return (
-    <div data-testid="availability" className="flex flex-wrap items-center gap-3 text-[14px]">
+    <div data-testid="availability" className="flex flex-wrap items-center gap-1 text-[13px]">
       <span className="text-muted-foreground">
         <Trans>Available in</Trans>
       </span>
       <DropdownMenu>
         <DropdownMenuTrigger
-          render={<Button variant="secondary" size="sm" disabled={saving} className="gap-1.5" />}
+          render={
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={saving}
+              className="h-7 gap-1 px-1.5 text-[13px] font-normal text-foreground"
+            />
+          }
         >
           {summary}
-          <ChevronDown className="size-3.5" />
+          <ChevronDown className="size-3.5 text-muted-foreground" />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-56">
           <DropdownMenuCheckboxItem
