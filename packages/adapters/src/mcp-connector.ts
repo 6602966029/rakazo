@@ -24,6 +24,7 @@ import {
   resolveMcpOAuthFileTemplate,
 } from "@rakazo/contracts";
 import type { McpServer, PrismaClient, ThreadEvents } from "@rakazo/db";
+import { availableInSpace, itemSecretIn } from "@rakazo/db";
 import { getLogger } from "@rakazo/logging";
 import { sanitizedError } from "@rakazo/logging/monitoring";
 import { catalogToolPrefix } from "./approval-effect.js";
@@ -398,7 +399,8 @@ export class McpConnector implements ConnectorProvider {
         botId: context.botId,
         spaceId: context.spaceId,
         userId: context.userId,
-        server: { enabled: true },
+        // A server no longer available in this space stays assigned but unused until it is again.
+        server: { enabled: true, ...availableInSpace(context) },
       },
       include: { server: true },
     });
@@ -598,7 +600,7 @@ export class McpConnector implements ConnectorProvider {
         serverId: call.route.resourceId,
         spaceId: context.spaceId,
         userId: context.userId,
-        server: { enabled: true },
+        server: { enabled: true, ...availableInSpace(context) },
       },
       include: { server: true },
     });
@@ -968,11 +970,7 @@ export class McpConnector implements ConnectorProvider {
     try {
       const secret = server.secretId
         ? await this.prisma.secret.findFirst({
-            where: {
-              id: server.secretId,
-              spaceId: context.spaceId,
-              userId: context.userId,
-            },
+            where: { id: server.secretId, ...itemSecretIn(context) },
           })
         : null;
       let ref = secret?.ciphertext;

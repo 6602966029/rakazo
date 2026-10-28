@@ -1115,9 +1115,11 @@ describe("MCP server deletion", () => {
     const deleteSecrets = vi.fn().mockResolvedValue({ count: 0 });
     const prisma = {
       mcpServer: {
+        findMany: vi.fn(async () => []),
         findFirst: vi.fn().mockResolvedValue({ id: "server-1", secretId: "old-secret" }),
         delete: deleteServer,
       },
+      mcpServerSpace: { findMany: vi.fn(async () => []) },
       secret: { deleteMany: deleteSecrets },
       message: { findMany: vi.fn().mockResolvedValue([]) },
       $transaction: vi.fn(async (run: (tx: unknown) => Promise<unknown>) => run(prisma)),
@@ -1157,8 +1159,8 @@ describe("MCP server deletion", () => {
     expect(deleteSecrets).toHaveBeenCalledWith({
       where: {
         id: "old-secret",
-        spaceId: "workspace-1",
         userId: "user-1",
+        OR: [{ spaceId: "workspace-1" }, { spaceId: null }],
       },
     });
   });
@@ -1197,6 +1199,7 @@ describe("MCP prepared credential updates", () => {
     ]);
     const prisma = {
       mcpServer: {
+        findMany: vi.fn(async () => []),
         findFirst: async () => ({ ...server }),
         update: async ({
           data,
@@ -1207,6 +1210,7 @@ describe("MCP prepared credential updates", () => {
           return { ...server };
         },
       },
+      mcpServerSpace: { findMany: vi.fn(async () => []) },
       secret: {
         findFirst: async ({ where }: { where: { id: string } }) => rows.get(where.id) ?? null,
         create: async ({ data }: { data: { id: string; ciphertext: string } }) => {
@@ -1326,6 +1330,7 @@ describe("MCP pre-registered OAuth client", () => {
     }
     const prisma = {
       mcpServer: {
+        findMany: vi.fn(async () => []),
         findFirst: vi.fn(async () => (server ? { ...server } : null)),
         update: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
           const { revision: _revision, ...rest } = data;
@@ -1343,6 +1348,7 @@ describe("MCP pre-registered OAuth client", () => {
           return server;
         }),
       },
+      mcpServerSpace: { findMany: vi.fn(async () => []) },
       secret: {
         create: vi.fn(async ({ data }: { data: { id: string; ciphertext: string } }) => {
           secretRows.set(data.id, data);
@@ -1806,11 +1812,13 @@ describe("MCP loopback endpoints", () => {
     }));
     const prisma = {
       mcpServer: {
+        findMany: vi.fn(async () => []),
         create,
         findFirst: vi
           .fn()
           .mockResolvedValue({ id: "server-1", endpoint: LOOPBACK, secretId: null }),
       },
+      mcpServerSpace: { findMany: vi.fn(async () => []) },
       mcpOAuthSession: {
         count: vi.fn().mockResolvedValue(0),
         deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
@@ -1947,11 +1955,16 @@ describe("MCP server health", () => {
       await recordHealth(data);
       return { count: server ? 1 : 0 };
     });
-    const matches = (where: Row) =>
+    const matches = (where: Row): boolean =>
       Boolean(server) &&
-      Object.entries(where).every(([key, value]) => (server as Row)[key] === value);
+      Object.entries(where).every(([key, value]) =>
+        key === "OR"
+          ? (value as Row[]).some((branch) => matches(branch))
+          : (server as Row)[key] === value,
+      );
     const prisma = {
       mcpServer: {
+        findMany: vi.fn(async () => []),
         findFirst: vi.fn(async ({ where }: { where: Row }) =>
           matches(where) ? { ...server } : null,
         ),
@@ -1966,6 +1979,7 @@ describe("MCP server health", () => {
         }),
         updateMany,
       },
+      mcpServerSpace: { findMany: vi.fn(async () => []) },
       secret: { findFirst: vi.fn(), create: vi.fn(), deleteMany: vi.fn() },
       deploymentSettings: { findUnique: vi.fn().mockResolvedValue({ ownerUserId: "owner-1" }) },
       $executeRaw: vi.fn(async () => 1),
