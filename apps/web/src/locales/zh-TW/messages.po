@@ -3100,6 +3100,10 @@ msgstr "你會如何使用 Rakazo？"
 msgid "I’m done"
 msgstr "我做完了"
 
+#: src/pages/shell/avatar-studio-popover.tsx
+msgid "Icon set"
+msgstr ""
+
 #: src/pages/VoiceSettingsOverlay.tsx
 msgid "If you heard that, voice is ready."
 msgstr "如果聽到了，說明語音已就緒。"
@@ -4224,6 +4228,10 @@ msgstr "或貼上 API 金鑰"
 msgid "Organization API key"
 msgstr "組織 API 金鑰"
 
+#: src/pages/shell/avatar-studio-popover.tsx
+msgid "Original"
+msgstr ""
+
 #: src/pages/shell/chat-context.tsx
 msgid "Original message unavailable"
 msgstr "原訊息不可用"
@@ -4463,6 +4471,10 @@ msgstr "Pull request"
 #: src/pages/ActivityList.tsx
 msgid "Queued"
 msgstr "排隊中"
+
+#: src/pages/shell/avatar-studio-popover.tsx
+msgid "Rakazo"
+msgstr "Rakazo"
 
 #: src/components/ModelCredits.tsx
 #: src/pages/Onboarding.tsx

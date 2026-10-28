@@ -20,6 +20,7 @@ import type {
   AgentImportSource,
   AgentImportWarning,
   Bot,
+  BotAvatarSet,
   CreateRoutineInput as CreateRoutineInputType,
   McpServerConfigInput,
   MessageBlock,
@@ -69,6 +70,8 @@ export type AgentImportServices<PreparedKey = unknown> = {
       description: string;
       instructions: string;
       notifyOnFinish: boolean;
+      color?: string;
+      avatarSet?: BotAvatarSet;
       computerMode: AgentImportCreateInput["computerMode"];
       modelProvider: string | null;
       modelId: string | null;
@@ -750,6 +753,8 @@ export async function createImportedBot<PreparedKey>(
         description: input.description,
         instructions,
         notifyOnFinish: true,
+        color: input.color,
+        avatarSet: input.avatarSet ?? "organic",
         computerMode: input.computerMode,
         modelProvider: model?.provider ?? null,
         modelId: model?.modelId ?? null,
