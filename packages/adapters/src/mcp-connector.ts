@@ -62,7 +62,7 @@ import {
   parseNpxLaunch,
 } from "./mcp-package-installer.js";
 import type { McpServerHealthUpdate } from "./mcp-server-health.js";
-import { recordMcpServerHealth } from "./mcp-server-health.js";
+import { needsMcpOAuthClient, recordMcpServerHealth } from "./mcp-server-health.js";
 import { McpSession, mcpStdioRefusal } from "./mcp-transport.js";
 import type { RemoteTransportDependencies } from "./remote-mcp.js";
 import { ConnectorRedirectError } from "./remote-mcp.js";
@@ -160,11 +160,7 @@ function expectedFailure(error: unknown, depth = 0): ExpectedFailure | undefined
     return "unreachable";
   // The authorization server refused our client or grant, or cannot register a client at
   // all; the user signs in again or enters a pre-registered client.
-  if (
-    error instanceof OAuthError ||
-    error.message === "Incompatible auth server: does not support dynamic client registration"
-  )
-    return "reconnect";
+  if (error instanceof OAuthError || needsMcpOAuthClient(error)) return "reconnect";
   const code = (error as { code?: unknown }).code;
   if (code === "ENOTFOUND") return "reconnect";
   if (typeof code === "string" && UNREACHABLE_CODES.has(code)) return "unreachable";

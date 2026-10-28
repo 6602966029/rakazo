@@ -3860,6 +3860,11 @@ msgstr "ボットに名前を付ける"
 msgid "Needs an answer"
 msgstr "回答が必要"
 
+#: src/components/McpServerHealthLine.tsx
+#: src/lib/user-error.ts
+msgid "Needs an OAuth client ID"
+msgstr "OAuth クライアント ID が必要です"
+
 #: src/pages/ActivityList.tsx
 msgid "Needs input"
 msgstr "入力が必要"

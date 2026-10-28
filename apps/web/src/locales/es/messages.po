@@ -3860,6 +3860,11 @@ msgstr ""
 msgid "Needs an answer"
 msgstr ""
 
+#: src/components/McpServerHealthLine.tsx
+#: src/lib/user-error.ts
+msgid "Needs an OAuth client ID"
+msgstr "Necesita un ID de cliente OAuth"
+
 #: src/pages/ActivityList.tsx
 msgid "Needs input"
 msgstr "Necesita entrada"

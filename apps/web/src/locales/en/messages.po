@@ -3860,6 +3860,11 @@ msgstr "Name your Bot"
 msgid "Needs an answer"
 msgstr "Needs an answer"
 
+#: src/components/McpServerHealthLine.tsx
+#: src/lib/user-error.ts
+msgid "Needs an OAuth client ID"
+msgstr "Needs an OAuth client ID"
+
 #: src/pages/ActivityList.tsx
 msgid "Needs input"
 msgstr "Needs input"

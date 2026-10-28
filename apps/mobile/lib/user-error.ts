@@ -1,4 +1,8 @@
-import { CONNECTOR_AUTH_UNAVAILABLE, isVoiceAccountErrorCode } from "@rakazo/contracts";
+import {
+  CONNECTOR_AUTH_UNAVAILABLE,
+  isVoiceAccountErrorCode,
+  MCP_OAUTH_CLIENT_REQUIRED,
+} from "@rakazo/contracts";
 import type { CredentialField } from "@rakazo/core";
 import {
   authErrorMessage,
@@ -28,6 +32,7 @@ export function errorText(
     return t("Image input is not configured for this model.");
   if (errorCode(error) === CONNECTOR_AUTH_UNAVAILABLE)
     return t("This app needs its own sign-in setup to connect.");
+  if (errorCode(error) === MCP_OAUTH_CLIENT_REQUIRED) return t("Needs an OAuth client ID");
   return (
     voiceAccountErrorText(error) ??
     userErrorMessage(error, { fallback, offline: t("Could not reach the server") })

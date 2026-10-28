@@ -926,6 +926,7 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   Disabled: "已停用",
   "OAuth connected": "OAuth 已連線",
   "OAuth expired": "OAuth 已過期",
+  "Needs an OAuth client ID": "需要 OAuth 用戶端 ID",
   "Credential saved": "憑證已儲存",
   "No auth": "無驗證",
   "The bot couldn't reply because its provider's daily limit was reached.":
