@@ -1,5 +1,5 @@
 import type { BotSecretDestination } from "@rakazo/contracts";
-import { encodeLoginSecret } from "@rakazo/contracts";
+import { BOT_SECRET_ORIGIN_MISSING_MESSAGE, encodeLoginSecret } from "@rakazo/contracts";
 import { redactSecrets } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
 import * as Logging from "@rakazo/logging";
@@ -688,6 +688,12 @@ describe("normalizeSecretDestination", () => {
     expect(() =>
       normalizeSecretDestination({ ...lanDestination, origin: "http://api.example.test" }),
     ).toThrow();
+  });
+
+  it("says a login's origin is missing when the model leaves it out", () => {
+    expect(() =>
+      normalizeSecretDestination({ name: "example-login", auth: { type: "login" } }),
+    ).toThrow(`origin: ${BOT_SECRET_ORIGIN_MISSING_MESSAGE}`);
   });
 
   it("names the failing field instead of a generic instruction", () => {
