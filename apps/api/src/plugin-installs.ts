@@ -158,7 +158,7 @@ async function addServers(
   }
 }
 
-function lockPluginInstalls(tx: Prisma.TransactionClient, actor: Actor) {
+export function lockPluginInstalls(tx: Prisma.TransactionClient, actor: Actor) {
   // Serialize installs for this actor, including same-source duplicates. A
   // transaction-scoped advisory lock avoids an extra global uniqueness policy
   // on capability_installs (other kinds deliberately allow multiple sources).

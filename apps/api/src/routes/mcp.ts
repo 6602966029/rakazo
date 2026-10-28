@@ -42,7 +42,7 @@ import {
   promptFocus,
   startOnboarding,
 } from "../onboarding.js";
-import { installPlugin, setPluginParts } from "../plugin-installs.js";
+import { installPlugin, lockPluginInstalls, setPluginParts } from "../plugin-installs.js";
 import type { RouterContext } from "./context.js";
 import { computerContext, isUniqueViolation } from "./shared.js";
 
@@ -65,6 +65,9 @@ export function mcpRoutes(ctx: RouterContext) {
   const removeInstall = async (actor: Actor, id: string) => {
     const notify: Array<{ threadId: string; seq: number }> = [];
     await deps.prisma.$transaction(async (tx) => {
+      // Parts changes hold this lock while adding children; reading them without it could
+      // miss a connector committed meanwhile and leave its secret behind.
+      await lockPluginInstalls(tx, actor);
       const existing = await tx.capabilityInstall.findFirst({
         where: {
           id,

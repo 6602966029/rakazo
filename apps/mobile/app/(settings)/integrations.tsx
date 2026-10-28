@@ -214,7 +214,17 @@ export default function Integrations() {
     () => browsablePlugins(pluginEntries, catalog),
     [pluginEntries, catalog],
   );
-  const categories = useMemo(() => pluginCategories(plugins), [plugins]);
+  // Managed apps standing in for a plugin keep that plugin's category, so a category lists them too.
+  const mergedBrands = catalog.flatMap((item) => {
+    const entry = pluginForApp.get(catalogItemKey(item));
+    return entry ? [{ item, entry }] : [];
+  });
+  const categories = pluginCategories([...plugins, ...mergedBrands.map(({ entry }) => entry)]);
+  const brandMatches = category
+    ? mergedBrands.filter(
+        ({ entry }) => entry.category === (category === OTHER_PLUGINS ? null : category),
+      )
+    : [];
   const pluginMatches = filterPlugins(plugins, query, category || null, categoryLabel);
   const filtering = Boolean(query.trim() || category);
   const installedSources = new Set(pluginInstalls.map((install) => install.source));
@@ -627,11 +637,12 @@ export default function Integrations() {
       return (
         <>
           {failed}
-          {pluginMatches.length ? (
+          {pluginMatches.length || brandMatches.length ? (
             <View
               testID="plugin-results"
               style={catalogColumns === 2 ? styles.catalogGrid : styles.catalogStack}
             >
+              {brandMatches.map(({ item }) => renderCatalogTile(item, item.name))}
               {pluginMatches.slice(0, pluginCount).map(renderPluginRow)}
             </View>
           ) : null}
@@ -654,7 +665,7 @@ export default function Integrations() {
       ...(uncategorized.length
         ? [[OTHER_PLUGINS, uncategorized] as [string, PluginMarketplaceEntry[]]]
         : []),
-    ];
+    ].filter(([, entries]) => entries.length);
     return (
       <>
         {failed}
@@ -1389,6 +1400,7 @@ export default function Integrations() {
                 {catalogReady &&
                 catalogApps.length === 0 &&
                 pluginMatches.length === 0 &&
+                brandMatches.length === 0 &&
                 savedServerMatches.length === 0 &&
                 pluginsState !== "loading" &&
                 filtering ? (

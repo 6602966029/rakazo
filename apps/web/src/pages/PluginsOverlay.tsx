@@ -317,9 +317,21 @@ export function PluginsOverlay({
     ops: t`Security & Ops`,
   };
   const categoryLabel = (name: string) => categoryLabels[name as PluginCategory] ?? name;
-  const categories: string[] = PLUGIN_CATEGORIES.filter((name) =>
-    plugins.some((entry) => entry.category === name),
+  // Managed apps standing in for a plugin keep that plugin's category, so a category lists them too.
+  const mergedBrands = catalog.flatMap((item) => {
+    const entry = pluginForApp.get(catalogItemKey(item));
+    return entry ? [{ item, entry }] : [];
+  });
+  const categories: string[] = PLUGIN_CATEGORIES.filter(
+    (name) =>
+      plugins.some((entry) => entry.category === name) ||
+      mergedBrands.some(({ entry }) => entry.category === name),
   );
+  const brandMatches = category
+    ? mergedBrands.filter(
+        ({ entry }) => entry.category === (category === OTHER_PLUGINS ? null : category),
+      )
+    : [];
   const searching = query.trim().length > 0;
   const pluginMatches = plugins.filter(
     (entry) =>
@@ -885,9 +897,10 @@ export function PluginsOverlay({
 
   function renderPluginResults() {
     if (category || searching)
-      return pluginMatches.length ? (
+      return pluginMatches.length || brandMatches.length ? (
         <section data-testid="plugin-results" className="mt-2">
           <div className="grid grid-cols-2 gap-2">
+            {brandMatches.map(({ item }) => renderCatalogTile(item, item.name, item.logo))}
             {pluginMatches.slice(0, pluginCount).map(renderPluginRow)}
           </div>
           {pluginCount < pluginMatches.length ? (
@@ -919,7 +932,7 @@ export function PluginsOverlay({
       ...(uncategorized.length
         ? [[OTHER_PLUGINS, t`More`, uncategorized] as [string, string, PluginMarketplaceEntry[]]]
         : []),
-    ];
+    ].filter(([, , entries]) => entries.length);
     return (
       <>
         {recommended.length ? (
@@ -1670,12 +1683,20 @@ export function PluginsOverlay({
                 </div>
               ) : null}
 
-              {catalogLoaded && catalog.length === 0 && !showFeatured && !pluginMatches.length ? (
+              {catalogLoaded &&
+              catalog.length === 0 &&
+              !showFeatured &&
+              !pluginMatches.length &&
+              !brandMatches.length ? (
                 <p className="text-muted-foreground/80">
                   <Trans>No managed app catalog is configured on this deployment.</Trans>
                 </p>
               ) : null}
-              {catalogLoaded && visible.length === 0 && !showFeatured && !pluginMatches.length ? (
+              {catalogLoaded &&
+              visible.length === 0 &&
+              !showFeatured &&
+              !pluginMatches.length &&
+              !brandMatches.length ? (
                 <p className="text-muted-foreground/80">
                   <Trans>No apps match your search.</Trans>
                 </p>
