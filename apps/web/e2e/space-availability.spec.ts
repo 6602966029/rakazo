@@ -1,11 +1,19 @@
 import { expect, test } from "@playwright/test";
-import { captureScreenshot, completeOnboarding, openNewSpace, rpc, signup } from "./helpers";
+import {
+  activeBotId,
+  captureScreenshot,
+  completeOnboarding,
+  openNewSpace,
+  rpc,
+  signup,
+} from "./helpers";
 
 test("a new space chooses what it can use, and a skill can be limited to some spaces", async ({
   page,
 }, testInfo) => {
   await signup(page, `availability-${Date.now()}@rakazo.test`, "password12", "Space Owner");
   await completeOnboarding(page);
+  const chiefId = activeBotId(page);
   await rpc(page, "agentSkills/create", {
     content: [
       "---",
@@ -32,15 +40,9 @@ test("a new space chooses what it can use, and a skill can be limited to some sp
   await chooser.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(chooser).toHaveCount(0);
 
-  // Personal's Chief comes first in the sidebar; its Skills shows where the skill now lives.
-  const personalChief = page
-    .locator("aside")
-    .first()
-    .getByRole("button", { name: /^Chief/ })
-    .first();
-  await personalChief.click();
-  // Switching spaces remounts the shell, which would close a Skills dialog opened before it lands.
-  await expect(personalChief).toHaveAttribute("aria-current", "page");
+  // Continue switches to the new space in the background; a full load of Personal's Chief cannot race it.
+  await page.goto(`/app/${chiefId}`);
+  await expect(page.getByRole("combobox", { name: "Message Chief" })).toBeVisible();
   await page.getByTestId("user-menu-trigger").click();
   await page.getByRole("button", { name: "Skills", exact: true }).click();
   const skills = page.getByRole("dialog", { name: "Skills", exact: true });

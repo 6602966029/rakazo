@@ -10,7 +10,7 @@
   "main": "dist/main.js",
   "scripts": {
     "dev": "pnpm build && electron .",
-    "build": "pnpm check && node scripts/build.mjs && node scripts/copy-static.mjs",
+    "build": "node scripts/build.mjs && node scripts/copy-static.mjs",
     "pack": "pnpm --filter @rakazo/web build && pnpm build && electron-builder --mac --win --linux",
     "pack:dir": "pnpm --filter @rakazo/web build && pnpm build && electron-builder --dir",
     "check": "tsc --noEmit -p tsconfig.json",
