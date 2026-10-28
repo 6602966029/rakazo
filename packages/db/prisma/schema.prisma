@@ -273,6 +273,8 @@ model Referral {
   cardFingerprint        String?      @unique
   outcome                String?
   rewardedAt             DateTime?
+  rewardKind             String?
+  declinedAt             DateTime?
 
   @@index([referrerOrganizationId])
   @@map("referrals")

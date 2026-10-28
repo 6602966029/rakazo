@@ -5,7 +5,6 @@ import { BYOK_MONTHLY_PRICE_CENTS } from "@rakazo/contracts";
 import type { PrismaClient } from "@rakazo/db";
 import {
   billingAccountForOrganization,
-  byokFreeUntil,
   hasBillingAccess,
   Prisma,
   reconcileCreditPurchase,
@@ -14,7 +13,6 @@ import { getLogger } from "@rakazo/logging";
 
 const CODE_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
 const CODE_LENGTH = 8;
-const FREE_MONTH_MS = 30 * 86_400_000;
 
 type Outcome = "declined" | "balance" | "credits" | "free_period";
 
@@ -49,24 +47,26 @@ export function createReferrals(deps: {
 
   /** Saves the outcome once and returns the stored one, which a concurrent settle may have set. */
   async function decide(organizationId: string, outcome: Outcome, cardFingerprint: string) {
+    const undecided = { organizationId, outcome: null, rewardKind: null, declinedAt: null };
     try {
       await prisma.referral.updateMany({
-        where: { organizationId, outcome: null },
-        data: { outcome, cardFingerprint },
+        where: undecided,
+        data: { ...withLegacyColumns(outcome), cardFingerprint },
       });
     } catch (error) {
       if (!isUniqueViolation(error)) throw error;
       // Another referral was already settled with this card.
       await prisma.referral.updateMany({
-        where: { organizationId, outcome: null },
-        data: { outcome: "declined" },
+        where: undecided,
+        data: withLegacyColumns("declined"),
       });
     }
-    const stored = await prisma.referral.findUniqueOrThrow({
-      where: { organizationId },
-      select: { outcome: true },
-    });
-    return stored.outcome;
+    return storedOutcome(
+      await prisma.referral.findUniqueOrThrow({
+        where: { organizationId },
+        select: { outcome: true, rewardKind: true, declinedAt: true },
+      }),
+    );
   }
 
   async function extendFreePeriod(organizationId: string, referrerOrganizationId: string) {
@@ -76,16 +76,16 @@ export function createReferrals(deps: {
         data: { rewardedAt: new Date() },
       });
       if (marked.count === 0) return;
-      const credits = await tx.modelCreditAccount.upsert({
+      await tx.modelCreditAccount.upsert({
         where: { organizationId: referrerOrganizationId },
         create: { organizationId: referrerOrganizationId },
         update: {},
       });
-      const from = byokFreeUntil(credits)?.getTime() ?? Date.now();
-      await tx.modelCreditAccount.update({
-        where: { organizationId: referrerOrganizationId },
-        data: { byokFreeUntil: new Date(from + FREE_MONTH_MS) },
-      });
+      // One statement, so concurrent rewards each add their month.
+      await tx.$executeRaw`
+        UPDATE model_credit_accounts
+        SET "byokFreeUntil" = GREATEST(COALESCE("byokFreeUntil", now()), now()) + interval '30 days'
+        WHERE "organizationId" = ${referrerOrganizationId}`;
     });
   }
 
@@ -127,6 +127,8 @@ export function createReferrals(deps: {
           where: { organizationId },
           select: {
             outcome: true,
+            rewardKind: true,
+            declinedAt: true,
             rewardedAt: true,
             referrerOrganizationId: true,
             referrer: { select: { billing: true, modelCredits: { select: { mode: true } } } },
@@ -134,7 +136,7 @@ export function createReferrals(deps: {
         });
         if (!referral || referral.rewardedAt) return;
         const { billing, modelCredits } = referral.referrer;
-        let outcome = referral.outcome;
+        let outcome = storedOutcome(referral);
         if (!outcome) {
           const referrerCard =
             billing &&
@@ -172,6 +174,23 @@ export function createReferrals(deps: {
       }
     },
   };
+}
+
+// The previous release reads rewardKind and declinedAt; both go once it no longer runs.
+function withLegacyColumns(outcome: Outcome) {
+  return {
+    outcome,
+    ...(outcome === "declined" ? { declinedAt: new Date() } : {}),
+    ...(outcome === "balance" || outcome === "credits" ? { rewardKind: outcome } : {}),
+  };
+}
+
+function storedOutcome(row: {
+  outcome: string | null;
+  rewardKind: string | null;
+  declinedAt: Date | null;
+}) {
+  return row.outcome ?? row.rewardKind ?? (row.declinedAt ? "declined" : null);
 }
 
 function isUniqueViolation(error: unknown) {

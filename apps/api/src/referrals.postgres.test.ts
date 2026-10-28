@@ -119,6 +119,30 @@ dbTests("referrals", () => {
     await expect(service.status(referrer)).resolves.toMatchObject({ referral: { rewards: 1 } });
   });
 
+  it("adds a month for each of two friends settling at the same time", async () => {
+    const referrer = await newOrganization("concurrent");
+    const code = await inviteCode(referrer);
+    const friends = await Promise.all([
+      newOrganization("concurrent-a"),
+      newOrganization("concurrent-b"),
+    ]);
+    const customers: string[] = [];
+    for (const friend of friends) {
+      await service.claimReferral(friend, code);
+      await service.selectFunding(friend, "byok");
+      const { customerId } = (await billingAccountForOrganization(prisma, friend.organizationId))!;
+      provider.completeByokCheckout(customerId);
+      customers.push(customerId);
+    }
+    const before = Date.now();
+    await Promise.all(customers.map((customerId) => service.sync(customerId)));
+    const credits = await prisma.modelCreditAccount.findUniqueOrThrow({
+      where: { organizationId: referrer.organizationId },
+    });
+    expect(credits.byokFreeUntil!.getTime()).toBeGreaterThanOrEqual(before + 60 * 86_400_000);
+    await expect(service.status(referrer)).resolves.toMatchObject({ referral: { rewards: 2 } });
+  });
+
   it("finishes a reward a restart interrupted without granting it twice", async () => {
     const referrer = await newOrganization("restart-referrer");
     const referrerCustomer = await startTrial(referrer);
