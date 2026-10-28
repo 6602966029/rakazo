@@ -23,6 +23,7 @@ import {
   isApprovalAskBlock,
   isConversationalRun,
   isSecretAskBlock,
+  messageBypassesTakeoverWait,
   messageReaction,
   messagingChannelId,
   normalizeRunError,
@@ -510,12 +511,15 @@ export async function sendUserMessage(
                   in: [...QUEUE_HOLDING_RUN_STATUSES],
                 },
               },
-              select: { id: true, taskId: true, trigger: true },
+              select: { id: true, taskId: true, trigger: true, status: true },
             })
           : [];
+      const holdingRuns = activeRuns.filter(
+        (run) => !messageBypassesTakeoverWait(run, input.trigger !== "webhook"),
+      );
       // Steer a conversational run when there is one; a routine, webhook, or intro turn only holds the queue.
       const busy =
-        activeRuns.find((run) => isConversationalRun(run.trigger)) ?? activeRuns[0] ?? null;
+        holdingRuns.find((run) => isConversationalRun(run.trigger)) ?? holdingRuns[0] ?? null;
       let task = null;
       let run = null;
       if (createRun && !busy) {
@@ -2059,7 +2063,7 @@ async function notifyCommittedEvent(
   });
 }
 
-async function notifyRealtime(
+export async function notifyRealtime(
   realtime: RealtimeFanout | undefined,
   threadId: string,
   cursor: number,
