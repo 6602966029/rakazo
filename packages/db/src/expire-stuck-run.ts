@@ -32,7 +32,7 @@ export interface ExpireStuckRunResult {
 /**
  * Cancel one aged queued run or human wait. Sets `error` to the status line so
  * a stuck cancel can be told from a user stop, which leaves error empty.
- * Returns null when the row already moved on, or when the user is on the screen
+ * Returns null when the row already moved on, or when the user has taken the screen
  * for a takeover wait: handing the screen back or its expiry resumes that run.
  */
 export async function expireStuckRun(
@@ -52,10 +52,7 @@ export async function expireStuckRun(
   ) {
     return null;
   }
-  if (
-    input.status === "waiting_takeover" &&
-    (await userHasTakeoverScreen(tx, input.runId, input.now))
-  ) {
+  if (input.status === "waiting_takeover" && (await userHasTakeoverScreen(tx, input.runId))) {
     return null;
   }
   const cancelled = await tx.run.updateMany({
@@ -192,36 +189,23 @@ export async function endTakeoverWaits(
 }
 
 /**
- * Whether the user holds an unexpired lease on this bot's screen. Locks the computer row, so a
- * concurrent takeover grant either lands first and is seen here, or waits for this cancel.
+ * Whether the user has taken this bot's screen. Any control lease still on the row counts, even
+ * an expired one or one mid-release: releasing it resumes the waiting run, which a cancel here
+ * would prevent. Locks the computer row, so a concurrent takeover grant either lands first and
+ * is seen here, or waits for this cancel.
  */
 async function userHasTakeoverScreen(
   tx: Prisma.TransactionClient,
   runId: string,
-  now: Date,
 ): Promise<boolean> {
   const [computer] = await tx.$queryRaw<
-    Array<{
-      botId: string;
-      controlHolder: string;
-      controlBotId: string | null;
-      controlRunId: string | null;
-      controlLeaseId: string | null;
-      controlLeaseExpiresAt: Date | null;
-    }>
+    Array<{ botId: string; controlBotId: string | null; controlLeaseId: string | null }>
   >`
-    SELECT r."botId", c."controlHolder", c."controlBotId", c."controlRunId",
-           c."controlLeaseId", c."controlLeaseExpiresAt"
+    SELECT r."botId", c."controlBotId", c."controlLeaseId"
     FROM runs r
     JOIN bots b ON b.id = r."botId"
     JOIN computers c ON c.id = b."computerId"
     WHERE r.id = ${runId}
     FOR UPDATE OF c`;
-  return Boolean(
-    computer?.controlHolder === "user" &&
-      computer.controlLeaseId &&
-      computer.controlLeaseExpiresAt &&
-      computer.controlLeaseExpiresAt.getTime() > now.getTime() &&
-      (computer.controlRunId === runId || computer.controlBotId === computer.botId),
-  );
+  return Boolean(computer?.controlLeaseId && computer.controlBotId === computer.botId);
 }

@@ -583,6 +583,24 @@ describePostgres("chat replies during screen takeover (PostgreSQL)", () => {
     expect(await fixture.control()).toEqual(before);
   });
 
+  it("keeps a taken wait whose screen time ran out until the release resumes it", async () => {
+    const fixture = await setup("opened", "routine");
+    await system.computer.update({
+      where: { id: fixture.computer.id },
+      data: { controlLeaseExpiresAt: new Date(Date.now() - 1_000) },
+    });
+    expect(await endWaits([fixture.run.id])).toBe(0);
+    // The expiry job is midway: input denied, provider revocation still pending.
+    await system.computer.update({
+      where: { id: fixture.computer.id },
+      data: { controlHolder: "none" },
+    });
+    expect(await endWaits([fixture.run.id])).toBe(0);
+    expect(await system.run.findUniqueOrThrow({ where: { id: fixture.run.id } })).toMatchObject({
+      status: "waiting_takeover",
+    });
+  });
+
   it("refuses a takeover grant that races the end of the wait", async () => {
     const fixture = await setup("unopened");
     const response = await fixture.takeover(() => endWaits([fixture.run.id]));
