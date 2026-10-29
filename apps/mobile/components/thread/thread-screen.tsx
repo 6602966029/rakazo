@@ -25,7 +25,6 @@ import type { MobileArtifactTarget } from "../../lib/artifact-open";
 import { useCallSession } from "../../lib/call-session";
 import { cronLabels } from "../../lib/cron";
 import { useI18n } from "../../lib/i18n";
-import { useKeyboardLayout } from "../../lib/keyboard-layout";
 import { useThemedStyles } from "../../lib/native";
 import { useInboxBot } from "../../lib/search-inbox";
 import { useSplitView } from "../../lib/split-view";
@@ -35,7 +34,7 @@ import { threadHeaderClearance, threadHeaderFloats } from "../../lib/thread-edge
 import { useThreadFeedback } from "../../lib/thread-feedback";
 import { useThreadFocus } from "../../lib/thread-focus";
 import { useThreadSnapshot } from "../../lib/thread-history";
-import { threadKeyboardOffset } from "../../lib/thread-keyboard-offset";
+import { threadKeyboardAvoidance } from "../../lib/thread-keyboard-offset";
 import { useThreadListScroll } from "../../lib/thread-list-scroll";
 import { useThreadMentionCatalog } from "../../lib/thread-mention-catalog";
 import { useThreadPaging } from "../../lib/thread-paging";
@@ -76,7 +75,6 @@ function isActiveStatus(status: string | undefined): boolean {
  * effects at the positions the screen ran them before they were split out.
  */
 export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId: string }) {
-  const keyboardLayout = useKeyboardLayout();
   const tokens = mobileTokens();
   const styles = useThemedStyles(createThreadHeaderStyles);
   const { t, locale } = useI18n();
@@ -524,16 +522,15 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
   );
 
   return (
-    <View ref={keyboardLayout.container} onLayout={keyboardLayout.onLayout} style={{ flex: 1 }}>
+    <View style={{ flex: 1 }}>
       <KeyboardAvoidingView
         // Padding always settles to zero. "height" stays shrunk when the keyboard hides without
         // move frames, such as when a pushed screen closes with its own keyboard up.
         behavior="padding"
-        keyboardVerticalOffset={threadKeyboardOffset({
+        {...threadKeyboardAvoidance({
           os: Platform.OS,
           floatingHeader: threadHeaderFloats(),
           nativeHeaderHeight,
-          measuredOffset: keyboardLayout.offset,
         })}
         style={{
           flex: 1,
@@ -583,7 +580,6 @@ export function Thread({ sessionEpoch, userId }: { sessionEpoch: number; userId:
           }
         >
           <ThreadComposer
-            onFocus={keyboardLayout.onFocus}
             key={threadKey}
             ref={composer.composerRef}
             agentSkills={agentSkills}
