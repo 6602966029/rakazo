@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { ModelBackupChoice, ModelCatalogEntry, ModelCredential } from "./domain.js";
-import { connectedBackupOptions, moveBackupChoice, sameBackupChoices } from "./model-backups.js";
+import {
+  connectedBackupOptions,
+  connectionDisplayName,
+  modelRoleChoiceKey,
+  moveBackupChoice,
+  sameBackupChoices,
+  withConnectionName,
+} from "./model-backups.js";
 
 const catalog: ModelCatalogEntry[] = [
   {
@@ -62,6 +69,15 @@ const choices: ModelBackupChoice[] = [
 ];
 
 describe("connected backup model choices", () => {
+  it("treats the catalog's provider name as a default label", () => {
+    const credential = { provider: "anthropic", label: "Anthropic", baseUrl: undefined };
+    expect(connectionDisplayName(credential, "Claude subscription", ["Anthropic"])).toBe(
+      "Claude subscription",
+    );
+    expect(connectionDisplayName({ ...credential, label: "Work" }, "Claude subscription")).toBe(
+      "Claude subscription (Work)",
+    );
+  });
   it("offers only non-placeholder catalog models for connected providers", () => {
     expect(connectedBackupOptions(catalog, credentials)).toEqual([
       {
@@ -69,18 +85,24 @@ describe("connected backup model choices", () => {
         modelId: "claude-sonnet",
         label: "Claude Sonnet",
         providerName: "Anthropic",
+        credentialId: "cred-anthropic",
+        connectionName: "Anthropic",
       },
       {
         provider: "anthropic",
         modelId: "claude-haiku",
         label: "Claude Haiku",
         providerName: "Anthropic",
+        credentialId: "cred-anthropic",
+        connectionName: "Anthropic",
       },
       {
         provider: "openai-compatible",
         modelId: "custom-model",
         label: "custom-model",
         providerName: "openai-compatible",
+        credentialId: "cred-openai-compatible",
+        connectionName: "openai-compatible (Local server)",
       },
     ]);
   });
@@ -129,16 +151,122 @@ describe("connected backup model choices", () => {
       },
     ];
 
-    expect(connectedBackupOptions(mobileCatalog, mobileCredentials)).toEqual([
-      { provider: "anthropic", modelId: "sonnet", label: "Sonnet", providerName: "Anthropic" },
-      { provider: "anthropic", modelId: "haiku", label: "Haiku", providerName: "Anthropic" },
+    expect(
+      connectedBackupOptions(mobileCatalog, mobileCredentials).map(
+        ({ provider, modelId, credentialId }) => ({ provider, modelId, credentialId }),
+      ),
+    ).toEqual([
+      { provider: "anthropic", modelId: "sonnet", credentialId: "anthropic-credential" },
+      { provider: "anthropic", modelId: "haiku", credentialId: "anthropic-credential" },
+      {
+        provider: "openai-compatible",
+        modelId: "custom-model",
+        credentialId: "compatible-credential",
+      },
+    ]);
+  });
+
+  it("offers one compatible option per enabled model id", () => {
+    const enabled = credentials.map((credential) =>
+      credential.provider === "openai-compatible"
+        ? { ...credential, enabledModelIds: ["custom-model", "custom-from-catalog"] }
+        : credential,
+    );
+    expect(
+      connectedBackupOptions(catalog, enabled).filter(
+        (option) => option.provider === "openai-compatible",
+      ),
+    ).toMatchObject([
       {
         provider: "openai-compatible",
         modelId: "custom-model",
         label: "custom-model",
         providerName: "openai-compatible",
       },
+      {
+        provider: "openai-compatible",
+        modelId: "custom-from-catalog",
+        label: "Custom from catalog",
+        providerName: "OpenAI-compatible",
+      },
     ]);
+  });
+
+  it("offers each compatible connection's own enabled ids", () => {
+    const connection = credentials[1]!;
+    expect(
+      connectedBackupOptions(
+        [],
+        [
+          { ...connection, modelId: undefined, enabledModelIds: ["a", "b"] },
+          { ...connection, id: "second", modelId: undefined, enabledModelIds: ["b", "c"] },
+          { ...connection, id: "empty", modelId: undefined },
+        ],
+      ).map((option) => [option.credentialId, option.modelId]),
+    ).toEqual([
+      ["cred-openai-compatible", "a"],
+      ["cred-openai-compatible", "b"],
+      ["second", "b"],
+      ["second", "c"],
+    ]);
+  });
+
+  it("offers a provider's models once per connection, named by the connection", () => {
+    const work: ModelCredential = {
+      ...credentials[0]!,
+      id: "cred-anthropic-work",
+      label: "Work",
+      isDefault: false,
+    };
+    const options = connectedBackupOptions(catalog, [credentials[0]!, work]).filter(
+      (option) => option.provider === "anthropic",
+    );
+    expect(options.map((option) => [option.connectionName, option.modelId])).toEqual([
+      ["Anthropic", "claude-sonnet"],
+      ["Anthropic", "claude-haiku"],
+      ["Anthropic (Work)", "claude-sonnet"],
+      ["Anthropic (Work)", "claude-haiku"],
+    ]);
+    expect(new Set(options.map(modelRoleChoiceKey)).size).toBe(4);
+  });
+
+  it("offers a model only under the connections that can run it", () => {
+    const work: ModelCredential = { ...credentials[0]!, id: "cred-anthropic-work", label: "Work" };
+    const limited = catalog.map((entry) =>
+      entry.id === "claude-haiku" ? { ...entry, credentialIds: [work.id] } : entry,
+    );
+    expect(
+      connectedBackupOptions(limited, [credentials[0]!, work])
+        .filter((option) => option.provider === "anthropic")
+        .map((option) => [option.credentialId, option.modelId]),
+    ).toEqual([
+      ["cred-anthropic", "claude-sonnet"],
+      ["cred-anthropic-work", "claude-sonnet"],
+      ["cred-anthropic-work", "claude-haiku"],
+    ]);
+  });
+
+  it("offers deployment-managed models only while the provider has no connection", () => {
+    const managed: ModelCatalogEntry = { ...catalog[2]!, managed: true };
+    expect(connectedBackupOptions([managed], [])).toEqual([
+      {
+        provider: "unconnected",
+        modelId: "model-1",
+        label: "Model 1",
+        providerName: "Unconnected",
+        connectionName: "Unconnected",
+      },
+    ]);
+  });
+
+  it("names a connection by its label, adding the provider when the label omits it", () => {
+    const base = { provider: "openai-codex", label: "ChatGPT" };
+    expect(connectionDisplayName(base, "ChatGPT")).toBe("ChatGPT");
+    expect(connectionDisplayName({ ...base, label: "ChatGPT 2" }, "ChatGPT")).toBe("ChatGPT 2");
+    expect(connectionDisplayName({ ...base, label: "me@example.com" }, "ChatGPT")).toBe(
+      "ChatGPT (me@example.com)",
+    );
+    expect(connectionDisplayName({ ...base, label: "openai-codex" }, "ChatGPT")).toBe("ChatGPT");
   });
 
   it("moves a backup one place without changing the source list", () => {
@@ -178,4 +306,13 @@ it("keeps saved Azure connections available for backup selection", () => {
     ),
   ).toMatchObject([current]);
   expect(sameBackupChoices([legacy], [current])).toBe(true);
+});
+
+describe("withConnectionName", () => {
+  it("names the connection after the model without nesting brackets", () => {
+    expect(withConnectionName("Claude Sonnet", "OpenRouter")).toBe("Claude Sonnet (OpenRouter)");
+    expect(withConnectionName("Claude Sonnet", "OpenRouter (Work)")).toBe(
+      "Claude Sonnet (OpenRouter, Work)",
+    );
+  });
 });

@@ -5,6 +5,7 @@ import {
   sandboxCheckFailureMessage,
   sandboxEnvGuidanceLines,
   sandboxEnvGuidanceText,
+  sandboxProviderLabel,
 } from "./computer-sandbox.js";
 
 describe("computersAreUnavailable", () => {
@@ -26,6 +27,8 @@ describe("classifySandboxProvider", () => {
     expect(classifySandboxProvider(null)).toBe("none");
     expect(classifySandboxProvider("docker")).toBe("docker");
     expect(classifySandboxProvider("e2b")).toBe("hosted");
+    expect(classifySandboxProvider("novita")).toBe("hosted");
+    expect(sandboxProviderLabel("novita")).toBe("Novita");
   });
 });
 
@@ -38,8 +41,10 @@ describe("sandboxEnvGuidanceText", () => {
       "SANDBOX_PROVIDER=docker",
     ]);
     expect(text).toContain("# SANDBOX_PROVIDER=e2b");
+    expect(text).toContain("# SANDBOX_PROVIDER=novita");
+    expect(text).toContain("# Build template: pnpm sandbox:novita-template");
     expect(text).toContain("# SANDBOX_PROVIDER=daytona");
-    expect(text).toContain("# SANDBOX_PROVIDER=box");
+    expect(text).toContain("# SANDBOX_PROVIDER=boat");
   });
 });
 

@@ -48,6 +48,11 @@
   const PULL_SCALE_BYTES = 1.2e9;
 
   let defaultLocalUrl = "";
+  let cloudUrl = "";
+  /** Bumped on user edits, mode switches, and new async runs; a run left behind is stale. */
+  let requestGeneration = 0;
+  /** Generation of the check in flight; an edit or mode switch retires it and releases its lock. */
+  let activeCheck = 0;
   let stackPolling = false;
   let lastStack = null;
   let lastProgress = 0;
@@ -59,7 +64,7 @@
 
   function selectedMode() {
     const checked = form.querySelector('input[name="mode"]:checked');
-    return checked === null ? "new" : checked.value;
+    return checked === null ? "cloud" : checked.value;
   }
 
   function setStatus(message, tone) {
@@ -81,8 +86,8 @@
   function syncPanels() {
     const mode = selectedMode();
     panelNew.hidden = mode !== "new";
-    panelExisting.hidden = mode === "new";
-    checkButton.hidden = mode === "new";
+    panelExisting.hidden = mode !== "existing";
+    checkButton.hidden = mode !== "existing";
     if (mode !== "new") continueButton.textContent = "Continue";
     setStatus("");
   }
@@ -175,6 +180,7 @@
   }
 
   async function save(mode, url) {
+    const generation = ++requestGeneration;
     setBusy(true);
     lockMode(true);
     setStatus("Connecting…");
@@ -185,7 +191,8 @@
       setStatus("Could not save that address. Try again.", "error");
     } finally {
       lockMode(false);
-      setBusy(false);
+      // A newer run may own the controls by now; only their owner unlocks them.
+      if (generation === requestGeneration) setBusy(false);
     }
   }
 
@@ -231,23 +238,31 @@
         await waitForStackChange();
       }
     } catch {
-      setStatus("Could not follow the local stack. Try again.", "error");
-      setBusy(false);
+      // Only report a follow the person still sees; leaving "new" already handed the form back.
+      if (selectedMode() === "new") {
+        setStatus("Could not follow the local stack. Try again.", "error");
+        setBusy(false);
+      }
     } finally {
       stackPolling = false;
     }
   }
 
   async function runStack() {
+    const generation = ++requestGeneration;
     setStatus("");
     setBusy(true);
     try {
       // A queued start still reads `idle`; leave the panel as it is and let the follow render it.
       const started = await bridge.stack.start();
+      // The person left "This computer" mid-start; the next pushed state re-attaches the follow.
+      if (generation !== requestGeneration) return;
       if (started !== null && started.phase !== "idle") renderStack(started);
     } catch {
-      setStatus("Could not start the local stack. Try again.", "error");
-      setBusy(false);
+      if (generation === requestGeneration) {
+        setStatus("Could not start the local stack. Try again.", "error");
+        setBusy(false);
+      }
       return;
     }
     await followStack();
@@ -260,10 +275,14 @@
       return null;
     }
 
+    const generation = ++requestGeneration;
+    activeCheck = generation;
     setBusy(true);
     setStatus("Checking…");
     try {
       const result = await bridge.test(value);
+      // The address or the mode changed under the test, so its result speaks for neither.
+      if (generation !== requestGeneration) return result;
       if (result.ok) {
         serverUrl.value = result.url;
         setStatus(`Rakazo answered at ${result.url}.`, "ok");
@@ -272,19 +291,38 @@
       }
       return result;
     } catch {
-      setStatus("Could not run the connection check. Try again.", "error");
+      if (generation === requestGeneration) {
+        setStatus("Could not run the connection check. Try again.", "error");
+      }
       return null;
     } finally {
-      setBusy(false);
+      if (activeCheck === generation) activeCheck = 0;
+      // Only the run that still owns the controls may unlock them.
+      if (generation === requestGeneration) setBusy(false);
     }
   }
 
   form.addEventListener("change", (event) => {
     if (event.target instanceof HTMLInputElement && event.target.name === "mode") {
+      requestGeneration++;
+      // The interrupted check completes stale and stays silent, so retire its lock here.
+      const interruptedCheck = activeCheck !== 0;
+      activeCheck = 0;
       syncPanels();
-      // Unlock Continue/Check immediately; followStack exits on its next poll.
-      if (selectedMode() !== "new") setBusy(false);
+      // Unlock immediately when nothing on this mode owns the controls; followStack exits on its
+      // next poll.
+      if (selectedMode() !== "new" || interruptedCheck) setBusy(false);
     }
+  });
+
+  serverUrl.addEventListener("input", () => {
+    // An edited address invalidates the pending check; retire it and hand the controls back so
+    // its late result changes nothing.
+    if (activeCheck === 0) return;
+    requestGeneration++;
+    activeCheck = 0;
+    setStatus("");
+    setBusy(false);
   });
 
   checkButton.addEventListener("click", () => {
@@ -312,8 +350,10 @@
 
   form.addEventListener("submit", (event) => {
     event.preventDefault();
-    if (selectedMode() === "new") void runStack();
-    else void save("existing", serverUrl.value);
+    const mode = selectedMode();
+    if (mode === "new") void runStack();
+    // Cloud is an existing server at a fixed address.
+    else void save("existing", mode === "cloud" ? cloudUrl : serverUrl.value);
   });
 
   /** Pushed state keeps progress moving even when the OS throttles this window's timers. */
@@ -337,14 +377,19 @@
     }
 
     watchStack();
+    // Continue needs the Cloud address and any saved choice before it can submit.
+    setBusy(true);
     try {
       const state = await bridge.state();
       if (state === null) throw new Error("Setup is not active");
       defaultLocalUrl = state.defaultLocalUrl;
+      cloudUrl = state.cloudUrl;
       if (state.saved !== null) {
-        const modeInput = document.querySelector(`input[name="mode"][value="${state.saved.mode}"]`);
+        const savedCloud = state.saved.mode === "existing" && state.saved.serverUrl === cloudUrl;
+        const mode = savedCloud ? "cloud" : state.saved.mode;
+        const modeInput = document.querySelector(`input[name="mode"][value="${mode}"]`);
         if (modeInput !== null) modeInput.checked = true;
-        if (state.saved.mode === "existing") serverUrl.value = state.saved.serverUrl;
+        if (mode === "existing") serverUrl.value = state.saved.serverUrl;
       }
       // A relaunch with the stack down starts it before this window opens; show that
       // attempt instead of the saved mode, and follow it while it is still running.
@@ -352,6 +397,7 @@
       const attached = stack !== null && stack.phase !== "idle";
       if (attached) document.getElementById("mode-new").checked = true;
       syncPanels();
+      setBusy(false);
       if (state.error) setStatus(state.error, "error");
       if (attached) {
         renderStack(stack);

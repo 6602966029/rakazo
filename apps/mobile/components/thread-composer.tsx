@@ -1,17 +1,31 @@
 import type { MenuAction } from "@expo/ui/community/menu";
 import { MenuView } from "@expo/ui/community/menu";
 import type { AgentSkillCatalogEntry } from "@rakazo/contracts";
-import type { buildComposerMentionOptions, ComposerMention, SlashActionId } from "@rakazo/core";
+import type {
+  buildComposerMentionOptions,
+  ComposerMention,
+  ComposerMentionBinding,
+  ComposerMentionQuery,
+  ComposerMentionRange,
+  SlashActionId,
+} from "@rakazo/core";
 import {
+  bindComposerMention,
+  composerMentionQuery,
+  composerMentionsForPrompt,
+  composerSelectedMentions,
   mentionChipKey,
+  removeBoundComposerMention,
   SLASH_ACTIONS,
   serializeComposerPrompt,
   truncateSlashDescription,
+  updateComposerMentionBindings,
 } from "@rakazo/core";
+import { MAX_FONT_SCALE } from "@rakazo/ui-tokens";
 import type { Ref } from "react";
-import { useImperativeHandle, useMemo, useState } from "react";
+import { useImperativeHandle, useMemo, useRef, useState } from "react";
 import type { ViewStyle } from "react-native";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from "react-native";
 import { useI18n } from "../lib/i18n";
 import { useMobileTokens, useResolvedAppearance } from "../lib/native";
 import type { ComposerSnapshot } from "../lib/thread-feedback";
@@ -21,10 +35,13 @@ import { NativeSymbol } from "./native-symbol";
 export type ThreadComposerHandle = {
   snapshot: () => ComposerSnapshot;
   reset: () => void;
+  insert: (text: string) => void;
 };
 
 type ThreadComposerProps = {
   ref: Ref<ThreadComposerHandle>;
+  onFocus?: () => void;
+  onMentionRequested?: () => void;
   agentSkills: AgentSkillCatalogEntry[];
   composerMentionTargets: ReturnType<typeof buildComposerMentionOptions>;
   composerPrompt: string;
@@ -46,6 +63,8 @@ type ThreadComposerProps = {
 
 export function ThreadComposer({
   ref,
+  onFocus,
+  onMentionRequested,
   agentSkills,
   composerMentionTargets,
   composerPrompt,
@@ -65,33 +84,68 @@ export function ThreadComposer({
   onSlashAction,
 }: ThreadComposerProps) {
   const tokens = useMobileTokens();
+  const { fontScale } = useWindowDimensions();
+  // The input text stops growing at MAX_FONT_SCALE, so its height limits stop there too.
+  const textScale = Math.min(fontScale, MAX_FONT_SCALE);
   const colorScheme = useResolvedAppearance();
   const { t } = useI18n();
+  const inputRef = useRef<TextInput>(null);
   const [draft, setDraft] = useState("");
-  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const draftRef = useRef("");
+  const nativeSelection = useRef({ start: 0, end: 0 });
+  const completedSelection = useRef<number | null>(null);
+  const [selection, setSelection] = useState<{ start: number; end: number }>();
+  const [mentionQuery, setMentionQuery] = useState<ComposerMentionQuery | null>(null);
   const [slashQuery, setSlashQuery] = useState<string | null>(null);
-  const [selectedMentions, setSelectedMentions] = useState<ComposerMention[]>([]);
+  const [mentionBindings, setMentionBindings] = useState<ComposerMentionBinding[]>([]);
+  const bindingsRef = useRef<ComposerMentionBinding[]>([]);
+  const selectionHistory = useRef<ComposerMentionRange[]>([]);
+  const pendingNativeEdit = useRef<{
+    beforeText: string;
+    afterText: string;
+    bindings: ComposerMentionBinding[];
+    beforeSelections: ComposerMentionRange[];
+  } | null>(null);
+  const selectedMentions = useMemo(
+    () => composerSelectedMentions(mentionBindings),
+    [mentionBindings],
+  );
+  function updateBindings(next: ComposerMentionBinding[]) {
+    bindingsRef.current = next;
+    setMentionBindings(next);
+  }
   const [selectedSkill, setSelectedSkill] = useState<AgentSkillCatalogEntry | null>(null);
   useImperativeHandle(ref, () => ({
     snapshot: () => ({
-      promptText: serializeComposerPrompt(draft, selectedSkill, selectedMentions),
-      mentions: selectedMentions,
+      promptText: serializeComposerPrompt(draft, selectedSkill),
+      mentions: composerMentionsForPrompt(draft, selectedSkill, mentionBindings),
       skill: selectedSkill,
       replyTargetId,
       replyQuote,
       attachmentIds,
     }),
     reset: () => {
+      draftRef.current = "";
       setDraft("");
+      nativeSelection.current = { start: 0, end: 0 };
+      completedSelection.current = null;
+      setSelection({ start: 0, end: 0 });
       setMentionQuery(null);
       setSlashQuery(null);
       setSelectedSkill(null);
-      setSelectedMentions([]);
+      updateBindings([]);
+      selectionHistory.current = [];
+      pendingNativeEdit.current = null;
+    },
+    insert: (text) => {
+      const current = draftRef.current;
+      draftRef.current = current ? `${current}\n${text}` : text;
+      setDraft(draftRef.current);
     },
   }));
   const mentionOptions = useMemo(() => {
     if (mentionQuery === null || composerMentionTargets.length === 0) return [];
-    const query = mentionQuery.trim().toLowerCase();
+    const query = mentionQuery.query.trim().toLowerCase();
     return composerMentionTargets
       .filter((target) => !query || target.name.toLowerCase().startsWith(query))
       .slice(0, 10);
@@ -120,40 +174,126 @@ export function ThreadComposer({
           );
         })
       : [];
+  function updateMentionQuery(value: string, start: number, end = start) {
+    const query = composerMentionQuery(
+      value,
+      start,
+      end,
+      [...composerMentionTargets, ...composerSelectedMentions(bindingsRef.current)],
+      bindingsRef.current,
+    );
+    if (query) onMentionRequested?.();
+    setMentionQuery(query);
+  }
+
   function updateDraft(value: string) {
+    // Native text changes can arrive before their selection event. Infer the end
+    // of the changed span so the picker never reads the previous caret position.
+    const previous = draftRef.current;
+    let prefix = 0;
+    while (
+      prefix < previous.length &&
+      prefix < value.length &&
+      previous[prefix] === value[prefix]
+    ) {
+      prefix += 1;
+    }
+    let suffix = 0;
+    while (
+      suffix < previous.length - prefix &&
+      suffix < value.length - prefix &&
+      previous[previous.length - suffix - 1] === value[value.length - suffix - 1]
+    ) {
+      suffix += 1;
+    }
+    const caret = value.length - suffix;
+    const beforeSelections = [nativeSelection.current, ...selectionHistory.current.toReversed()];
+    const bindings = bindingsRef.current;
+    pendingNativeEdit.current = {
+      beforeText: previous,
+      afterText: value,
+      bindings,
+      beforeSelections,
+    };
+    updateBindings(
+      updateComposerMentionBindings(previous, value, bindings, {
+        before: beforeSelections,
+        after: nativeSelection.current,
+      }),
+    );
+    selectionHistory.current = [];
+    draftRef.current = value;
     setDraft(value);
-    const match = /(?:^|\s)@([\w-]*)$/.exec(value);
-    setMentionQuery(match ? (match[1] ?? "") : null);
+    completedSelection.current = null;
+    setSelection(undefined);
+    updateMentionQuery(value, caret);
     const slashMatch = selectedSkill === null ? /^\/([^\n]*)$/.exec(value) : null;
     setSlashQuery(slashMatch ? (slashMatch[1] ?? "") : null);
   }
 
   function insertMention(mention: ComposerMention) {
-    setDraft((current) => current.replace(/@([\w-]*)$/, ""));
+    if (!mentionQuery) return;
+    const next = bindComposerMention(draftRef.current, mentionQuery, mention, bindingsRef.current);
+    pendingNativeEdit.current = null;
+    updateBindings(next.bindings);
+    draftRef.current = next.text;
+    setDraft(next.text);
+    nativeSelection.current = { start: next.caret, end: next.caret };
+    selectionHistory.current = [nativeSelection.current];
+    completedSelection.current = next.caret;
+    setSelection(nativeSelection.current);
     setMentionQuery(null);
-    setSelectedMentions((current) =>
-      current.some((selected) => mentionChipKey(selected) === mentionChipKey(mention))
-        ? current
-        : [...current, mention],
+    inputRef.current?.focus();
+  }
+
+  function removeMention(mention: ComposerMention) {
+    const next = removeBoundComposerMention(
+      draftRef.current,
+      bindingsRef.current,
+      mention,
+      nativeSelection.current,
     );
+    pendingNativeEdit.current = null;
+    updateBindings(next.bindings);
+    draftRef.current = next.text;
+    setDraft(next.text);
+    nativeSelection.current = next.selection;
+    selectionHistory.current = [next.selection];
+    completedSelection.current = null;
+    setSelection(next.selection);
+    setMentionQuery(null);
   }
 
   function insertSkill(skill: AgentSkillCatalogEntry) {
     setSelectedSkill(skill);
+    draftRef.current = "";
     setDraft("");
+    nativeSelection.current = { start: 0, end: 0 };
+    completedSelection.current = null;
+    setSelection(nativeSelection.current);
+    updateBindings([]);
+    selectionHistory.current = [];
+    pendingNativeEdit.current = null;
     setSlashQuery(null);
   }
 
   function removeLastChip() {
     if (selectedMentions.length > 0) {
-      setSelectedMentions((current) => current.slice(0, -1));
+      removeMention(selectedMentions[selectedMentions.length - 1]!);
       return;
     }
     if (selectedSkill) setSelectedSkill(null);
   }
 
   function runSlashAction(action: SlashActionId) {
+    draftRef.current = "";
     setDraft("");
+    nativeSelection.current = { start: 0, end: 0 };
+    completedSelection.current = null;
+    setSelection(nativeSelection.current);
+    updateBindings([]);
+    selectionHistory.current = [];
+    pendingNativeEdit.current = null;
     setSlashQuery(null);
     onSlashAction(action);
   }
@@ -320,8 +460,10 @@ export function ThreadComposer({
             borderRadius: 22,
             flexDirection: "row",
             alignItems: "flex-end",
+            // Keeps text clear of the call/send pill even when it runs to the trailing edge (RTL).
+            gap: 8,
             paddingStart: 16,
-            paddingEnd: 4,
+            paddingEnd: 8,
           }}
           fallbackStyle={styles.composerFill}
         >
@@ -399,13 +541,7 @@ export function ThreadComposer({
                 <Pressable
                   accessibilityLabel={t("Remove mention {name}", { name: mention.name })}
                   hitSlop={8}
-                  onPress={() =>
-                    setSelectedMentions((current) =>
-                      current.filter(
-                        (selected) => mentionChipKey(selected) !== mentionChipKey(mention),
-                      ),
-                    )
-                  }
+                  onPress={() => removeMention(mention)}
                 >
                   <NativeSymbol
                     ios="xmark"
@@ -416,7 +552,18 @@ export function ThreadComposer({
                 </Pressable>
               </View>
             ))}
-            <View style={{ flexGrow: 1, flexShrink: 1, minWidth: 96 }}>
+            <Pressable
+              accessible={false}
+              onPress={() => inputRef.current?.focus()}
+              style={{
+                flexGrow: 1,
+                flexShrink: 1,
+                minWidth: 96,
+                // Keep the inset outside the scrolling native input: iOS can scroll its
+                // padding out of view, leaving a partially visible line at the edge.
+                paddingVertical: 11,
+              }}
+            >
               {!draft && !selectedSkill && !selectedMentions.length ? (
                 <Text
                   numberOfLines={1}
@@ -431,15 +578,44 @@ export function ThreadComposer({
                     end: 0,
                     fontSize: 17,
                     lineHeight: 22,
-                    color: tokens.mutedForeground,
+                    color: tokens.faintForeground,
                   }}
                 >
                   {composerPrompt}
                 </Text>
               ) : null}
               <TextInput
+                ref={inputRef}
+                onFocus={onFocus}
                 value={draft}
                 onChangeText={updateDraft}
+                selection={selection}
+                onSelectionChange={(event) => {
+                  const next = event.nativeEvent.selection;
+                  const pending = pendingNativeEdit.current;
+                  if (pending) {
+                    updateBindings(
+                      updateComposerMentionBindings(
+                        pending.beforeText,
+                        pending.afterText,
+                        pending.bindings,
+                        { before: pending.beforeSelections, after: next },
+                      ),
+                    );
+                    pendingNativeEdit.current = null;
+                  }
+                  selectionHistory.current = [...selectionHistory.current.slice(-3), next];
+                  nativeSelection.current = next;
+                  setSelection(undefined);
+                  if (
+                    next.start === completedSelection.current &&
+                    next.end === completedSelection.current
+                  ) {
+                    return;
+                  }
+                  completedSelection.current = null;
+                  updateMentionQuery(draftRef.current, next.start, next.end);
+                }}
                 accessibilityLabel={composerPrompt}
                 onKeyPress={(event) => {
                   if (
@@ -452,19 +628,21 @@ export function ThreadComposer({
                 }}
                 keyboardAppearance={colorScheme}
                 multiline
+                scrollEnabled
                 textAlignVertical="top"
                 blurOnSubmit={false}
                 style={{
                   color: tokens.foreground,
                   fontSize: 17,
                   lineHeight: 22,
-                  paddingTop: 11,
-                  paddingBottom: 11,
-                  maxHeight: 132,
+                  padding: 0,
+                  // Native text and lineHeight scale with Dynamic Type; the viewport must too.
+                  minHeight: 22 * textScale,
+                  maxHeight: 110 * textScale,
                   writingDirection: "auto",
                 }}
               />
-            </View>
+            </Pressable>
           </View>
           {!canSend && botId && !onCall ? (
             <Pressable
@@ -521,7 +699,7 @@ export function ThreadComposer({
             <GlassSurface
               shape="circle"
               style={styles.circleButton}
-              fallbackStyle={{ borderColor: tokens.border, borderWidth: 1 }}
+              fallbackStyle={{ borderColor: tokens.glassStroke, borderWidth: 1 }}
             >
               <NativeSymbol ios="stop.fill" android="stop" size={15} color={tokens.foreground} />
             </GlassSurface>

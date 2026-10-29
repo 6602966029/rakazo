@@ -1,6 +1,6 @@
 import { GROUP_MEMBER_MAX, GROUP_MEMBER_MIN } from "@rakazo/contracts";
 import { useState } from "react";
-import { StyleSheet, Text, TextInput, View } from "react-native";
+import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import type { MobileBot } from "../lib/api";
 import { useI18n } from "../lib/i18n";
 import { native, useMobileTokens } from "../lib/native";
@@ -12,12 +12,15 @@ export function BotMemberPicker({
   bots,
   selected,
   onChange,
+  onOpenBot,
   disabled = false,
   initiallyExpanded = false,
 }: {
   bots: MobileBot[];
   selected: string[];
   onChange: (botIds: string[]) => void;
+  /** Makes each bot's avatar and name open that bot; the switch still edits membership. */
+  onOpenBot?: (bot: MobileBot) => void;
   disabled?: boolean;
   initiallyExpanded?: boolean;
 }) {
@@ -30,12 +33,7 @@ export function BotMemberPicker({
   const [everPicked, setEverPicked] = useState<ReadonlySet<string>>(() => new Set(selected));
   const needle = expanded ? query.trim().toLowerCase() : "";
   const base = expanded ? bots : bots.filter((bot) => everPicked.has(bot.id));
-  const visible = needle
-    ? base.filter(
-        (bot) =>
-          bot.name.toLowerCase().includes(needle) || bot.title.toLowerCase().includes(needle),
-      )
-    : base;
+  const visible = needle ? base.filter((bot) => bot.name.toLowerCase().includes(needle)) : base;
 
   return (
     <View style={{ marginTop: 20 }}>
@@ -55,7 +53,7 @@ export function BotMemberPicker({
             value={query}
             onChangeText={setQuery}
             placeholder={t("Filter bots")}
-            placeholderTextColor={tokens.mutedForeground}
+            placeholderTextColor={tokens.faintForeground}
             accessibilityLabel={t("Filter bots")}
             style={{
               marginTop: 8,
@@ -74,10 +72,33 @@ export function BotMemberPicker({
       <View>
         {visible.map((bot) => {
           const checked = selected.includes(bot.id);
+          const identity = (
+            <>
+              <BotAvatar
+                color={bot.color}
+                avatarSet={bot.avatarSet}
+                identity={bot.id}
+                size={34}
+                status={bot.status}
+              />
+              <Text style={[styles.name, { color: tokens.foreground }]}>{bot.name}</Text>
+            </>
+          );
           return (
             <View key={bot.id} style={styles.row}>
-              <BotAvatar color={bot.color} identity={bot.id} size={34} status={bot.status} />
-              <Text style={[styles.name, { color: tokens.foreground }]}>{bot.name}</Text>
+              {onOpenBot ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={bot.name}
+                  disabled={disabled}
+                  onPress={() => onOpenBot(bot)}
+                  style={({ pressed }) => [styles.identity, { opacity: pressed ? 0.6 : 1 }]}
+                >
+                  {identity}
+                </Pressable>
+              ) : (
+                identity
+              )}
               <NativeSwitch
                 accessibilityLabel={bot.name}
                 disabled={disabled || (!checked && selected.length >= GROUP_MEMBER_MAX)}
@@ -86,9 +107,6 @@ export function BotMemberPicker({
                   if (next) setEverPicked((current) => new Set(current).add(bot.id));
                   onChange(next ? [...selected, bot.id] : selected.filter((id) => id !== bot.id));
                 }}
-                thumbColor={checked ? tokens.primaryForeground : tokens.foreground}
-                tintColor={tokens.primary}
-                trackColor={{ false: tokens.border, true: tokens.primary }}
                 value={checked}
               />
             </View>
@@ -107,5 +125,6 @@ export function BotMemberPicker({
 const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   row: { flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 12 },
+  identity: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
   name: { flex: 1, fontSize: 16 },
 });

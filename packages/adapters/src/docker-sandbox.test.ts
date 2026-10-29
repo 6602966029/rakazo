@@ -6,7 +6,7 @@ import {
   MAX_SANDBOX_SUCCESS_RESPONSE_BYTES,
   SCREEN_RELEASE_TIMEOUT_MS,
 } from "./docker-sandbox.js";
-import { isSandboxGoneError } from "./e2b-sandbox.js";
+import { isSandboxGoneError } from "./sandbox-errors.js";
 
 const context = {
   operationId: "docker-test",
@@ -22,6 +22,48 @@ describe("Docker sandbox", () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.unstubAllGlobals();
+  });
+
+  it("rejects a failed interactive screen instead of returning a viewer fallback", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) =>
+        url.endsWith("/screen-mode")
+          ? Response.json({ error: "control screen failed to start" }, { status: 400 })
+          : Response.json({ running: true }),
+      ),
+    );
+    const provider = new DockerSandboxProvider("http://supervisor.test", "test-token");
+    await expect(
+      provider.connectScreen(
+        { id: "computer", botId: "bot", kind: "docker", providerRef: "computer" },
+        { view: "stream", interactive: true, controlToken: "human-control" },
+        context,
+      ),
+    ).rejects.toThrow("control screen failed to start");
+  });
+
+  it("requires a control token and an explicit route for an interactive screen", async () => {
+    const fetchMock = vi.fn(async () => Response.json({}));
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new DockerSandboxProvider("http://supervisor.test", "test-token");
+    const computer = {
+      id: "computer",
+      botId: "bot",
+      kind: "docker" as const,
+      providerRef: "computer",
+    };
+    await expect(
+      provider.connectScreen(computer, { view: "stream", interactive: true }, context),
+    ).rejects.toThrow();
+    expect(fetchMock).not.toHaveBeenCalled();
+    await expect(
+      provider.connectScreen(
+        computer,
+        { view: "stream", interactive: true, controlToken: "human-control" },
+        context,
+      ),
+    ).rejects.toThrow();
   });
 
   it("sends the bounded timeout to the supervisor and preserves its honest result", async () => {
@@ -113,6 +155,54 @@ describe("Docker sandbox", () => {
     expect(exitSeen).toBe(false);
     releaseExit();
     await expect(rest).resolves.toEqual({ value: { type: "exit", code: 0 }, done: false });
+  });
+
+  it("ends a stalled streaming exec at its stream deadline and cancels the body", async () => {
+    const deadline = new AbortController();
+    const timeout = vi.spyOn(AbortSignal, "timeout").mockReturnValue(deadline.signal);
+    const cancel = vi.fn(() => new Promise<void>(() => undefined));
+    const encoder = new TextEncoder();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            new ReadableStream({
+              start(controller) {
+                controller.enqueue(
+                  encoder.encode(`${JSON.stringify({ type: "stdout", data: "started\n" })}\n`),
+                );
+              },
+              cancel,
+            }),
+            { headers: { "content-type": "application/x-ndjson" } },
+          ),
+      ),
+    );
+    const provider = new DockerSandboxProvider("http://supervisor.test", "test-token");
+    try {
+      const iterator = provider
+        .execute(
+          { id: "computer", botId: "bot", kind: "docker", providerRef: "computer" },
+          { argv: ["sleep", "infinity"], timeoutMs: 100 },
+          context,
+        )
+        [Symbol.asyncIterator]();
+      await expect(iterator.next()).resolves.toEqual({
+        value: { type: "stdout", data: "started\n" },
+        done: false,
+      });
+      let settled: unknown;
+      iterator.next().then(
+        () => (settled = "resolved"),
+        (error: unknown) => (settled = error),
+      );
+      deadline.abort(new DOMException("The operation timed out.", "TimeoutError"));
+      await vi.waitFor(() => expect(settled).toBe(deadline.signal.reason));
+      expect(cancel).toHaveBeenCalledOnce();
+    } finally {
+      timeout.mockRestore();
+    }
   });
 
   it("rejects a declared oversized success response without buffering it", async () => {
@@ -549,6 +639,73 @@ describe("Docker sandbox stopped containers", () => {
 
     expect(fetchMock).toHaveBeenCalledOnce();
     expect(isSandboxGoneError(error)).toBe(true);
+  });
+
+  it("reports a deleted container gone when running a command", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          stdout: "",
+          stderr: "(HTTP code 404) no such container - No such container: computer",
+          code: 1,
+        }),
+      ),
+    );
+    const provider = new DockerSandboxProvider("http://supervisor.test", "test-token");
+
+    const error = await (async () => {
+      for await (const _event of provider.execute(computer, { argv: ["true"] }, context));
+    })().then(
+      () => null,
+      (error: unknown) => error,
+    );
+
+    expect(isSandboxGoneError(error)).toBe(true);
+  });
+
+  it("reports a stopped container gone when running a command", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) =>
+      String(input).endsWith("/exec")
+        ? Response.json({ error: "computer is not running" }, { status: 409 })
+        : Response.json({ id: "computer", running: false }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const provider = new DockerSandboxProvider("http://supervisor.test", "test-token");
+
+    const error = await (async () => {
+      for await (const _event of provider.execute(computer, { argv: ["true"] }, context));
+    })().then(
+      () => null,
+      (error: unknown) => error,
+    );
+
+    expect(isSandboxGoneError(error)).toBe(true);
+    expect(fetchMock.mock.calls.map(([input]) => String(input))).toEqual([
+      "http://supervisor.test/computers/computer/exec",
+      "http://supervisor.test/computers/computer",
+    ]);
+  });
+
+  it("keeps an exec failure on a live container a failed command", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) =>
+        String(input).endsWith("/exec")
+          ? new Response("bad gateway", { status: 502 })
+          : Response.json({ id: "computer", running: true }),
+      ),
+    );
+    const provider = new DockerSandboxProvider("http://supervisor.test", "test-token");
+
+    const events = [];
+    for await (const event of provider.execute(computer, { argv: ["true"] }, context)) {
+      events.push(event);
+    }
+    expect(events).toEqual([
+      { type: "stderr", data: "exec failed: 502" },
+      { type: "exit", code: 1 },
+    ]);
   });
 
   it("reports a stopped container gone when granting interactive control", async () => {

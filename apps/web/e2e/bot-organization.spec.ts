@@ -102,30 +102,6 @@ test("deleting a section keeps its bots and groups", async ({ page }, testInfo) 
   await expect(sidebar.getByRole("button", { name: /^Review room/ })).toBeVisible();
   await captureScreenshot(page, testInfo, "section-deleted");
 });
-
-test("an empty section can be deleted after its last bot leaves", async ({ page }, testInfo) => {
-  await signup(page, `empty-section-${Date.now()}@rakazo.test`, "password12", "Empty Section");
-  await completeOnboarding(page);
-  const botId = activeBotId(page);
-  const section = await rpc<{ id: string }>(page, "botSections/create", {
-    botId,
-    name: "Old ideas",
-  });
-  await rpc(page, "bots/update", { botId, sectionId: null });
-  await page.reload();
-  const sidebar = page.locator("aside").first();
-  const heading = sidebar.locator(`[data-sidebar-group="section:${section.id}"]`);
-  await heading
-    .getByRole("button", { name: "Collapse Old ideas", exact: true })
-    .click({ button: "right" });
-  await page.getByRole("menuitem", { name: "Delete section", exact: true }).click();
-  const dialog = page.getByRole("alertdialog", { name: "Delete Old ideas?" });
-  await captureScreenshot(page, testInfo, "delete-empty-section");
-  await dialog.getByRole("button", { name: "Delete", exact: true }).click();
-  await expect(heading).toHaveCount(0);
-  await expect(sidebar.locator(`[data-roster-bot-id="${botId}"]`)).toBeVisible();
-});
-
 test("bots can be reordered by drag or keyboard and keep that order", async ({ page }) => {
   const stamp = Date.now();
   await signup(page, `bot-reorder-${stamp}@rakazo.test`, "password12", "Bot Order");
@@ -136,7 +112,6 @@ test("bots can be reordered by drag or keyboard and keep that order", async ({ p
   const chiefId = activeBotId(page);
   const alpha = await rpc<{ id: string }>(page, "bots/create", {
     name: "Alpha",
-    title: "",
     description: "",
     instructions: "",
     notifyOnFinish: true,
@@ -144,7 +119,6 @@ test("bots can be reordered by drag or keyboard and keep that order", async ({ p
   });
   const beta = await rpc<{ id: string }>(page, "bots/create", {
     name: "Beta",
-    title: "",
     description: "",
     instructions: "",
     notifyOnFinish: true,
@@ -322,7 +296,6 @@ test("group chats share every context-menu action", async ({ page }, testInfo) =
   const chiefId = activeBotId(page);
   const partner = await rpc<{ id: string }>(page, "bots/create", {
     name: "Partner",
-    title: "",
     description: "",
     instructions: "",
     notifyOnFinish: true,

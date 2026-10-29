@@ -2,6 +2,8 @@ import type { VoiceProvider } from "@rakazo/adapter-kit";
 import { CartesiaVoiceProvider } from "./cartesia-voice.js";
 import { ElevenLabsVoiceProvider } from "./elevenlabs-voice.js";
 import { FishAudioVoiceProvider } from "./fish-audio-voice.js";
+import { MACOS_VOICE_PROVIDER_ID, MacOsVoiceProvider, macOsVoiceAvailable } from "./macos-voice.js";
+import { openAiCompatAllowPublicHosts } from "./openai-compatible-url.js";
 import {
   OPENAI_COMPATIBLE_VOICE_PROVIDER_ID,
   OpenAiCompatibleVoiceProvider,
@@ -10,6 +12,12 @@ import { OpenAIVoiceProvider } from "./openai-voice.js";
 import { SCRIPTED_VOICE_CATALOG_ENTRY, ScriptedVoiceProvider } from "./scripted-voice.js";
 
 export const VOICE_CATALOG = [
+  {
+    id: MACOS_VOICE_PROVIDER_ID,
+    name: "macOS",
+    description: "Voices installed on the Mac running the API. No key.",
+    transcribe: false,
+  },
   {
     id: "elevenlabs",
     name: "ElevenLabs",
@@ -51,32 +59,30 @@ export function scriptedVoiceEnabled() {
   return process.env.AGENT_RUNTIME === "scripted";
 }
 
-export const MACOS_VOICE_PROVIDER = {
-  id: "macos",
-  name: "macOS",
-  description: "Voices installed on the Mac running Rakazo. Speech plays on that Mac.",
-  transcribe: false,
-} as const;
-
-export function listVoiceCatalog(platform = process.platform) {
-  const catalog =
-    platform === "darwin" ? [MACOS_VOICE_PROVIDER, ...VOICE_CATALOG] : [...VOICE_CATALOG];
+export function listVoiceCatalog(options: { allowPrivateEndpoint?: boolean } = {}) {
+  const catalog = VOICE_CATALOG.filter((entry) =>
+    entry.id === OPENAI_COMPATIBLE_VOICE_PROVIDER_ID
+      ? options.allowPrivateEndpoint === true || openAiCompatAllowPublicHosts()
+      : entry.id !== MACOS_VOICE_PROVIDER_ID || macOsVoiceAvailable(),
+  );
   return scriptedVoiceEnabled() ? [...catalog, SCRIPTED_VOICE_CATALOG_ENTRY] : catalog;
 }
 
 export function voiceCatalogEntry(id: string) {
   if (id === SCRIPTED_VOICE_CATALOG_ENTRY.id) return SCRIPTED_VOICE_CATALOG_ENTRY;
-  if (id === MACOS_VOICE_PROVIDER.id) return MACOS_VOICE_PROVIDER;
   return VOICE_CATALOG.find((entry) => entry.id === id);
 }
 
 export function isVoiceProviderId(value: string): value is VoiceProviderId {
   if (value === "scripted") return scriptedVoiceEnabled();
+  if (value === MACOS_VOICE_PROVIDER_ID) return macOsVoiceAvailable();
   return VOICE_CATALOG.some((entry) => entry.id === value);
 }
 
-/** Construct the provider adapter selected by a persisted voice credential. */
-export function createVoiceProvider(kind: string): VoiceProvider {
+export function createVoiceProvider(
+  kind: string,
+  options: { allowPrivateEndpoint?: boolean } = {},
+): VoiceProvider {
   switch (kind) {
     case "elevenlabs":
       return new ElevenLabsVoiceProvider();
@@ -86,8 +92,12 @@ export function createVoiceProvider(kind: string): VoiceProvider {
       return new CartesiaVoiceProvider();
     case "fish-audio":
       return new FishAudioVoiceProvider();
+    case MACOS_VOICE_PROVIDER_ID:
+      return new MacOsVoiceProvider();
     case OPENAI_COMPATIBLE_VOICE_PROVIDER_ID:
-      return new OpenAiCompatibleVoiceProvider();
+      return new OpenAiCompatibleVoiceProvider({
+        allowPrivateEndpoint: options.allowPrivateEndpoint,
+      });
     case "scripted":
       if (!scriptedVoiceEnabled()) break;
       return new ScriptedVoiceProvider();
@@ -95,7 +105,7 @@ export function createVoiceProvider(kind: string): VoiceProvider {
       break;
   }
   throw new Error(
-    `Unknown voice provider "${kind}". Use elevenlabs | openai | cartesia | fish-audio | openai-compatible.`,
+    `Unknown voice provider "${kind}". Use macos | elevenlabs | openai | cartesia | fish-audio | openai-compatible.`,
   );
 }
 
