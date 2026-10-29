@@ -1588,6 +1588,7 @@ export const VoiceCatalogEntrySchema = z.object({
   name: z.string(),
   description: z.string(),
   transcribe: z.boolean(),
+  keyless: z.boolean().optional(),
 });
 export type VoiceCatalogEntry = z.infer<typeof VoiceCatalogEntrySchema>;
 
