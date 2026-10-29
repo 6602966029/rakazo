@@ -48,7 +48,7 @@ def write(path, text="changed\n"):
     return change
 
 
-AREAS = ("web", "e2e", "server", "native", "compose")
+AREAS = ("web", "e2e", "server", "native", "compose", "all_packages")
 
 
 def expect(*on):
@@ -71,12 +71,18 @@ class ChangedAreasTests(unittest.TestCase):
             ("packages/adapters/src/host-computer-runner.ts", expect("web", "server", "native")),
             ("packages/adapters/src/computer-workspace.ts", expect("web", "server", "native")),
             ("packages/core/src/node/desktop-runtime.ts", expect(*EVERY_BROWSER_AREA, "native")),
-            ("apps/desktop/src/main.ts", expect(*EVERY_BROWSER_AREA, "native")),
-            ("infra/compose/docker-compose.prod.yml", expect(*EVERY_BROWSER_AREA, "compose")),
-            ("apps/mobile/package.json", expect(*EVERY_BROWSER_AREA)),
+            (
+                "infra/compose/docker-compose.prod.yml",
+                expect(*EVERY_BROWSER_AREA, "compose", "all_packages"),
+            ),
+            ("infra/sandboxes/computer/start.sh", expect(*EVERY_BROWSER_AREA, "all_packages")),
+            ("infra/updater/src/compose-env.ts", expect(*EVERY_BROWSER_AREA)),
+            ("apps/mobile/package.json", expect(*EVERY_BROWSER_AREA, "all_packages")),
+            ("tsconfig.base.json", expect(*EVERY_BROWSER_AREA, "all_packages")),
+            ("scripts/build-server.mjs", expect(*EVERY_BROWSER_AREA, "all_packages")),
+            (".agents/skills/pr-watch/pr-digest", expect("all_packages")),
             ("packages/core/README.md", expect(*EVERY_BROWSER_AREA)),
             ("packages/core/src/run-error.ts", expect(*EVERY_BROWSER_AREA)),
-            ("apps/web/src/app.ts", expect(*EVERY_BROWSER_AREA)),
             ("pnpm-lock.yaml", expect(*AREAS)),
             (".github/workflows/ci.yml", expect(*AREAS)),
         ]
@@ -89,7 +95,20 @@ class ChangedAreasTests(unittest.TestCase):
             (root / "apps/mobile/assets").mkdir()
             git(root, "mv", "apps/web/src/logo.svg", "apps/mobile/assets/logo.svg")
 
-        self.assertEqual(areas(move), expect(*EVERY_BROWSER_AREA))
+        self.assertEqual(areas(move), expect("web", "e2e"))
+
+    def test_browser_clients_skip_the_postgres_journeys(self):
+        cases = [
+            ("apps/web/src/app.ts", expect("web", "e2e")),
+            ("packages/ui-web/src/button.tsx", expect("web", "e2e")),
+            ("packages/chat-ui/src/thread.tsx", expect("web", "e2e")),
+            ("apps/desktop/src/main.ts", expect("web", "e2e", "native")),
+            ("apps/web/package.json", expect(*EVERY_BROWSER_AREA, "all_packages")),
+            ("packages/ui-tokens/src/tokens.ts", expect(*EVERY_BROWSER_AREA)),
+        ]
+        for path, expected in cases:
+            with self.subTest(path=path):
+                self.assertEqual(areas(write(path)), expected)
 
 
 if __name__ == "__main__":
