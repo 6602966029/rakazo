@@ -1,8 +1,20 @@
 import { Trans, useLingui } from "@lingui/react/macro";
-import { ChatMarkdown, LinkifiedText } from "@rakazo/chat-ui/web";
-import type { MessageReaction, ThreadMessage } from "@rakazo/contracts";
-import { isPeerReceiptBlocks, isToolActivityBlock, otherAuthor } from "@rakazo/core";
+import { ChatMarkdown, LinkifiedText, withBlockMentions } from "@rakazo/chat-ui/web";
+import type {
+  BotAvatarSet,
+  LoginFieldInput,
+  MessageReaction,
+  ThreadMessage,
+} from "@rakazo/contracts";
+import type { ChildBotBlock } from "@rakazo/core";
+import {
+  isPeerReceiptBlocks,
+  isSecretAskBlock,
+  isToolActivityBlock,
+  otherAuthor,
+} from "@rakazo/core";
 import { BotAvatar, Button, cn, resolvePersonaColorDef } from "@rakazo/ui-web";
+import { UserRound } from "lucide-react";
 import { memo, useMemo } from "react";
 import { ArtifactFileCard } from "../../components/ArtifactFileCard";
 import { AskCard } from "../../components/AskCard";
@@ -27,6 +39,8 @@ import {
 } from "../../lib/tool-activity-view";
 import { ReplyLine } from "./chat-context";
 import { FALLBACK_BOT_COLOR, previewMessageText } from "./chat-shared";
+import type { ImportSetupTarget } from "./import-setup-card";
+import { ImportSetupCard } from "./import-setup-card";
 import {
   AppConnectCard,
   ArtifactImage,
@@ -42,6 +56,7 @@ export const MessageView = memo(function MessageView({
   canDismiss,
   message,
   meId,
+  mentions,
   onAnswer,
   onOpenBot,
   onOpenPeerMessages,
@@ -59,9 +74,11 @@ export const MessageView = memo(function MessageView({
   speaking,
   onSpeak,
   onOpenComputer,
+  onOpenImportSetup,
   showToolActivity,
   onReply,
   onMarkUnread,
+  markedUnread = false,
   onReact,
 }: {
   artifactTarget: ArtifactTarget;
@@ -70,11 +87,14 @@ export const MessageView = memo(function MessageView({
   message: ThreadMessage;
   /** The signed-in person; anyone else's message is named and set apart. */
   meId?: string;
+  /** Bots this reply announces, named inline in its text. */
+  mentions?: readonly ChildBotBlock[];
   onAnswer: (
     message: ThreadMessage,
     text: string,
-    username?: string,
+    fields?: LoginFieldInput[],
     dismiss?: boolean,
+    remember?: false,
   ) => Promise<void>;
   onOpenBot: (botId: string) => void;
   onOpenPeerMessages: (peer: { peerBotId: string; peerBotName: string }) => void;
@@ -83,7 +103,9 @@ export const MessageView = memo(function MessageView({
   onTogglePeerReplies: (markerId: string) => void;
   speakerName?: string;
   memberName?: (botId: string | undefined) => string | undefined;
-  peerBot: (botId: string) => { name?: string; color: string; status?: string } | undefined;
+  peerBot: (
+    botId: string,
+  ) => { name?: string; color: string; status?: string; avatarSet?: BotAvatarSet } | undefined;
   replyParent?: ThreadMessage;
   onJumpToMessage?: (messageId: string) => void;
   onRefresh: () => Promise<void>;
@@ -93,9 +115,12 @@ export const MessageView = memo(function MessageView({
   speaking: boolean;
   onSpeak: () => void;
   onOpenComputer: (botId?: string) => void;
+  /** Opens where an imported item's setup is finished. */
+  onOpenImportSetup?: (target: ImportSetupTarget) => void;
   showToolActivity: boolean;
   onReply: (message: ThreadMessage) => void;
   onMarkUnread: (message: ThreadMessage) => void;
+  markedUnread?: boolean;
   onReact: (message: ThreadMessage, reaction: MessageReaction) => Promise<void>;
 }) {
   const { t } = useLingui();
@@ -107,8 +132,30 @@ export const MessageView = memo(function MessageView({
     );
   const isLive = message.id.startsWith("progress:");
   const quoteMessageId = message.id.includes(":") ? undefined : message.id;
-  const visibleNarrationBlocks = renderableMessageBlocks(message.blocks, showToolActivity);
 
+  // Only what is drawn names the mentioned bots; copy, quote, and speech keep the original text.
+  const blocks = useMemo(
+    () =>
+      mentions?.length
+        ? withBlockMentions(
+            message.blocks,
+            mentions.map((bot) => ({ id: bot.botId, name: bot.name })),
+          )
+        : message.blocks,
+    [message.blocks, mentions],
+  );
+  const visibleNarrationBlocks = renderableMessageBlocks(blocks, showToolActivity);
+  const renderMention = (id: string) => {
+    const block = mentions?.find((bot) => bot.botId === id);
+    return block ? (
+      <BotMention
+        block={block}
+        avatarSet={peerBot(id)?.avatarSet}
+        color={peerBot(id)?.color}
+        onOpenBot={onOpenBot}
+      />
+    ) : undefined;
+  };
   const replyBotId = message.replyPreview?.botId ?? replyParent?.botId;
   const author = message.role === "user" ? otherAuthor(message.author, meId) : undefined;
   const replyAuthor = otherAuthor(message.replyPreview?.author ?? replyParent?.author, meId);
@@ -127,6 +174,7 @@ export const MessageView = memo(function MessageView({
         >
           <BotAvatar
             color={speakerBot?.color ?? FALLBACK_BOT_COLOR}
+            avatarSet={speakerBot?.avatarSet}
             identity={message.botId}
             size={22}
           />
@@ -134,7 +182,7 @@ export const MessageView = memo(function MessageView({
         </div>
       ) : author ? (
         <div
-          className="mb-1.5 text-right text-[13px] font-semibold tracking-tight text-muted-foreground"
+          className="mb-1.5 text-end text-[13px] font-semibold tracking-tight text-muted-foreground"
           dir="auto"
         >
           {author.name}
@@ -157,13 +205,19 @@ export const MessageView = memo(function MessageView({
   );
   // Anchored below the speaker and reply line so the rail centers on the bubble itself.
   // A message with text and attachments anchors it on its first text bubble.
-  const hoverAnchorIndex = message.blocks.findIndex((block) => block.kind === "text");
-  const hoverActions = isPeerReceiptBlocks(message.blocks) ? null : (
+  const textAnchorIndex = message.blocks.findIndex((block) => block.kind === "text");
+  const hoverAnchorIndex =
+    textAnchorIndex === -1
+      ? message.blocks.findIndex((block) => block.kind === "ask")
+      : textAnchorIndex;
+  const peerReceipt = isPeerReceiptBlocks(message.blocks);
+  const hoverActions = peerReceipt ? null : (
     <MessageHoverActions
       message={message}
       side={message.role === "user" ? "start" : "end"}
       onReply={onReply}
       onMarkUnread={onMarkUnread}
+      markedUnread={markedUnread}
       onReact={onReact}
     />
   );
@@ -187,7 +241,7 @@ export const MessageView = memo(function MessageView({
           <div className="flex w-fit max-w-full justify-start [@media(hover:none)]:w-full">
             <div
               data-testid="message-bot-bubble"
-              className="max-w-full space-y-2.5 rounded-[20px] bg-muted px-[18px] py-3 text-[15.5px] leading-[1.5] text-foreground/90"
+              className="max-w-full space-y-2.5 rounded-[20px] bg-muted px-[18px] py-3 text-body1 text-foreground"
               dir="auto"
             >
               {visibleNarrationBlocks.map((block, i) => {
@@ -213,7 +267,10 @@ export const MessageView = memo(function MessageView({
                       key={i}
                       data-quote-message-id={block.kind === "text" ? quoteMessageId : undefined}
                     >
-                      <ChatMarkdown streaming={block.kind === "progress"}>
+                      <ChatMarkdown
+                        streaming={block.kind === "progress"}
+                        renderMention={renderMention}
+                      >
                         {block.text}
                       </ChatMarkdown>
                     </div>
@@ -222,14 +279,15 @@ export const MessageView = memo(function MessageView({
                 return null;
               })}
               {!isLive && voiceReady && message.blocks.some((block) => block.kind === "text") ? (
-                <button
-                  type="button"
+                <Button
+                  variant="text"
+                  size="xs"
                   aria-label={speaking ? t`Stop speaking` : t`Speak this reply`}
                   onClick={onSpeak}
-                  className="text-[12px] text-muted-foreground hover:text-foreground"
+                  className="font-normal"
                 >
                   {speaking ? <Trans>Stop</Trans> : <Trans>Speak</Trans>}
-                </button>
+                </Button>
               ) : null}
             </div>
           </div>
@@ -241,8 +299,13 @@ export const MessageView = memo(function MessageView({
   return (
     <>
       {messageContext}
-      <div className="relative flex flex-col gap-2">
-        {message.blocks.map((block, i) => {
+      <div
+        className={cn(
+          "relative flex flex-col gap-2",
+          message.role === "user" && !peerReceipt && "items-end",
+        )}
+      >
+        {blocks.map((block, i) => {
           if (block.kind === "steps" && shouldRenderToolCard(block, showToolActivity)) {
             return (
               <StandaloneToolActivity
@@ -280,6 +343,7 @@ export const MessageView = memo(function MessageView({
                 key={i}
                 ariaLabel={label}
                 color={peerBot(peerBotId)?.color ?? FALLBACK_BOT_COLOR}
+                avatarSet={peerBot(peerBotId)?.avatarSet}
                 identity={peerBotId}
                 label={label}
                 onClick={() => onOpenPeerMessages({ peerBotId, peerBotName: peer })}
@@ -302,9 +366,11 @@ export const MessageView = memo(function MessageView({
                 key={i}
                 className="flex items-center justify-center gap-2 py-1 text-[13.5px] text-muted-foreground"
               >
+                <span className="shrink-0">
+                  {messageProviderLabel(block.provider, block.transport)}
+                </span>
                 <span>
-                  {messageProviderLabel(block.provider, block.transport)} · {block.fromLabel}:{" "}
-                  {block.text}
+                  {block.fromLabel}: {block.text}
                 </span>
               </div>
             );
@@ -328,10 +394,12 @@ export const MessageView = memo(function MessageView({
               >
                 <div
                   data-testid="message-bot-bubble"
-                  className="max-w-full rounded-[20px] bg-muted px-[18px] py-3 text-[15.5px] leading-[1.5] text-foreground/90"
+                  className="max-w-full rounded-[20px] bg-muted px-[18px] py-3 text-body1 text-foreground"
                   dir="auto"
                 >
-                  <ChatMarkdown streaming>{block.text}</ChatMarkdown>
+                  <ChatMarkdown streaming renderMention={renderMention}>
+                    {block.text}
+                  </ChatMarkdown>
                 </div>
               </div>
             );
@@ -340,42 +408,20 @@ export const MessageView = memo(function MessageView({
             return <SubagentCard key={i} block={block} />;
           }
           if (block.kind === "child_bot") {
-            const removed = block.status === "deleted" || block.status === "archived";
             return (
-              <button
-                key={i}
-                type="button"
-                disabled={removed}
-                onClick={() => onOpenBot(block.botId)}
-                data-testid="bot-link-card"
-                className="w-[340px] max-w-full rounded-[18px] border border-border bg-muted px-[18px] py-4 text-start disabled:opacity-60"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-[15px] font-medium text-foreground" dir="auto">
-                    {block.name}
+              <div key={i} className="flex items-center gap-1.5 text-[15.5px]">
+                <BotMention
+                  block={block}
+                  color={peerBot(block.botId)?.color}
+                  avatarSet={peerBot(block.botId)?.avatarSet}
+                  onOpenBot={onOpenBot}
+                />
+                {block.status === "created" ? null : (
+                  <span className="text-muted-foreground">
+                    {block.status === "archived" ? <Trans>archived</Trans> : <Trans>deleted</Trans>}
                   </span>
-                  <span
-                    className={`rounded-full px-[11px] py-1 text-[13px] ${
-                      removed ? "bg-destructive/15 text-destructive" : "bg-success/15 text-success"
-                    }`}
-                  >
-                    {block.status === "archived" ? (
-                      <Trans>archived</Trans>
-                    ) : block.status === "deleted" ? (
-                      <Trans>deleted</Trans>
-                    ) : (
-                      <Trans>bot</Trans>
-                    )}
-                  </span>
-                </div>
-                <div className="mt-2 text-[14.5px] leading-[1.5] text-foreground/75" dir="auto">
-                  {removed
-                    ? block.status === "archived"
-                      ? t`Archived. Chat, memory, and files kept.`
-                      : t`Removed with chat, computer, and memory.`
-                    : block.title || t`Opened its thread.`}
-                </div>
-              </button>
+                )}
+              </div>
             );
           }
           if (block.kind === "choice") {
@@ -401,6 +447,17 @@ export const MessageView = memo(function MessageView({
             return (
               <div key={i} className="flex justify-start">
                 <ChartBlockView name={block.name} spec={block.spec} data={block.data} />
+              </div>
+            );
+          }
+          if (block.kind === "import_setup") {
+            return (
+              <div key={i} className="flex justify-start">
+                <ImportSetupCard
+                  botId={"botId" in artifactTarget ? artifactTarget.botId : message.botId}
+                  block={block}
+                  onOpen={onOpenImportSetup}
+                />
               </div>
             );
           }
@@ -456,7 +513,7 @@ export const MessageView = memo(function MessageView({
                   data-testid="message-user-bubble"
                   data-quote-message-id={quoteMessageId}
                   className={cn(
-                    "max-w-full whitespace-pre-wrap wrap-anywhere rounded-[20px] px-[18px] py-3 text-[15.5px] leading-[1.45]",
+                    "max-w-full whitespace-pre-wrap wrap-anywhere rounded-[20px] px-[18px] py-3 text-body1",
                     author
                       ? "bg-muted text-foreground/90"
                       : "bg-chat-user text-chat-user-foreground",
@@ -477,21 +534,22 @@ export const MessageView = memo(function MessageView({
               >
                 <div
                   data-testid="message-bot-bubble"
-                  className="max-w-full rounded-[20px] bg-muted px-[18px] py-3 text-[15.5px] leading-[1.5] text-foreground/90"
+                  className="max-w-full rounded-[20px] bg-muted px-[18px] py-3 text-body1 text-foreground"
                   dir="auto"
                 >
                   <div data-quote-message-id={quoteMessageId}>
-                    <ChatMarkdown>{block.text}</ChatMarkdown>
+                    <ChatMarkdown renderMention={renderMention}>{block.text}</ChatMarkdown>
                   </div>
                   {voiceReady ? (
-                    <button
-                      type="button"
+                    <Button
+                      variant="text"
+                      size="xs"
                       aria-label={speaking ? t`Stop speaking` : t`Speak this reply`}
                       onClick={onSpeak}
-                      className="mt-2 text-[12px] text-muted-foreground hover:text-foreground"
+                      className="mt-2 font-normal"
                     >
                       {speaking ? <Trans>Stop</Trans> : <Trans>Speak</Trans>}
-                    </button>
+                    </Button>
                   ) : null}
                 </div>
                 {i === hoverAnchorIndex ? hoverActions : null}
@@ -505,7 +563,7 @@ export const MessageView = memo(function MessageView({
                   {block.lines.map((line) => (
                     <div key={line.k} className="flex items-baseline gap-2.5 text-[15px]">
                       <span className="text-success">✓</span>
-                      <span className="font-semibold text-white">{line.k}</span>
+                      <span className="font-semibold text-foreground">{line.k}</span>
                       <span className="text-muted-foreground">→</span>
                       <span>{line.v}</span>
                     </div>
@@ -516,14 +574,21 @@ export const MessageView = memo(function MessageView({
           }
           if (block.kind === "ask") {
             return (
-              <AskCard
+              <div
                 key={i}
-                block={block}
-                canAnswer={canAnswer}
-                canDismiss={canDismiss}
-                onAnswer={(text, username) => onAnswer(message, text, username)}
-                onDismiss={() => onAnswer(message, "", undefined, true)}
-              />
+                className={`relative w-full min-w-0 ${isSecretAskBlock(block) ? "" : "max-w-xl"}`}
+              >
+                <AskCard
+                  block={block}
+                  canAnswer={canAnswer}
+                  canDismiss={canDismiss}
+                  onAnswer={(text, fields, remember) =>
+                    onAnswer(message, text, fields, undefined, remember)
+                  }
+                  onDismiss={() => onAnswer(message, "", undefined, true)}
+                />
+                {i === hoverAnchorIndex ? hoverActions : null}
+              </div>
             );
           }
           if (block.kind === "cloud_agent") return <CloudAgentCard key={i} block={block} />;
@@ -578,3 +643,48 @@ export const MessageView = memo(function MessageView({
     </>
   );
 });
+
+/** A bot named inline in its color. A deleted, archived, or missing bot keeps only its name. */
+function BotMention({
+  block,
+  color,
+  avatarSet,
+  onOpenBot,
+}: {
+  block: ChildBotBlock;
+  color: string | undefined;
+  avatarSet?: BotAvatarSet;
+  onOpenBot: (botId: string) => void;
+}) {
+  const live = block.status === "created" && color;
+  const name = (
+    <span
+      dir="auto"
+      className="font-medium"
+      style={live ? { color: resolvePersonaColorDef(block.botId, color).light } : undefined}
+    >
+      {block.name}
+    </span>
+  );
+  if (!live) {
+    return (
+      <span data-testid="bot-mention" className="inline-flex items-baseline gap-1.5">
+        <UserRound className="size-4 self-center text-muted-foreground" aria-hidden="true" />
+        {name}
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      data-testid="bot-mention"
+      onClick={() => onOpenBot(block.botId)}
+      className="-mx-1 inline-flex items-baseline gap-1.5 rounded-md px-1 transition-colors hover:bg-accent"
+    >
+      <span className="self-center">
+        <BotAvatar avatarSet={avatarSet} color={color} identity={block.botId} size={18} />
+      </span>
+      {name}
+    </button>
+  );
+}

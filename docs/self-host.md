@@ -4,7 +4,7 @@ The signed-in product is a long-running API, a Graphile Worker, Postgres, and a 
 
 ## Local (source checkout)
 
-Same as the README quick start: `.env` from `.env.example`, Postgres via Compose, `pnpm sandbox:build`, `pnpm dev`, then [http://127.0.0.1:5173](http://127.0.0.1:5173) (or `http://localhost:5173` — both loopback hosts are trusted). Electron: `pnpm --filter @rakazo/desktop dev` while that stack is up, choosing **Existing instance** with that address. The desktop app's **This computer** option instead installs and runs the published images itself with Docker Compose (see [Published images](#published-images-no-checkout)), using port 45173 by default so it can run alongside `pnpm dev`. If that port is occupied, the app selects and remembers another loopback port. The managed API gets a Docker-assigned loopback port; all desktop traffic uses the web origin.
+Same as the README quick start: `.env` from `.env.example`, `pnpm sandbox:build`, `pnpm dev`, then the URL it prints ([http://127.0.0.1:5173](http://127.0.0.1:5173) by default, or `http://localhost:5173` — both loopback hosts are trusted). Electron: `pnpm --filter @rakazo/desktop dev` while that stack is up, choosing **Existing instance** with that address. The desktop app's **This computer** option instead installs and runs the published images itself with Docker Compose (see [Published images](#published-images-no-checkout)), using port 45173 by default so it can run alongside `pnpm dev`. If that port is occupied, the app selects and remembers another loopback port. The managed API gets a Docker-assigned loopback port; all desktop traffic uses the web origin.
 
 For source development in WSL, keep the checkout and `data` directory in the Linux filesystem (for example, `~/rakazo`), and run `pnpm dev` as your normal user. The host-run supervisor matches bot container UID/GID to that user. If Docker Desktop container IPs are unreachable, set `SANDBOX_CONTROL_VIA_LOOPBACK=true` in `.env`; this publishes the token-protected control service on a random loopback port. Leave this unset for the Compose-hosted supervisor.
 
@@ -31,7 +31,7 @@ run `bash install-images.sh`. Flags may be combined in either order: `--prepare-
 `SANDBOX_PROVIDER` defaults to `docker`. The images Compose file runs a sandbox supervisor
 (from the app image, on the internal network only) and pulls `ghcr.io/elie222/rakazo/computer`.
 Signup and local Docker computers work without an E2B account. Optional remote providers: set
-`SANDBOX_PROVIDER` to `e2b`, `daytona`, `createos`, or `boat` and add the matching API key. The published-images
+`SANDBOX_PROVIDER` to `e2b`, `novita`, `daytona`, `createos`, or `boat` and add the matching API key. The published-images
 Compose stack requires `SANDBOX_SUPERVISOR_TOKEN` for every provider; leave it empty and `compose up` fails closed.
 
 Optional: set `OPENROUTER_API_KEY` or connect a model in the UI after signup.
@@ -40,8 +40,23 @@ IRSA or EC2 instance role, opt in with `PI_DEFAULT_CREDENTIALS=host` and set
 `PI_DEFAULT_PROVIDER=amazon-bedrock`, `PI_DEFAULT_MODEL` and `AWS_REGION`. With an instance
 role, keep [restricted computer egress](#restricted-computer-egress) on so bot computers
 cannot read the role's credentials from the metadata endpoint.
-Auto Review uses that LLM checker by default. To use TypeSafe Jev instead, set
-`RAKAZO_AUTO_REVIEW_PROVIDER=jev` and `TYPESAFE_API_KEY`. Core still runs with neither.
+Approvals have three modes in **Settings → Approvals**: Never ask runs every action, Auto lets an
+approval model pass actions that fit the request, and Ask asks before any change. A space starts
+in Auto, which asks like Ask until an approval model is available. Each
+person can allow or block single tools and sites in every mode, and a space can customize its
+approvals apart from the account.
+
+In **Settings → Models → Approval model**, each user can select a model
+from an existing connection and add ordered backups, independently of their main model. Personal
+connections use their own credentials; hosted calls follow the same Rakazo credit rules as chat.
+Backups are tried only when a checker fails. An explicit ask, including an uncertain decision,
+still requires a person.
+
+The deployment checker remains the default when no approval model is selected. For OpenRouter
+Jev, set `RAKAZO_AUTO_REVIEW_PROVIDER=openrouter` and
+`RAKAZO_AUTO_REVIEW_MODEL=typesafe/jev-1.14`; it uses `OPENROUTER_API_KEY` and the Decisions API.
+TypeSafe direct remains available through `RAKAZO_AUTO_REVIEW_PROVIDER=jev` and
+`TYPESAFE_API_KEY`. Core runs without either hosted service.
 
 The example defaults to `edge` (main builds). Every publish is multi-arch (`amd64` + `arm64`), so
 arm64 hosts need no special tag. Do not assume `latest` is present until a stable release exists.
@@ -84,6 +99,14 @@ Docker computer topology:
 
 Set any of them to `0`, `none` or `unlimited` to remove that ceiling. A malformed value fails the
 supervisor at startup naming the variable, rather than surfacing later as a failed bot.
+
+### API and worker memory
+
+Chat runs execute in the API container that receives the message, and routines and other
+background runs execute in the worker, so both hold live agent turns. In the production Compose
+file, `RAKAZO_API_MEMORY_LIMIT` and `RAKAZO_WORKER_MEMORY_LIMIT` cap them (Compose sizes such as
+`2g` or `3072m`, default `2g` each). Raise them on a larger host. Deploys briefly run the old and
+new container of each side by side, so leave room for both.
 
 ### Restricted computer egress
 
@@ -152,6 +175,37 @@ Docker, and `firewall-backend: nftables` are unsupported. The
 `SANDBOX_SCREEN_NETWORK=internal` topology shares one network instead of per-bot bridges,
 so the mode does not apply there.
 
+Where Docker Engine runs in a Linux VM, as with OrbStack on macOS, the rules belong in the VM,
+which `sudo` on the host cannot reach. Apply them from a container on the VM's host network
+instead, and keep it running: the VM does not persist the rules, so a loop puts them back after
+a restart. The installer does not download the script on macOS. From the directory that holds
+the stack's `.env`:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/elie222/rakazo/main/infra/compose/restrict-computer-egress.sh
+```
+
+Save the following as `egress.yml` beside that script and start it with
+`docker compose -f egress.yml up -d`. The name keeps it in its own Compose project:
+
+```yaml
+name: rakazo-computer-egress
+services:
+  computer-egress:
+    image: alpine:3
+    network_mode: host
+    cap_add: [NET_ADMIN, NET_RAW]
+    restart: unless-stopped
+    volumes:
+      - ./restrict-computer-egress.sh:/restrict-computer-egress.sh:ro
+    command: >-
+      sh -c "apk add --no-cache bash iptables ip6tables &&
+      while true; do bash /restrict-computer-egress.sh --apply; sleep 60; done"
+```
+
+Then change `SANDBOX_COMPUTER_EGRESS` from `open` to `restricted` in `.env` and recreate the
+supervisor. Docker Desktop has not been tested this way.
+
 ## Docker Compose (single machine)
 
 1. Copy `.env.example` to `.env` and set `POSTGRES_PASSWORD` and `POSTGRES_APP_PASSWORD` (`openssl rand -hex 16` each), plus `BETTER_AUTH_SECRET`, `ENCRYPTION_KEY`, and `SCREEN_PROXY_SECRET` to independent long random strings (32+ characters; 64 hex for `ENCRYPTION_KEY`). Docker sandboxes also need a dedicated `SANDBOX_SUPERVISOR_TOKEN`. Keep existing `ENCRYPTION_KEY` values so stored credentials stay decryptable.
@@ -188,8 +242,9 @@ Rakazo uses two Postgres logins:
   the app tables.
 
 `pnpm db:migrate` (in containers, its prebuilt form `pnpm --filter @rakazo/api db:deploy`, which the
-API container runs before it starts serving) applies the migrations and the job queue
-schema as the owner. It then creates the app login named in `DATABASE_URL`, or updates its
+one-shot `migrate` container runs before the API starts) applies the migrations and the job queue
+schema as the owner. Only that container gets the owner login, so code running in the API or
+worker cannot find one that bypasses row-level security. It then creates the app login named in `DATABASE_URL`, or updates its
 password, and grants it the `rakazo_app` role. When migrations run as a role without
 `CREATEROLE`, as on some managed Postgres, create the login yourself and
 `GRANT rakazo_app TO <login>`.
@@ -362,15 +417,36 @@ error that names `EXPO_ACCESS_TOKEN`; the token itself is never logged.
 
 Password changes for signed-in users require no email configuration. Forgotten-password recovery
 appears on sign-in only when a transactional email provider is available. Rakazo uses a
-provider-neutral contract and ships an SMTP adapter, so Amazon SES, Resend, and self-hosted SMTP
-servers use the same configuration:
+provider-neutral contract with Resend API and SMTP adapters. Templates render locally with React
+Email into HTML and plain text, independent of the sending provider.
+
+To use the Resend HTTP API, verify a sending domain and create a sending-only API key restricted
+to that domain, then configure:
+
+```env
+EMAIL_PROVIDER=resend
+EMAIL_API_KEY=replace-with-sending-api-key
+EMAIL_FROM=Rakazo <hello@mail.example.com>
+```
+
+Disable click and open tracking for account email in the provider's domain settings. Resend delivery
+has a ten-second deadline and bounded retries with the same idempotency key, including when a
+response is lost. Errors omit provider response bodies and credentials.
+
+For Amazon SES or another SMTP server, use:
 
 ```env
 SMTP_URL=smtps://smtp-user:replace-with-password@smtp.example.com:465
 EMAIL_FROM=Rakazo <no-reply@example.com>
 ```
 
-For Resend, use `smtp.resend.com`, username `resend`, and an API key as the password. For Amazon
+Set `EMAIL_REPLY_TO` to send replies somewhere other than `EMAIL_FROM`.
+
+`EMAIL_PROVIDER=smtp` is optional: an existing `SMTP_URL` continues to select SMTP when no provider
+is specified. `EMAIL_PROVIDER=none` disables external sending. Explicit provider settings take
+precedence over an old `SMTP_URL`; incomplete or unknown provider configurations fail at startup.
+
+Resend also supports SMTP: use `smtp.resend.com`, username `resend`, and an API key as the password. For Amazon
 SES, use the regional SMTP endpoint and SES SMTP credentials; these are different from ordinary AWS
 access keys. Verify the sender/domain with the provider before testing delivery. Keep credentials in
 `.env`, never in tracked files. `smtps://` uses implicit TLS; `smtp://` is also supported but requires
@@ -404,10 +480,14 @@ is unreachable or takes longer than three seconds, the password is accepted and 
 ### Billing
 
 Billing stays off unless `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are both set (see
-`.env.example`). Enabling billing offers free use with a personal model connection or monthly
-model credits in USD: $10, $20, $50, $100, $200, or $500. One-time top-ups use the same amounts.
-Monthly credits expire at the end of their service period; one-time top-ups do not expire.
-The hosted computer is included in both paths.
+`.env.example`). Enabling billing offers a monthly own-key plan for a personal model connection or
+monthly model credits in USD: $10, $20, $50, $100, $200, or $500. One-time top-ups use the same
+amounts. Monthly credits expire at the end of their service period; one-time top-ups do not expire.
+The hosted computer is included in both paths, and monthly credits include the own-key plan.
+
+`BYOK_MONTHLY_PRICE_CENTS` in `@rakazo/contracts` sets the own-key plan's price; `null` makes it
+free and ends paid own-key subscriptions at their period end. Runs check access on the server, so a
+lapsed organization's bots and routines stop until it subscribes.
 
 Configure the managed default model through the existing model connection settings. The default
 OpenRouter model is Luna 6; customers can choose another available model, with its usage deducted
@@ -594,7 +674,7 @@ Optional:
 ```env
 SIGNUPS_ENABLED=true
 SIGNUP_ALLOWLIST=you@example.com,@company.com
-SANDBOX_PROVIDER=docker   # or none, e2b, daytona, createos, boat. Keep fake only for pnpm test.
+SANDBOX_PROVIDER=docker   # or none, e2b, novita, daytona, createos, boat. Keep fake only for pnpm test.
 AGENT_RUNTIME=pi          # Keep scripted only for pnpm test.
 WAKEUP_DRIVER=graphile
 SANDBOX_IDLE_MS=600000    # pause or stop after 10 minutes idle; 0 disables idle sleep
@@ -606,6 +686,7 @@ MAX_TOOL_CALLS_PER_TURN=  # optional Pi turn tool-call fuse; unset/0 = unlimited
 RAKAZO_MESSAGE_USER_MAX_CHARS=500 # message_user length cap; narration stays at 500
 BOT_MESSAGE_MAX_HOPS=6    # bot-to-bot messages one chain may carry before the next is refused
 E2B_API_KEY=              # when SANDBOX_PROVIDER=e2b
+NOVITA_API_KEY=           # when SANDBOX_PROVIDER=novita; build its template first
 DAYTONA_API_KEY=          # when SANDBOX_PROVIDER=daytona
 CREATEOS_SANDBOX_API_KEY= # when SANDBOX_PROVIDER=createos
 BOAT_API_KEY=             # when SANDBOX_PROVIDER=boat
@@ -637,22 +718,24 @@ leave Rakazo through this URL. Leave `RAKAZO_LOCAL_MODELS` blank to disable the 
 
 ### Ollama Cloud
 
-In **Settings → Models**, choose **Ollama Cloud**, paste an API key from ollama.com, then **Find models**. This uses an OpenAI-compatible connection with no environment configuration. `ollama.com` is the only public host allowed without `RAKAZO_OPENAI_COMPAT_ALLOW_PUBLIC=1`.
+In **Settings → Models**, choose **Ollama Cloud**, paste an API key from ollama.com, then **Find models**. This uses an OpenAI-compatible connection with no environment configuration, and stays available when `RAKAZO_OPENAI_COMPAT_ALLOW_PUBLIC=0`.
 
 Each user can also connect their own OpenAI-compatible endpoint from **Connect a model** /
 **Settings → Models** on web and mobile. Choose **OpenAI-compatible**, enter the server base URL
 (for example `http://127.0.0.1:8000/v1`), the exact model id, and an optional API key.
 Add optional request headers under **Advanced**; values are stored encrypted, and only their names
 are shown afterwards.
-Public hosts and ordinary hostnames need `RAKAZO_OPENAI_COMPAT_ALLOW_PUBLIC=1` and HTTPS.
+Public hosts and ordinary hostnames need HTTPS when they receive an API key or custom headers,
+and must resolve only to public addresses. Set `RAKAZO_OPENAI_COMPAT_ALLOW_PUBLIC=0` on the API
+and worker to block them.
 Literal private IP, loopback, and `host.docker.internal` targets do not, but only the deployment
 owner can use them, checked on save, on model discovery, and on every run. Set
 `MCP_ALLOW_PRIVATE_ENDPOINT=true` on the API and worker to allow them for every user.
 For a self-hosted endpoint whose hostname resolves to private IPs, set
 `RAKAZO_OPENAI_COMPAT_PRIVATE_HOSTS=models.example.test,other.example.test` in the deployment
 environment for both API and worker, then recreate those containers. Entries are exact hostnames
-(case-insensitive, optional trailing dot), not URLs, suffixes, or wildcards. These hosts do not
-need `RAKAZO_OPENAI_COMPAT_ALLOW_PUBLIC`; every DNS answer must be private, and metadata and
+(case-insensitive, optional trailing dot), not URLs, suffixes, or wildcards. These hosts ignore
+`RAKAZO_OPENAI_COMPAT_ALLOW_PUBLIC`; every DNS answer must be private, and metadata and
 link-local destinations remain blocked. This applies to discovery and model requests.
 HTTPS still validates the hostname's certificate. Like private IP endpoints, trusted hostnames
 also permit HTTP with API keys; use HTTPS unless the network is trusted. Only allow hosts you
@@ -722,6 +805,26 @@ Add only origins you trust: a script these settings allow runs with the signed-i
 Browsers report what the policy blocks to `/api/csp-report`. The API writes one `csp.violation`
 warning per violation, with the directive, the blocked origin and the page path, so search your logs
 for it to find the origins to add.
+
+### Menu links
+
+`RAKAZO_NAV_LINKS` adds items to the account menu that open a page from the same domain inside the
+web app, such as an internal tool your reverse proxy serves next to Rakazo. Set it on the API:
+
+```bash
+RAKAZO_NAV_LINKS='[{"id":"clients","label":"Clients","path":"/ext/clients/"}]'
+```
+
+Each `id` is lowercase letters, digits and dashes, and becomes `/app/x/<id>`. `path` must start with a
+single `/` and must not be under `/app`, `/api`, `/rpc`, `/novnc` or `/health`. Route it before the
+catch-all in your proxy, for example `handle /ext/* { reverse_proxy office:8080 }` in
+`Caddyfile.prod`. A malformed value stops the API from starting.
+
+Pages open sandboxed with an opaque origin, so they cannot read Rakazo's pages or act with the
+signed-in user's session; that also blocks their own cookies and storage. Add `"trusted": true` to a
+link only for a service you control: a trusted page runs with the signed-in user's access, like a
+script allowed by `RAKAZO_CSP_SCRIPT_SRC`. The page must allow framing by the app
+(`frame-ancestors 'self'`). Links appear in the web app only; the desktop and mobile apps hide them.
 
 ### Security events
 
@@ -933,7 +1036,46 @@ support. Existing token limits still apply; effort is not a separate reasoning-t
 
 Do not commit `.env`. Never put `COMPOSIO_API_KEY`, OpenRouter keys, or provider tokens in git, logs, or chat.
 
-Optional messaging platforms (iMessage, Slack, WhatsApp, Telegram, Feishu/Lark) mount when their env credentials are set — see `.env.example`. The Lark adapter and official SDK load only when configured. Point a Feishu/Lark bot event subscription at `/api/v1/messaging/webhook/lark` (webhook/HTTP inbound only; do not enable long connection). Groups stay iMessage-only. Telegram can run several bots side by side (`TELEGRAM_BOT_TOKEN_<NAME>` plus `TELEGRAM_WEBHOOK_SECRET_TOKEN_<NAME>`), for example one per space, so the same person can chat with a different Rakazo bot through each.
+Optional messaging platforms (iMessage, Slack, WhatsApp, Telegram, Feishu/Lark) mount when their env credentials are set — see `.env.example`. The Lark adapter and official SDK load only when configured. Point a Feishu/Lark bot event subscription at `/api/v1/messaging/webhook/lark` (webhook/HTTP inbound only; do not enable long connection). Personal group linking stays iMessage-only; Slack channels use workspace installations below. Telegram can run several bots side by side (`TELEGRAM_BOT_TOKEN_<NAME>` plus `TELEGRAM_WEBHOOK_SECRET_TOKEN_<NAME>`), for example one per space, so the same person can chat with a different Rakazo bot through each.
+
+For Slack workspace installations, set `SLACK_CLIENT_ID`, `SLACK_CLIENT_SECRET`, and
+`SLACK_SIGNING_SECRET` on the API and worker. Register the OAuth redirect URL
+`https://app.example.com/api/v1/messaging/install/slack/callback` using your public
+API origin (`API_URL`). Enable distribution in the Slack app's Manage Distribution
+settings so other workspaces can install it. Enable Slack Events API delivery to
+`https://app.example.com/api/v1/messaging/webhook/slack`, with `app_mention`,
+`message.im`, `message.channels`, `message.groups`, `message.mpim`, and
+`app_uninstalled`. Enable the app's Messages tab. The install flow requests the
+message/history, channel/user lookup, file read and write, and reaction-write scopes it uses;
+reinstall the Slack app after changing scopes. Socket Mode is not used.
+
+In Messaging settings, select **Connect** on the Slack row. The workspace answers as
+the first bot in your default space, whichever space is open. Each Slack workspace
+belongs to one Rakazo space and one installation owner; installing it from another
+space is rejected. To DM that bot, use **Link DMs** and send the code in a DM to the
+Slack app. Teammates in the same space can link their own bots the same way.
+Invite the Slack app to channels and mention it to receive replies there. The
+bot's external conversations offer **Mentions only**, **Listen**, and room guidance.
+Workspace setup and personal linking are available on web, desktop and mobile.
+Mobile opens Slack authorization in the system browser; return to the app when it
+finishes. Channel listening settings currently live in the web/desktop interface.
+
+Tokens are encrypted with the configured secret store. Workers resolve the
+installation for every outbound operation, including queued replies; disconnecting
+an installation stops further delivery and unlinks its personal DMs. Slack's signed
+`app_uninstalled` event also removes the installation. Disconnect removes Rakazo's
+local credentials; remove the app in Slack to revoke Slack's installation itself.
+The installation owner must retain space membership and an active bot. Workspace
+installations require a workspace-level bot token without Slack token rotation;
+Enterprise Grid org-wide installs and rotating tokens are rejected explicitly.
+
+The older `SLACK_BOT_TOKEN` plus `SLACK_SIGNING_SECRET` configuration still supports
+a single workspace. OAuth mode takes precedence when configured; existing static
+Slack identities/conversations must be relinked before using workspace installs.
+`TEAM_CHAT_BOT_ID` only selects a channel bot for the static configuration. It does
+not override workspace installations or personal DMs. Slack tools authorized from
+the Integrations screen are a separate connection from this messaging surface.
+
 
 ### Settings with names you choose
 
@@ -963,7 +1105,7 @@ Native file reads and workspace exports are limited to 8 MiB per file. A larger 
 
 - **Published images** (`docker-compose.images.yml`) default to `SANDBOX_PROVIDER=docker` with a
   local supervisor and published `ghcr.io/elie222/rakazo/computer` image. No E2B account required.
-  Optional: set `e2b`, `daytona`, `createos`, or `boat` plus the matching API key for remote computers.
+  Optional: set `e2b`, `novita`, `daytona`, `createos`, or `boat` plus the matching API key for remote computers.
 - **Docker** is the quick-start default for published images and for a source checkout / full local
   Compose stack. Workspace bots share a persistent Team Computer by default; Private computers are
   optional. Keep the supervisor private, as the included Compose files do.
@@ -1059,6 +1201,8 @@ Each bot computer has a home: its files, logged-in browser profiles and CLI toke
 homes live under `DATA_DIR/homes` on the server. Set `OBJECT_STORAGE_BUCKET` to keep them in any
 S3-compatible bucket instead, so `DATA_DIR` is only a cache and API and worker hosts no longer need
 a shared disk for homes. Leave it unset to keep homes on local disk, as before.
+The same connection also stores new artifacts; see [shared storage migration](#shared-storage-migration)
+for migrating existing files and push registrations.
 
 ```env
 OBJECT_STORAGE_BUCKET=rakazo-homes
@@ -1105,7 +1249,14 @@ objects within the hour, along with any revision an interrupted save left behind
 **The cache.** `DATA_DIR/homes` holds a copy of homes in use. A copy whose revision matches the
 bucket is downloaded again whenever it is missing, so you can remove it. Docker computers work
 directly in their copy until their next save, so only remove the copy of a Docker computer that
-is stopped. Remote computers' copies always match the bucket once saved.
+is stopped. Remote computers save straight from their files to the bucket; the worker removes
+their copies after an hour unread. Homes never saved to the bucket keep their only copy.
+
+**Saving large homes.** A save streams files through `DATA_DIR/staging` on the data volume,
+so memory use does not grow with file or home size. A computer with more than 20 GiB or a
+million files, or more than the volume has free, is not saved and keeps running; the worker logs
+`computer.sleep_deferred` with reason `too_large` or `too_many_files`. Staging left by a killed
+process is removed at startup and by the worker within minutes.
 
 ### Moving existing homes
 
@@ -1130,9 +1281,22 @@ start them again and check a few bots' files, then delete the moved directories.
 ./scripts/backup.sh
 ```
 
-This dumps Postgres (`pg_dump`) and archives `data/` into `backups/<stamp>/`. A missing
-`data/` produces an empty archive; database or archive errors fail the backup. Discard the
-output directory of any failed run.
+This dumps Postgres (`pg_dump`) and archives `data/` into `backups/<stamp>/`. Backup
+directories have mode `0700`, and both artifacts have mode `0600`, including on reused paths.
+A missing `data/` or `RAKAZO_BACKUP_SKIP_HOMES=1` produces an empty archive that restore treats
+as omitted homes. Database or archive errors fail the backup. Discard the output directory of
+any failed run.
+
+## Moving an account between installs
+
+To move from Rakazo Cloud to your own install (or back), use **Settings → Export data** on the
+old install and **Import data** on the new one. The export is a zip of every space you belong
+to: bots, chats, files, memory, routines, skills, bot workspace files and, in spaces you own,
+the board. Content is decrypted inside the zip, so keep it private. Importing creates new
+spaces you own. Routines arrive switched off. Credentials and connections (model keys, apps,
+MCP servers, messaging) stay behind, so connect them again on the new install. Workspace files
+over 8 MiB are left out, the export must stay under 4 GiB, and the upload must finish within
+the server's request timeout (5 minutes by default in Node).
 
 ## Public single-VM deployment
 
@@ -1181,7 +1345,7 @@ WEB_ORIGIN=https://app.example.com
 API_URL=https://app.example.com
 SIGNUPS_ENABLED=true
 SIGNUP_ALLOWLIST=owner@example.com,reviewer@example.com
-# e2b, daytona, or boat
+# e2b, novita, daytona, or boat
 SANDBOX_PROVIDER=e2b
 AGENT_RUNTIME=pi
 WAKEUP_DRIVER=graphile
@@ -1311,20 +1475,82 @@ production Compose file, and `tar`):
 bash infra/compose/backup-drill.sh ./<stamp> rakazo-backup.key
 ```
 
-To restore, stop the application services, then stream each file to the server:
+**Never extract appdata over the active volume.** Files created after the snapshot would survive
+and mix with the restored database. Extract into a clean sibling directory, then preserve the
+old tree before replacing it. Pause automatic deploys and the updater during recovery. Stop
+any other processes that write to this database or volume. Keep the application stopped if
+any step fails.
+
+Run these commands in one Bash session on the machine with the identity file. Replace the
+snapshot and volume names first. `VOLUME` must name the volume the API currently mounts at
+`/data`, which can differ when the stack uses another project name.
 
 ```bash
+set -euo pipefail
+umask 077
 COMPOSE="sudo docker compose --env-file .env -f infra/compose/docker-compose.prod.yml"
+VOLUME=rakazo-prod_appdata
+
 ssh deploy@app.example.com "cd /srv/rakazo && $COMPOSE stop api worker web"
-age -d -i rakazo-backup.key <stamp>/rakazo.dump.age | ssh deploy@app.example.com \
-  "cd /srv/rakazo && $COMPOSE exec -T postgres sh -c 'pg_restore --clean --if-exists --no-owner -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\"'"
+ROLLBACK_DUMP="$(mktemp "$PWD/before-restore.dump.XXXXXX")"
+if ! ssh deploy@app.example.com \
+  "cd /srv/rakazo && $COMPOSE exec -T postgres sh -c 'pg_dump -Fc -U \"\$POSTGRES_USER\" \"\$POSTGRES_DB\"'" \
+  > "$ROLLBACK_DUMP"; then
+  printf 'Pre-restore dump failed. Do not use the partial file at %s. Keep the application stopped.\n' "$ROLLBACK_DUMP" >&2
+  exit 1
+fi
+
+APPDATA="$(ssh deploy@app.example.com "sudo docker volume inspect -f '{{.Mountpoint}}' '$VOLUME'")"
+RESTORE="$(ssh deploy@app.example.com "sudo mktemp -d '${APPDATA%/*}/rakazo-restore.XXXXXX'")"
+ssh deploy@app.example.com "sudo mkdir '$RESTORE/staged'"
+printf 'Record this rollback pair:\nDatabase dump: %s\nData tree on deploy@app.example.com: %s/previous\n' \
+  "$ROLLBACK_DUMP" "$RESTORE"
 age -d -i rakazo-backup.key <stamp>/appdata.tgz.age | ssh deploy@app.example.com \
-  "sudo tar -xzf - --numeric-owner -C \"\$(sudo docker volume inspect -f '{{.Mountpoint}}' rakazo-prod_appdata)\""
-ssh deploy@app.example.com "cd /srv/rakazo && $COMPOSE up -d --wait --pull never"
+  "sudo tar -xzf - --numeric-owner -C '$RESTORE/staged'"
+
+age -d -i rakazo-backup.key <stamp>/rakazo.dump.age | ssh deploy@app.example.com \
+  "cd /srv/rakazo && $COMPOSE exec -T postgres sh -c 'pg_restore --clean --if-exists --no-owner --exit-on-error --single-transaction -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\"'"
+
+ssh deploy@app.example.com \
+  "sudo mv -- '$APPDATA' '$RESTORE/previous' && sudo mv -- '$RESTORE/staged' '$APPDATA'"
+ssh deploy@app.example.com \
+  "cd /srv/rakazo && $COMPOSE up -d --force-recreate --wait --pull never api worker web"
 ```
 
-Replace `rakazo-prod_appdata` with the volume the api container mounts at `/data` if the stack uses another
-project name. Plaintext snapshots restore the same way with `cat` in place of `age -d`.
+The archive must extract successfully before the SQL import starts. The clean staging directory
+and the rollback tree sit beside the volume's active data directory, on the same filesystem.
+Recreating the application containers makes them mount the replacement directory.
+`--single-transaction` rolls back SQL errors, but it cannot include the directory switch.
+After the import commits, a failed switch or startup can leave the database and active tree
+out of sync. If startup fails, stop `api worker web` again, including containers that did start.
+
+`$ROLLBACK_DUMP` names a private, plaintext rollback dump. `mktemp` creates a new mode-`0600`
+file for each attempt without overwriting `before-restore.dump`, earlier rollback dumps, or
+existing symlink targets. If the dump fails, the commands stop with the application still
+stopped. The printed partial file is not usable rollback data. Preserve earlier rollback pairs
+and fix the dump failure before starting another recovery attempt.
+
+Record the printed database dump path together with its matching remote `$RESTORE/previous`
+tree path. Keep that pair until you have checked the restored application. Do not remove the
+Docker volume while you need the rollback tree. For rollback after SQL commits, keep the
+application stopped and restore the recorded `$ROLLBACK_DUMP` into a freshly created empty
+database. Move the failed active tree to a separate path for diagnosis, then move that attempt's
+recorded `$RESTORE/previous` tree back to `$APPDATA` and recreate the application containers.
+If the first directory move failed, the old tree is still at `$APPDATA`. Inspect both paths
+before moving anything. Switching the tree alone does not roll back the database.
+
+Plaintext snapshots use `cat` in place of `age -d` and the filenames `rakazo.dump` and
+`appdata.tgz`. Use the same clean-directory procedure.
+
+To restore into a new stack, create the `rakazo_app` role before the procedure above. The dump
+grants to it, and on a new stack only the migration step would create it, so `pg_restore`
+stops without it. Do not run the migrations first: tables newer than the snapshot would block
+the restore. The procedure's final start applies them.
+
+```bash
+ssh deploy@app.example.com "cd /srv/rakazo && $COMPOSE up -d --wait postgres"
+ssh deploy@app.example.com "cd /srv/rakazo && $COMPOSE exec -T postgres sh -c 'psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -c \"CREATE ROLE rakazo_app NOLOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE\"'"
+```
 
 The scheduled backup uses `/srv/rakazo` by default. For another deployment directory, set
 `RAKAZO_DEPLOY_DIR=/absolute/path/to/checkout` in a root-owned `/etc/rakazo/backup.env`
@@ -1380,8 +1606,8 @@ checkout tracks, so a fork pulls what its own CI published. If the pull fails or
 the host instead; set `RAKAZO_DEPLOY_IMAGE=` (empty) to always build. This repository's images are public, so the
 host needs no registry login; for a private fork package, `docker login ghcr.io` as root with a
 token that can only read packages. The deploy
-starts each new API and web container beside the running one and stops the old one only once the
-new one is healthy, so a deploy does not take the site offline, then waits for
+starts each new API, web and worker container beside the running one and stops the old one only
+once the new one is healthy, so a deploy does not take the site offline or pause chat, then waits for
 `https://$RAKAZO_HOST/health` and rolls back on failure by restoring the image the previous
 containers ran. Old and new API containers serve together
 for a few seconds after migrations run, so a migration must keep working with the previous
@@ -1396,6 +1622,97 @@ settings) in a root-owned `/etc/rakazo/deploy.env` readable by the deploy user. 
 `infra/compose/deploy-main.sh` from `origin/main`, so deploy changes apply on the next deploy; only
 a change to the launcher itself needs
 `sudo install -m 0755 infra/compose/deploy-launcher.sh /usr/local/sbin/rakazo-deploy-main`.
+
+#### Point-in-time recovery
+
+The nightly backup can lose up to a day. Point-in-time recovery streams the database's write-ahead
+log (WAL) to S3-compatible object storage and takes a base backup every 24 hours, so the database
+can be restored to any moment in the last `PITR_RETAIN_DAYS` (default `7`) and a lost server costs
+about a minute of writes. It covers the database only; keep the nightly backup for application
+data. It is off by default and needs the production Compose file with Postgres 18.
+
+The optional `pitr` service streams WAL with `pg_receivewal` over the internal `data` network,
+using a replication-only login and a replication slot, and uploads from its own network, so
+Postgres keeps no internet access. Postgres closes a WAL segment at least every minute while
+anything is written (`archive_timeout`). Each segment and base backup is encrypted with
+[age](https://age-encryption.org) to public recipients before it leaves the container, as the
+nightly backup is, so the server cannot read its own backups. You can use the same recipients.
+
+The slot keeps WAL that has not reached the sidecar, so a sidecar restart leaves no gap. Disk use
+stays bounded if uploads stall: the sidecar holds at most `PITR_MAX_WAL_GB` (default `4`) of
+compressed WAL waiting to upload, then pauses streaming, and Postgres keeps at most that much again
+for the slot (`max_slot_wal_keep_size`). Beyond that Postgres drops the slot's WAL, recovery has a
+gap, and the sidecar takes a new base backup once it reconnects.
+
+Use a bucket of its own. Its credentials need to list, read, write and delete objects in it;
+deletes only remove backups older than the retention window. With `PITR_RETAIN_DAYS=0` nothing is
+deleted, so no delete permission is needed and the bucket's lifecycle rules handle expiry. Add to
+`.env`:
+
+```env
+COMPOSE_PROFILES=pitr
+PITR_DATABASE_PASSWORD=replace-with-openssl-rand-hex-24
+PITR_BUCKET=example-rakazo-pitr
+PITR_ENDPOINT=https://s3.example.com
+PITR_REGION=example-region
+PITR_ACCESS_KEY_ID=replace-me
+PITR_SECRET_ACCESS_KEY=replace-me
+PITR_AGE_RECIPIENTS=age1exampleprimaryrecipient age1examplerecoveryrecipient
+# Optional: PITR_PREFIX (a key prefix), PITR_PATH_STYLE=true (path-style bucket addressing),
+# PITR_RETAIN_DAYS, PITR_MAX_WAL_GB.
+```
+
+`COMPOSE_PROFILES` is comma-separated; with the updater it is `updater,pitr`. Leave `PITR_ENDPOINT`
+unset for AWS S3. Then turn it on from the checkout:
+
+```bash
+sudo infra/compose/pitr.sh enable
+```
+
+This creates the `rakazo_pitr` replication login, allows it in `pg_hba.conf`, sets
+`archive_timeout` and `max_slot_wal_keep_size`, and reloads Postgres without restarting it. The
+sidecar then takes its first base backup. Run `enable` again after changing `PITR_DATABASE_PASSWORD`
+or `PITR_MAX_WAL_GB`, or after moving Postgres to a new cluster. Uploads are grouped by the
+cluster's system identifier, so a new cluster never overwrites an old one's WAL.
+
+The sidecar's health check fails when an upload has waited over ten minutes, streaming is paused,
+nothing is streaming from the slot, or the last base backup is over 30 hours old. With
+`RAKAZO_MONITOR_COMPOSE_PROJECT` set, the host check alerts on it. For details:
+
+```bash
+sudo docker compose --env-file .env -f infra/compose/docker-compose.prod.yml exec pitr rakazo-pitr health
+```
+
+Restores run on any machine with Docker and this checkout. The identity comes on stdin and stays in
+memory inside the restore container. Prove the latest point restores, into a scratch volume that is
+removed afterwards. Run it after enabling, after changing the PITR scripts, and periodically:
+
+```bash
+sudo infra/compose/pitr.sh drill < rakazo-backup.key
+```
+
+Away from the server, set `PITR_ENV_FILE` to a file holding only the `PITR_` storage settings. To
+recover production to a moment, stop everything that writes to the database and restore into its
+volume. The current cluster is moved aside inside the volume, not deleted. The time is read as UTC
+unless it names a zone:
+
+```bash
+COMPOSE="sudo docker compose --env-file .env -f infra/compose/docker-compose.prod.yml"
+ssh deploy@app.example.com "cd /srv/rakazo && $COMPOSE stop api worker web pitr postgres"
+ssh deploy@app.example.com \
+  "cd /srv/rakazo && sudo infra/compose/pitr.sh restore '2026-01-31 09:41:00+00' rakazo-prod_postgres" \
+  < rakazo-backup.key
+ssh deploy@app.example.com "cd /srv/rakazo && $COMPOSE up -d --wait"
+```
+
+The restore uses the newest base backup that finished before the target, replays WAL up to it, and
+promotes the result, which starts a new timeline; the sidecar takes a fresh base backup for it. Pause
+CI deploys during recovery. Once the restored database checks out, remove the old cluster:
+`$COMPOSE run --rm --no-deps --entrypoint sh postgres -c 'rm -rf "$PGDATA".before-restore-*'`.
+
+To turn it off, remove `pitr` from `COMPOSE_PROFILES`, then run `sudo infra/compose/pitr.sh disable`.
+It removes the sidecar, the slot (so Postgres stops keeping WAL for it), the login and the
+settings. Uploaded backups stay in the bucket.
 
 #### Host audit trail
 
@@ -1494,10 +1811,30 @@ docker compose --env-file .env \
 ## Restore
 
 For backups created by `scripts/backup.sh`, use an empty `rakazo` database in the development
-Compose stack, with application services stopped. The SQL import runs in one transaction and
-stops on the first error, including conflicts with existing tables. Files are restored and
-application services started only after the import succeeds. This script does not consume the
-production snapshot's custom-format `rakazo.dump` or `appdata.tgz`.
+Compose stack. The script validates and extracts the homes archive in a clean sibling directory
+before touching the database, then stops the API, worker, and supervisor. It rejects a `data/`
+path that is a symlink or a non-directory. Stop bot computers and any other processes that
+write to this database or tree before running the script.
+
+The SQL import runs in one transaction and stops on the first error, including conflicts with
+existing tables. An invalid archive or failed import leaves the current data tree unchanged.
+After SQL succeeds, the script moves the current tree to `data.rollback.<random>/data`,
+prints that path, and replaces `data/` with the saved tree. Files absent from the snapshot
+do not remain in the active tree. A missing homes archive or an empty archive from omitted homes
+leaves `data/` unchanged. An archive containing an empty `data/` directory replaces it with an
+empty tree.
+
+Application services start only after the import and tree replacement succeed. Once writer
+shutdown starts, a later failure or interruption makes the script attempt to stop the API,
+worker, and supervisor again. This includes services that started before final startup failed.
+The script preserves the original failure status even if cleanup fails. If Docker cannot stop
+the services, stop them before recovery.
+
+A failure after the SQL commit cannot roll back the database automatically. Leave the
+application stopped, preserve both trees, and recover a matching database before moving the
+rollback tree back to `data/`. Keep a separate database backup from before recovery if you
+need that rollback. This script does not consume the production snapshot's custom-format
+`rakazo.dump` or `appdata.tgz`.
 
 ```bash
 ./scripts/restore.sh backups/<stamp>
@@ -1523,8 +1860,8 @@ GIT_SHA=$(git rev-parse HEAD) docker compose --env-file .env -f infra/compose/do
 ```
 
 `up --wait` does not report success until the new API is healthy and the worker and web containers
-are running. The API container runs the migration step (`db:deploy`) before it starts serving, so migration
-failure keeps health red. A failed CLI recreate does not auto-roll back; recover with the previous
+are running. The API starts only after the `migrate` container finishes, so a migration failure keeps the new API
+from starting. A failed CLI recreate does not auto-roll back; recover with the previous
 `RAKAZO_IMAGE_TAG` (or rebuild `local`) and `up -d --wait --pull never`.
 
 The updater sidecar has its own image and tag so an update never recreates the process performing
@@ -1658,8 +1995,13 @@ your CI cannot publish into someone else's.
 
 Every publish, including `edge` from main merges, is multi-arch (`amd64` + `arm64`): each
 architecture builds natively, on Depot when the `DEPOT_PROJECT_ID` repository variable names a
-project and on GitHub's runners otherwise, and one manifest is assembled per image. Before any tag
-points at a new app image, CI fails the publish if it holds a `.env` file, a `.git` directory or a
+project and on GitHub's runners otherwise, and one manifest is assembled per image. Depot builds
+publish and attest each image in the same job; native GitHub builds combine their architecture
+artifacts in a separate publication job. Main CI revisions validate independently. Publication
+locks are per image, and a superseded main build keeps its commit tag without moving `edge`.
+Image and release queues retain pending jobs so a slower older run cannot displace a newer one.
+Production deployment remains serialized and deploys the exact revision that passed its checks.
+Before any tag points at a new app image, CI fails the publish if it holds a `.env` file, a `.git` directory or a
 private key (`infra/compose/check-image.sh`). Until a
 stable `vX.Y.Z` has been published, GHCR may only have `edge` and `sha-*` tags; do not pin
 `latest` unless that tag exists in the registry.
@@ -1720,7 +2062,7 @@ pin and attempts to redeploy the cached previous image. A failed fork build also
 pre-update branch and commit (including when checkout succeeded but merge did not) so a later
 manual `--build` cannot deploy the rejected or unintended revision. Database migrations are not
 reversed. The sidecar never recreates itself, never touches Postgres or Caddy, and never runs
-migrations — that ordering belongs to the API start command.
+migrations — that ordering belongs to the API's dependency on the `migrate` service.
 
 Only `https://` and `ssh://` git remotes are accepted. Merges are fast-forward only. A dirty or
 untracked source tree fails closed before anything runs (the application Dockerfile uses `COPY . .`).
@@ -1868,16 +2210,18 @@ Plain `http://` is accepted only for a private IP, `localhost`, or a `.local` na
 Passkeys are on whenever `WEB_ORIGIN` is an HTTPS domain (or `localhost` in development); the
 relying party is that origin's host, so existing passkeys keep working only while `WEB_ORIGIN`
 stays on the same domain. They are off when password sign-in is disabled for SSO-only
-deployments. On web, a browser offers them where it has a platform authenticator; the macOS
-desktop app does not, so it hides them.
+deployments. On web, a browser offers them where it has a platform authenticator. The macOS
+desktop app uses the system passkey sheet, which only serves the domain the release is
+associated with (`app.rakazo.com`), so it hides passkeys for other servers.
 
 Native apps can use a domain's passkeys only when the domain vouches for them and the app was
 built for that domain (the app's associated domain comes from `EXPO_PUBLIC_API_URL` at build
 time). To let a build use this server's passkeys, set:
 
 ```bash
-# iOS: <Apple Team ID>.<bundle id>, comma-separated. Served as /.well-known/apple-app-site-association.
-PASSKEY_APPLE_APP_IDS=ABCDE12345.com.rakazo.app
+# iOS and the macOS desktop app (dev.rakazo.desktop): <Apple Team ID>.<bundle id>, comma-separated.
+# Served as /.well-known/apple-app-site-association.
+PASSKEY_APPLE_APP_IDS=ABCDE12345.com.rakazo.app,ABCDE12345.dev.rakazo.desktop
 # Android: SHA-256 fingerprints of the app signing certificates, comma-separated.
 # Served as /.well-known/assetlinks.json and accepted as passkey origins.
 PASSKEY_ANDROID_CERT_SHA256=AA:BB:...:FF
@@ -1887,6 +2231,10 @@ Until a platform's setting is set, the native app on that platform hides passkey
 server. Both files are served through the web origin, so a reverse proxy in front of the web container
 must pass `/.well-known/` through to it.
 
+## Spoken summaries
+
+Off by default. Set `VOICE_SUMMARY_MIN_CHARS` (for example `600`) to have a voice read a bot reply longer than that many characters as a short summary written by that bot's own model. Each summary is an extra model call billed to the bot. The chat keeps the full reply, and if the summary call fails the full reply is read.
+
 ## Upload size
 
 `MAX_UPLOAD_SIZE_MB` sets the per-file chat attachment and computer file transfer limit
@@ -1894,3 +2242,57 @@ in MiB (1 MiB = 1,048,576 bytes). It defaults to `10` and must be a positive int
 Set it in `.env` and restart the API, worker, and Docker supervisor (when used). Web, desktop, and mobile use the
 limit advertised by the server. If a reverse proxy limits request bodies, allow
 room for base64 encoding (about 4/3 of the file size) and the JSON envelope.
+
+## Shared storage migration
+
+Push notification registrations now live in Postgres, encrypted with `ENCRYPTION_KEY`.
+The same key must be configured on every API and worker replica. Registrations remain
+bound to their authenticated session; deleting an account also deletes its registration.
+
+With `OBJECT_STORAGE_BUCKET` configured, new artifact contents use the existing
+S3-compatible connection alongside computer homes. Artifact contents are always encrypted
+before upload using the space's content key and authenticated segments bound to the
+artifact identity. This applies even with `CONTENT_ENCRYPTION=off`. Metadata and access
+checks remain in Postgres; clients and sandboxes receive neither bucket credentials nor
+public object URLs. Without object storage, artifacts continue using the local volume.
+
+Existing artifact rows continue reading their local files until migrated. Before spreading
+API or worker replicas across machines, migrate files from every original application
+volume. Back up the database and volume first. Deploy the schema migration and the new
+application version, then stop **all API and worker processes**, including old releases,
+while running the following commands from a maintenance container with the original volume,
+`DATABASE_URL`, `ENCRYPTION_KEY`, content master keys, and object storage configuration:
+
+```sh
+# Published image (run from /app/apps/api):
+node dist/cli/shared-storage.js artifacts --dry-run
+node dist/cli/shared-storage.js artifacts
+node dist/cli/shared-storage.js push-tokens --dry-run
+node dist/cli/shared-storage.js push-tokens
+
+# Source checkout equivalents:
+pnpm --filter @rakazo/api shared-storage artifacts
+pnpm --filter @rakazo/api shared-storage push-tokens
+```
+
+The artifact migration uploads and decrypts each file to verify it before conditionally
+updating its database storage key. It keeps the original local files and skips rows already
+migrated, so interrupted runs can resume. A database failure after upload can leave an
+unreferenced object; do not delete objects blindly after a failed migration. Keep local
+originals until the migration is complete and verified. Files absent from the mounted volume
+are counted as pending while migration continues for files present on that volume. Run the
+command on each original volume, then run `artifacts --dry-run` again and require `pending: 0`
+before starting independent replicas. Object-backed artifacts require
+object storage to remain configured; old application versions cannot read their new keys.
+The local content-encryption CLI operates on local artifacts only; object artifacts stay
+encrypted and retain access through the key versions referenced in their headers.
+
+The push import preserves registrations with a live session, skips missing/expired or
+sessionless registrations, accounts already registered in Postgres, and devices owned by any
+existing database registration. Import never hands a device back to an older account. It archives processed
+files with a `.migrated` suffix. Those archives are never used as a runtime fallback, so they
+cannot restore a registration after logout. Clients skipped during migration register again
+when they next open the app. Remove the archived token files after verifying the import.
+Restart API and worker processes after both commands finish. A schema-only rollback remains
+compatible with the previous release, but the old code does not read database registrations
+or object-backed artifacts.

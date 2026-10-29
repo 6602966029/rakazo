@@ -23,7 +23,6 @@ type FakeBot = {
   modelProvider?: string | null;
   modelId?: string | null;
   thinkingLevel?: string | null;
-  title?: string;
   description?: string;
   pinned?: boolean;
   section?: { name: string } | null;
@@ -74,7 +73,6 @@ function fakeFleet(input: {
     archivedAt: null,
     modelProvider: null,
     modelId: null,
-    title: "",
     description: "",
     pinned: false,
     section: null,
@@ -106,6 +104,7 @@ function fakeFleet(input: {
     externalEffect: { findMany: vi.fn(async () => input.effects ?? []) },
     routine: {
       findFirst: vi.fn(async () => input.routines?.[0] ?? null),
+      findMany: vi.fn(async () => []),
       create: vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
         id: "routine-new",
         ...data,
@@ -145,7 +144,7 @@ function fakeFleet(input: {
           })),
       ),
     },
-    spaceModelPreference: { findMany: vi.fn(async () => input.credentials ?? []) },
+    userModelPreference: { findMany: vi.fn(async () => input.credentials ?? []) },
     userModelCredential: { findMany: vi.fn(async () => []) },
   };
   const deps: FleetPrepareDeps = {
@@ -938,7 +937,7 @@ describe("listFleet", () => {
       ...fleet,
       bots: fleet.bots.map((bot) =>
         bot.id === "bot-scout"
-          ? { ...bot, title: "Scout\nlead", pinned: true, section: { name: "Research" } }
+          ? { ...bot, description: "Finds\nleads", pinned: true, section: { name: "Research" } }
           : bot,
       ),
       groups: [
@@ -964,7 +963,6 @@ describe("listFleet", () => {
         {
           id: "bot-self",
           name: "Designer",
-          title: "",
           description: "",
           section: null,
           pinned: false,
@@ -973,8 +971,7 @@ describe("listFleet", () => {
         {
           id: "bot-scout",
           name: "Scout",
-          title: "Scout lead",
-          description: "",
+          description: "Finds\nleads",
           section: "Research",
           pinned: true,
           createdByMe: true,
@@ -1198,12 +1195,12 @@ describe("updateChildBot", () => {
         expected_version: "version-2",
       }),
     ).toEqual({
-      error: "Provide at least one of name, title, description, notify_on_finish, or color.",
+      error: "Change another bot's instructions with set_child_instructions.",
     });
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it.each(["name", "title", "description"])(
+  it.each(["name", "description"])(
     "refuses a %s that contains a credential of this run",
     async (field) => {
       const { prisma } = fakeFleet({ bots });
@@ -1217,7 +1214,7 @@ describe("updateChildBot", () => {
     },
   );
 
-  it.each(["name", "title", "description", "artifact_id", "color"])(
+  it.each(["name", "description", "artifact_id", "color"])(
     "omits blank %s while preserving a real update",
     async (field) => {
       const { prisma } = fakeFleet({ bots });
@@ -1227,7 +1224,6 @@ describe("updateChildBot", () => {
           update: vi.fn().mockResolvedValue({
             id: "bot-child",
             name: "Child",
-            title: "Original",
             description: "Original",
           }),
         },
@@ -1253,7 +1249,7 @@ describe("updateChildBot", () => {
     expect(
       await updateChildBot(writeDeps(prisma), run, { bot_id: "bot-child", name: "   " }),
     ).toEqual({
-      error: "Provide at least one of name, title, description, notify_on_finish, or color.",
+      error: "Provide at least one of name, description, notify_on_finish, or color.",
     });
     expect(
       await updateChildBot(writeDeps(prisma), run, { bot_id: "bot-child", color: "red" }),
@@ -1614,7 +1610,7 @@ describe("createChildRoutine", () => {
         ...canonical,
         schedule: { runAt: "2026-10-18T07:00:00.000Z" },
       }),
-    ).toEqual({ error: "One-shot schedules must run in the future." });
+    ).toEqual({ error: expect.stringMatching(/^One-shot schedules must run in the future\. /) });
     expect(prisma.routine.create).not.toHaveBeenCalled();
   });
 });

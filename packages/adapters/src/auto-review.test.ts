@@ -4,7 +4,6 @@ import {
   autoReviewMinConfidence,
   autoReviewTimeoutMs,
   buildAutoReviewPrompt,
-  deploymentAutoReviewDefault,
   isAutoReviewCheckerConfigured,
   parseAutoReviewJudgeText,
   redactToolArgsForReview,
@@ -146,14 +145,6 @@ describe("isAutoReviewCheckerConfigured", () => {
         env: { RAKAZO_AUTO_REVIEW_PROVIDER: "scripted" },
       }),
     ).toBe(false);
-  });
-});
-
-describe("deploymentAutoReviewDefault", () => {
-  it("defaults off", () => {
-    expect(deploymentAutoReviewDefault({})).toBe(false);
-    expect(deploymentAutoReviewDefault({ RAKAZO_AUTO_REVIEW: "1" })).toBe(true);
-    expect(deploymentAutoReviewDefault({ RAKAZO_AUTO_REVIEW: "true" })).toBe(true);
   });
 });
 
@@ -346,6 +337,19 @@ describe("runAutoReviewJudge instructions", () => {
     expect(captured?.instructions).toContain("Current date and time");
     expect(captured?.instructions).toContain("fast safety checker");
     expect(captured?.model?.callObserver).toBe(callObserver);
+    expect(captured?.model?.thinkingLevel).toBeNull();
+
+    await runAutoReviewJudge({
+      runtime: runtime as never,
+      checker: { provider: "openrouter", model: "x", thinkingLevel: "low" },
+      prompt: "test",
+      runId: "run",
+      spaceId: "ws",
+      userId: "user",
+      botId: "bot",
+      threadId: "thread",
+    });
+    expect(captured?.model?.thinkingLevel).toBe("low");
   });
 });
 

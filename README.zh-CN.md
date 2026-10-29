@@ -1,6 +1,6 @@
 # Rakazo
 
-[English](./README.md) | [简体中文](./README.zh-CN.md)
+[English](./README.md) | [简体中文](./README.zh-CN.md) | [日本語](./README.ja.md)
 
 [![GitHub stars](https://img.shields.io/github/stars/elie222/rakazo?labelColor=black&style=for-the-badge&color=2563EB)](https://github.com/elie222/rakazo/stargazers)
 [![加入 Discord 社区](https://img.shields.io/badge/Discord-Join%20the%20community-5865F2?labelColor=black&style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/RWwKa2Sn7h)
@@ -14,7 +14,7 @@ Rakazo 是一个开源 AI 智能体项目，让你拥有可长期协作的 AI �
 [Android](https://github.com/elie222/rakazo/releases/download/android/rakazo.apk) 应用。
 你可以接入自己的模型和计算环境提供商，也可以在本地运行完整服务。
 
-它是 Grok Bot、Meta Muse、OpenAI Dots、Instinct、OpenClaw、Hermes Agent 和 Hark Pro 的开源、自托管替代方案。
+它是 Grok Bot、Meta Muse、OpenAI Dots、Instinct、OpenClaw、Hermes Agent、Claude Duet 和 Hark Pro 的开源、自托管替代方案。
 
 Rakazo 目前处于测试阶段。详情见 [rakazo.com](https://rakazo.com)。
 
@@ -23,7 +23,7 @@ Rakazo 目前处于测试阶段。详情见 [rakazo.com](https://rakazo.com)。
 ## 与其他产品的比较
 
 Rakazo 启动后，你可以像使用 Grok Bot 一样，通过聊天设置和管理机器人。
-Muse、Dots、Instinct 和 Hark Pro 是托管式助手；OpenClaw 和 Hermes Agent 则同样是可以自行运行的开源智能体。
+Muse、Dots、Instinct、Claude Duet 和 Hark Pro 是托管式助手；OpenClaw 和 Hermes Agent 则同样是可以自行运行的开源智能体。
 后两者的文档介绍了安装器、配置文件和网关。Hermes Desktop 无需命令行即可开始第一次聊天；消息网关则是独立进程。
 
 - [Grok Bot](https://rakazo.com/grok-bot-alternative/)
@@ -32,6 +32,7 @@ Muse、Dots、Instinct 和 Hark Pro 是托管式助手；OpenClaw 和 Hermes Age
 - [Instinct](https://rakazo.com/instinct-alternative/)，可通过短信或电话交流的个人助手
 - [OpenClaw](https://rakazo.com/openclaw-alternative/)
 - [Hermes Agent](https://rakazo.com/hermes-alternative/)，Nous Research 的开源智能体
+- [Claude Duet](https://rakazo.com/claude-duet-alternative/)，Anthropic 的主动式个人智能体
 - [Hark Pro](https://rakazo.com/hark-alternative/)，hark.com 提供的个人智能体
 - [全部对比](https://rakazo.com/alternatives/)
 - [自托管指南](https://rakazo.com/self-hosted-ai-agent/)
@@ -105,7 +106,7 @@ bash install-images.sh
 
 ```bash
 bash install-images.sh --prepare-only
-# edit .env: SANDBOX_PROVIDER=box (or e2b / daytona / createos) with its API key, RAKAZO_HOST=your.domain
+# edit .env: SANDBOX_PROVIDER=boat (or e2b / daytona / createos) with its API key, RAKAZO_HOST=your.domain
 bash install-images.sh
 ```
 
@@ -143,29 +144,33 @@ Treg 按用量计费。自托管用户需提供自己的 Treg 令牌；
 其中要求托管转售须签订书面协议。
 
 ```bash
-docker compose --env-file .env \
-  -f infra/compose/docker-compose.yml \
-  -f infra/compose/docker-compose.postgres-host.yml \
-  up postgres -d
 pnpm install
-pnpm db:generate
-pnpm db:migrate
 pnpm sandbox:build
 pnpm dev
 ```
 
-默认 Compose 文件中的 Postgres 仅在容器网络内可访问，与已发布镜像的部署方式一致。
-`postgres-host` 叠加配置将数据库端口发布到宿主机的回环地址 `127.0.0.1:5433`，供宿主机上的 `pnpm` 和数据库工具使用。
-如果端口被占用，请同时修改 `.env` 中的 `POSTGRES_HOST_PORT` 以及 `DATABASE_URL` 和 `DATABASE_MIGRATION_URL` 中的端口。
-不使用叠加配置时，可以通过以下命令进入数据库交互终端：
-`docker compose --env-file .env -f infra/compose/docker-compose.yml exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'`。
+`pnpm dev` 会使用 `DATABASE_URL` 指向且可连接的 Postgres；否则会通过 Docker 启动本地
+`rakazo-dev-postgres` 容器，所有检出目录共用该容器。启动服务前会应用数据库迁移并生成 Prisma 客户端。
+如果当前分支新增了 `main` 尚未包含的迁移，会在同一服务器上使用独立数据库，条件允许时从共享数据库复制，
+避免未合入的数据库结构变更影响共享数据库。默认端口被占用时（例如另一个 Git worktree 正在运行），
+会选择下一个空闲端口组并打印访问地址。
+
+如需改用 Compose 中的 Postgres，可通过 `postgres-host` 叠加配置启动，将端口发布到回环地址
+`127.0.0.1:5433`，并让 `DATABASE_URL` 和 `DATABASE_MIGRATION_URL` 指向它：
+
+```bash
+docker compose --env-file .env \
+  -f infra/compose/docker-compose.yml \
+  -f infra/compose/docker-compose.postgres-host.yml \
+  up postgres -d
+```
 
 `POSTGRES_PASSWORD` 应使用无需 URI 转义的字符，例如通过 `openssl rand -hex 16` 生成。
 已有的 `pgdata` 数据卷会保留首次初始化时的用户、密码和数据库，
 因此应保留 `.env` 中相应的值，或使用 `ALTER ROLE`、重命名等方式在数据库中修改。
 只有在完成备份后，或确认数据可以丢弃时，才重建数据卷；`docker compose down -v` 会删除全部 Postgres 数据。
 
-打开 [http://127.0.0.1:5173](http://127.0.0.1:5173)，创建账号、连接模型，并创建第一个机器人。
+打开终端打印的地址（默认是 [http://127.0.0.1:5173](http://127.0.0.1:5173)），创建账号、连接模型，并创建第一个机器人。
 
 部署、提供商选择、备份与升级说明见[自托管指南](./docs/self-host.md)。
 
@@ -205,7 +210,7 @@ pnpm --filter @rakazo/desktop dev
 因此需要先安装 Docker Desktop、OrbStack 或 Docker Engine；未安装时，应用会提供相应链接。
 已安装的发行版将镜像标签固定为自身版本，未打包的开发版本则拉取 `edge`。
 
-运行 `pnpm dev` 的开发者应选择 **Existing instance**（已有实例），地址填写 `http://127.0.0.1:5173`。
+运行 `pnpm dev` 的开发者应选择 **Existing instance**（已有实例），地址填写终端打印的地址（默认为 `http://127.0.0.1:5173`）。
 公共服务器必须使用 HTTPS；只有回环地址和局域网私有地址允许 HTTP，不包括链路本地地址。
 应用会在保存地址前检查 Rakazo 的健康检查端点，之后启动时直接连接该实例。
 退出应用后，服务仍会继续运行；可通过应用菜单中的 **Stop Local Stack**（停止本地服务）将其关闭。
@@ -228,12 +233,12 @@ chmod +x Rakazo-*.AppImage
 ## 界面语言
 
 网页版及 Electron 内嵌界面可在 **Settings → Language**（设置 → 语言）中选择英语、德语、韩语、土耳其语、
-印地语、巴西葡萄牙语、简体中文、西班牙语、俄语、法语、希伯来语和荷兰语。
-Expo 应用包含英语、简体中文、俄语、德语和荷兰语翻译，**Account → Language**（账号 → 语言）列出这五种语言。
+印地语、巴西葡萄牙语、简体中文、繁体中文、西班牙语、俄语、法语、希伯来语、荷兰语和日语。
+Expo 应用包含英语、简体中文、繁体中文、俄语、德语、荷兰语和日语翻译，**Account → Language**（账号 → 语言）列出这七种语言。
 在用户保存选择之前，移动端的初始语言由设备语言或 `EXPO_PUBLIC_DEFAULT_UI_LOCALE` 决定。
 
-官网首页（`apps/www`）提供英语、德语、韩语和中文版本，可通过页脚语言链接切换，
-对应路径为 `/`、`/de/`、`/ko/` 和 `/zh/`；其他官网页面仍为英文。
+官网首页（`apps/www`）提供英语、德语、韩语、中文和日语版本，可通过页脚语言链接切换，
+对应路径为 `/`、`/de/`、`/ko/`、`/zh/` 和 `/ja/`；其他官网页面仍为英文。
 俄语官网首页，以及 Electron 原生设置窗口和菜单的本地化仍有待完成。
 
 ## 开发

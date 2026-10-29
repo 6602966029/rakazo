@@ -163,7 +163,7 @@ export function SidebarRoster({
                       render={
                         group.emptySpaceId ? <button type="button" /> : <CollapsibleTrigger />
                       }
-                      className={`flex min-w-0 items-center justify-between gap-2 rounded-lg px-2.5 py-1 text-[11px] font-semibold tracking-wider uppercase text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring ${hasSpaceActions ? "col-start-1 row-start-1 w-full pe-8" : "flex-1"}`}
+                      className={`flex min-w-0 items-center justify-between gap-2 rounded-lg px-2.5 py-1 text-[11px] font-semibold tracking-wider uppercase text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring ${hasSpaceActions ? "col-start-1 row-start-1 w-full" : "flex-1"}`}
                       onClick={() => {
                         if (group.emptySpaceId) {
                           openSpaceChat(group.emptySpaceId, "/onboarding");
@@ -185,13 +185,15 @@ export function SidebarRoster({
                       }
                       aria-label={
                         group.emptySpaceId
-                          ? t`Open ${group.title}`
+                          ? t`Open ${headerName(group)}`
                           : collapsed
-                            ? t`Expand ${group.title}`
-                            : t`Collapse ${group.title}`
+                            ? t`Expand ${headerName(group)}`
+                            : t`Collapse ${headerName(group)}`
                       }
                     >
-                      <span className="flex min-w-0 items-center gap-1.5 truncate">
+                      <span
+                        className={`flex min-w-0 items-center gap-1.5 truncate ${hasSpaceActions ? "pe-7" : ""}`}
+                      >
                         {group.showLock ? (
                           group.shared ? (
                             <Users size={11} strokeWidth={2} aria-hidden="true" />
@@ -200,6 +202,11 @@ export function SidebarRoster({
                           )
                         ) : null}
                         <span className="truncate">{group.title}</span>
+                        {group.subtitle ? (
+                          <span className="ms-0.5 truncate text-muted-foreground">
+                            {group.subtitle}
+                          </span>
+                        ) : null}
                       </span>
                       {group.emptySpaceId ? null : (
                         <ChevronDown
@@ -244,7 +251,7 @@ export function SidebarRoster({
                     size="icon-sm"
                     className={
                       group.title
-                        ? "col-start-1 row-start-1 justify-self-end self-center"
+                        ? `col-start-1 row-start-1 justify-self-end self-center ${group.emptySpaceId ? "" : "me-6"}`
                         : undefined
                     }
                     aria-label={t`Actions for ${group.spaceName}`}
@@ -305,6 +312,7 @@ export function SidebarRoster({
                 const avatar =
                   item.kind === "bot" ? (
                     <BotAvatar
+                      avatarSet={item.chat.avatarSet}
                       color={item.chat.color}
                       identity={item.chat.id}
                       size={mini ? 40 : compact ? 28 : 38}
@@ -402,7 +410,7 @@ export function SidebarRoster({
                     } ${
                       selected || rosterDropKey === rowDropKey
                         ? "bg-sidebar-accent"
-                        : "group-hover/row:bg-sidebar-accent"
+                        : "group-hover/row:bg-accent"
                     }`}
                   >
                     {mini ? (
@@ -448,7 +456,7 @@ export function SidebarRoster({
                             <span
                               dir="auto"
                               data-roster-bot-name={item.kind === "bot" ? "" : undefined}
-                              className={`min-w-0 truncate text-[14px] text-foreground ${
+                              className={`max-w-full shrink-0 truncate text-body2 text-foreground ${
                                 item.chat.unread ? "font-semibold" : "font-medium"
                               }`}
                             >
@@ -462,7 +470,10 @@ export function SidebarRoster({
                           </div>
                           <div className="flex shrink-0 items-center gap-1.5">
                             {!compact ? (
-                              <span className="text-[11.5px] text-muted-foreground/60 tabular-nums">
+                              <span
+                                data-roster-time
+                                className="text-label text-faint-foreground tabular-nums"
+                              >
                                 {formatRosterTime(item.chat.updatedAt)}
                               </span>
                             ) : null}
@@ -475,13 +486,6 @@ export function SidebarRoster({
                             ) : null}
                           </div>
                         </div>
-                        {!compact && item.kind === "bot" && item.chat.title ? (
-                          <div className="mt-1 flex">
-                            <span className="max-w-full truncate rounded-md border border-border bg-muted px-2 py-0.5 text-[11px] font-normal text-muted-foreground">
-                              {item.chat.title}
-                            </span>
-                          </div>
-                        ) : null}
                         {compact ? (
                           compactStatusLabel ? (
                             <div
@@ -509,12 +513,12 @@ export function SidebarRoster({
                           <div
                             dir="auto"
                             data-roster-preview={!workStatusLabel ? "true" : undefined}
-                            className={`mt-1 line-clamp-2 text-[12.5px] break-words whitespace-normal ${
+                            className={`mt-1 truncate text-label ${
                               workStatusLabel
                                 ? "font-semibold text-status-working"
                                 : item.chat.unread
                                   ? "font-medium text-foreground/75"
-                                  : "text-muted-foreground/60"
+                                  : "text-muted-foreground"
                             }`}
                           >
                             {rosterLine}
@@ -548,6 +552,7 @@ export function SidebarRoster({
                     >
                       {mini ? (
                         <IconTooltip
+                          side="inline-end"
                           label={
                             compactStatusLabel
                               ? `${item.chat.name}: ${compactStatusLabel}`
@@ -572,6 +577,11 @@ export function SidebarRoster({
       })}
     </>
   );
+}
+
+/** A space section header's name as one phrase, for accessible labels. */
+function headerName(group: { title?: string | null; subtitle?: string }): string {
+  return group.subtitle ? `${group.title}, ${group.subtitle}` : (group.title ?? "");
 }
 
 function formatRosterTime(isoDate?: string | null): string {

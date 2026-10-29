@@ -82,6 +82,26 @@ describe("routine history", () => {
     expect(sql.sql).toContain('r."threadId" = m."threadId"');
     expect(sql.values).toEqual(["run-0", "run-1", "run-2", actor.spaceId, actor.spaceId]);
   });
+  it("returns a shorter page with a cursor when asked for fewer runs", async () => {
+    const { prisma, runs } = fixture();
+    runs.mockResolvedValue(
+      Array.from({ length: 3 }, (_, i) => ({
+        id: `run-${i}`,
+        botId: "bot-1",
+        threadId: "thread-1",
+        thread: { groupId: null },
+        status: "completed",
+        error: null,
+        createdAt: at,
+        startedAt: at,
+        completedAt: at,
+      })),
+    );
+    const history = await listRoutineRuns(prisma, actor, "routine-1", undefined, 2);
+    expect(runs).toHaveBeenCalledWith(expect.objectContaining({ take: 3 }));
+    expect(history.runs.map((row) => row.id)).toEqual(["run-0", "run-1"]);
+    expect(history.nextCursor).toEqual({ id: "run-1", createdAt: at.toISOString() });
+  });
   it("bounds stored errors like thread failures", async () => {
     const { prisma, runs } = fixture();
     const error = "x".repeat(400);

@@ -8,7 +8,7 @@ import { appendEventInTransaction, createPendingSteeringRun } from "./events.js"
 import type { RunTeardownTarget } from "./groups.js";
 import { snapshotRunTeardownTargets } from "./groups.js";
 import { runAsSystem } from "./row-security.js";
-import { lockSpaceDeletion, SpaceNotFoundError } from "./spaces.js";
+import { lockSpaceDeletion, personalOrganizationIds, SpaceNotFoundError } from "./spaces.js";
 import { activeRunStatuses } from "./thread-listing.js";
 import { withTransactionRetry } from "./transaction-retry.js";
 
@@ -304,21 +304,14 @@ export async function prepareAccountDeletion(
 ): Promise<{ ownedOrganizationIds: string[] }> {
   const memberships = await prisma.spaceMember.findMany({
     where: { userId },
-    select: { spaceId: true, member: { select: { role: true } } },
+    select: { spaceId: true, role: true, member: { select: { role: true } } },
   });
   for (const membership of memberships) {
-    if (isOwnerRole(membership.member.role)) continue;
+    // A Space they own has nobody to hand it to; it goes with the account.
+    if (isOwnerRole(membership.member.role) || isOwnerRole(membership.role)) continue;
     await departSpace(prisma, { spaceId: membership.spaceId, userId });
   }
-  const organizations = await prisma.member.findMany({
-    where: { userId },
-    select: { organizationId: true, role: true },
-  });
-  return {
-    ownedOrganizationIds: organizations
-      .filter(({ role }) => isOwnerRole(role))
-      .map(({ organizationId }) => organizationId),
-  };
+  return { ownedOrganizationIds: await personalOrganizationIds(prisma, userId) };
 }
 
 /**
@@ -352,7 +345,14 @@ async function departSpace(prisma: PrismaClient, input: SpaceRef): Promise<Space
 
           const runs = await tx.run.findMany({
             where: { spaceId, userId, status: { in: activeRunStatuses } },
-            select: { id: true, taskId: true, threadId: true, botId: true },
+            select: {
+              id: true,
+              taskId: true,
+              threadId: true,
+              botId: true,
+              userId: true,
+              spaceId: true,
+            },
           });
           const cancelledRunIds = runs.map((run) => run.id);
           // Snapshot before cancelling: an expired lease still names the run's screen.
@@ -416,20 +416,34 @@ async function departSpace(prisma: PrismaClient, input: SpaceRef): Promise<Space
 
           const own = { spaceId, userId };
           await tx.botSecret.deleteMany({ where: own });
+          // Their vault for this Space only; the account vault every Space uses stays theirs.
+          await tx.vaultCredential.deleteMany({ where: own });
           await tx.botMcpServer.deleteMany({
             where: { spaceId, OR: [{ userId }, { server: { userId } }] },
           });
-          await tx.mcpServer.deleteMany({ where: own });
+          // What they made available in other Spaces of theirs keeps working there.
+          const onlyHere = {
+            ...own,
+            allSpaces: false,
+            availableIn: { none: { spaceId: { not: spaceId } } },
+          };
+          await tx.mcpServer.deleteMany({ where: onlyHere });
+          await tx.capabilityInstall.deleteMany({ where: onlyHere });
+          await tx.mcpServerSpace.deleteMany({ where: own });
+          await tx.capabilityInstallSpace.deleteMany({ where: own });
+          await tx.agentSkillSpace.deleteMany({ where: own });
           await tx.mcpOAuthSession.deleteMany({ where: own });
+          await tx.modelOAuthSession.deleteMany({ where: own });
           await tx.connection.deleteMany({ where: own });
-          await tx.capabilityInstall.deleteMany({ where: own });
           await tx.messagingIdentity.deleteMany({ where: own });
           await tx.messagingLinkCode.deleteMany({ where: own });
+          await tx.messagingInstallation.deleteMany({ where: own });
+          await tx.messagingInstallSession.deleteMany({ where: own });
           await tx.actionApprovalRule.deleteMany({ where: { spaceId, createdByUserId: userId } });
           await tx.actionAutoReviewPreference.deleteMany({ where: own });
           await tx.notificationPreference.deleteMany({ where: own });
           await tx.secret.deleteMany({ where: own });
-          // Model, voice and backup preferences and AI consents cascade from here.
+          // Model, voice and role preferences, setting overrides and AI consents cascade from here.
           await tx.spaceMember.delete({ where: { id: departing.id } });
           await tx.member.deleteMany({
             where: {

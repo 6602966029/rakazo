@@ -25,6 +25,7 @@ import { Copy, MoreHorizontal, UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSpaceRpc } from "../lib/space-rpc";
 import { errorText } from "../lib/user-error";
+import { SettingsGroup } from "./SettingsRows";
 import { SharedSpaceRules } from "./SharedSpaceRules";
 
 type Confirm = { kind: "remove"; member: SpaceMember } | { kind: "leave" };
@@ -120,11 +121,41 @@ export function SpaceMembersSettings({
   const memberName =
     confirm?.kind === "remove" ? accountDisplay(confirm.member, confirm.member.email).label : "";
   return (
-    <div data-testid="space-members-settings" className="pt-5">
-      <SharedSpaceRules className="mb-5 max-w-md text-[13px]" />
+    <div data-testid="space-members-settings" className="space-y-4">
+      <SettingsGroup title={t`Members`}>
+        {members ? (
+          <ul className="divide-y divide-border" aria-label={t`Members`}>
+            {members.members.map((member) => (
+              <MemberRow
+                key={member.userId}
+                member={member}
+                onRemove={
+                  canManage && member.role !== "owner"
+                    ? () => {
+                        setConfirmError(null);
+                        setConfirm({ kind: "remove", member });
+                      }
+                    : undefined
+                }
+              />
+            ))}
+          </ul>
+        ) : (
+          <p className="px-4 py-3 text-[13px] text-muted-foreground">
+            {error ?? <Trans>Loading…</Trans>}
+          </p>
+        )}
+      </SettingsGroup>
+      {members && error ? <p className="px-1 text-[13px] text-destructive">{error}</p> : null}
+      <SharedSpaceRules className="max-w-md px-1 text-[13px]" />
       {canManage ? (
-        <div className="mb-5 flex flex-col items-start gap-3">
-          <Button variant="outline" disabled={inviting} onClick={() => void invite()}>
+        <div className="flex flex-col items-start gap-3">
+          <Button
+            variant="outline"
+            className="rounded-full"
+            disabled={inviting}
+            onClick={() => void invite()}
+          >
             <UserPlus />
             <Trans>Invite</Trans>
           </Button>
@@ -149,33 +180,10 @@ export function SpaceMembersSettings({
           ) : null}
         </div>
       ) : null}
-      {error ? <p className="mb-3 text-[13px] text-destructive">{error}</p> : null}
-      {members ? (
-        <ul className="space-y-1" aria-label={t`Members`}>
-          {members.members.map((member) => (
-            <MemberRow
-              key={member.userId}
-              member={member}
-              onRemove={
-                canManage && member.role !== "owner"
-                  ? () => {
-                      setConfirmError(null);
-                      setConfirm({ kind: "remove", member });
-                    }
-                  : undefined
-              }
-            />
-          ))}
-        </ul>
-      ) : error ? null : (
-        <p className="text-[13px] text-muted-foreground">
-          <Trans>Loading…</Trans>
-        </p>
-      )}
       {members && !canManage ? (
         <Button
           variant="destructive"
-          className="mt-6"
+          className="rounded-full"
           onClick={() => {
             setConfirmError(null);
             setConfirm({ kind: "leave" });
@@ -227,7 +235,7 @@ function MemberRow({ member, onRemove }: { member: SpaceMember; onRemove?: () =>
   const name = display.label;
   const [failedImage, setFailedImage] = useState<string | null>(null);
   return (
-    <li className="flex items-center gap-3 rounded-lg py-2">
+    <li className="flex items-center gap-3 px-4 py-3">
       <span
         aria-hidden="true"
         className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full border border-border bg-muted text-sm font-medium text-foreground"

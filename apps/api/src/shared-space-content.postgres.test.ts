@@ -168,15 +168,15 @@ describePostgres("shared space content (PostgreSQL)", () => {
         status: "connected",
       },
     });
-    await system.botSecret.create({
+    // The owner's account vault, which every Space they belong to uses.
+    await system.vaultCredential.create({
       data: {
         id: randomUUID(),
         userId: owner.userId,
-        spaceId,
-        botId: chef.id,
+        spaceId: null,
         name: "pantry-api",
         origin: "https://pantry.example.test",
-        auth: {},
+        auth: { type: "bearer" },
         ciphertext: "fake-ciphertext",
       },
     });

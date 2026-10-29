@@ -1,6 +1,11 @@
 import { i18n } from "@lingui/core";
 import { useLingui } from "@lingui/react/macro";
-import type { MessageReaction, ThreadMessage } from "@rakazo/contracts";
+import type {
+  BotAvatarSet,
+  LoginFieldInput,
+  MessageReaction,
+  ThreadMessage,
+} from "@rakazo/contracts";
 import type { FoldedTranscript } from "@rakazo/core";
 import {
   expandPeerReplies,
@@ -8,13 +13,14 @@ import {
   isPeerReceiptBlocks,
   liveActivityLine,
   liveMessageComposing,
+  projectBotMentions,
   projectMessageReactions,
   timeSeparatorIds,
   unreadDividerMessageId,
   voiceChatHoldsMessage,
 } from "@rakazo/core";
 import type { GroupAvatarMember } from "@rakazo/ui-web";
-import { cn, Spinner } from "@rakazo/ui-web";
+import { Button, cn, Spinner } from "@rakazo/ui-web";
 import { ArrowDown } from "lucide-react";
 import type { CSSProperties, RefObject } from "react";
 import {
@@ -34,8 +40,16 @@ import { quoteDraftForSelection } from "../../lib/quote-selection";
 import { messageHasVisibleBlocks } from "../../lib/tool-activity-view";
 import { transcriptIsNearEnd, transcriptMovedDown } from "../../lib/transcript-scroll";
 import { TimeSeparator, UnreadDivider } from "./chat-context";
+import type { ImportSetupTarget } from "./import-setup-card";
 import { MessageView } from "./message-view";
 import { QuoteSelectionButton } from "./quote-selection-button";
+
+/** Bubbles stop at a readable line length instead of stretching with wide windows. */
+export function bubbleFrameWidth(role: ThreadMessage["role"]) {
+  return role === "user"
+    ? "max-w-[min(84%,calc(100%_-_8rem),39rem)] [@media(hover:none)]:max-w-[min(84%,39rem)]"
+    : "max-w-[min(88%,calc(100%_-_8rem),39rem)] [@media(hover:none)]:max-w-[min(88%,39rem)]";
+}
 
 export const Transcript = memo(function Transcript({
   scrollRef,
@@ -59,6 +73,7 @@ export const Transcript = memo(function Transcript({
   onAnswer,
   onReply,
   onMarkUnread,
+  markedUnreadMessageId,
   onQuote,
   onReact,
   onJumpToMessage,
@@ -72,6 +87,7 @@ export const Transcript = memo(function Transcript({
   speakingMessageId,
   onSpeak,
   onOpenComputer,
+  onOpenImportSetup,
 }: {
   scrollRef: RefObject<HTMLDivElement | null>;
   scrollRequest: { messageId: string; nonce: number } | null;
@@ -97,17 +113,21 @@ export const Transcript = memo(function Transcript({
   onAnswer: (
     message: ThreadMessage,
     text: string,
-    username?: string,
+    fields?: LoginFieldInput[],
     dismiss?: boolean,
+    remember?: false,
   ) => Promise<void>;
   onReply: (message: ThreadMessage) => void;
   onMarkUnread: (message: ThreadMessage) => void;
+  markedUnreadMessageId?: string;
   onQuote: (message: ThreadMessage, quote: string) => void;
   onReact: (message: ThreadMessage, reaction: MessageReaction) => Promise<void>;
   onJumpToMessage: (messageId: string) => void;
   onOpenPeerMessages: (peer: { peerBotId: string; peerBotName: string }) => void;
   memberName?: (botId: string | undefined) => string | undefined;
-  peerBot: (botId: string) => { name?: string; color: string; status?: string } | undefined;
+  peerBot: (
+    botId: string,
+  ) => { name?: string; color: string; status?: string; avatarSet?: BotAvatarSet } | undefined;
   onRefresh: () => Promise<void>;
   onBotChanged: () => Promise<void>;
   onAddRoutine: (name: string, prompt: string) => void;
@@ -115,6 +135,7 @@ export const Transcript = memo(function Transcript({
   speakingMessageId: string | null;
   onSpeak: (message: ThreadMessage) => void;
   onOpenComputer: (botId?: string) => void;
+  onOpenImportSetup?: (target: ImportSetupTarget) => void;
 }) {
   const { t } = useLingui();
   const [atEnd, setAtEnd] = useState(true);
@@ -152,7 +173,15 @@ export const Transcript = memo(function Transcript({
     () => new Map(messages.map((message) => [message.id, message])),
     [messages],
   );
-  const reactionView = useMemo(() => projectMessageReactions(messages), [messages]);
+  const mentionView = useMemo(() => projectBotMentions(messages), [messages]);
+  const jumpToMessage = useCallback(
+    (messageId: string) => onJumpToMessage(mentionView.foldedInto.get(messageId) ?? messageId),
+    [mentionView, onJumpToMessage],
+  );
+  const reactionView = useMemo(
+    () => projectMessageReactions(mentionView.visibleMessages),
+    [mentionView],
+  );
   const shownMessages = reactionView.visibleMessages.filter((message) =>
     messageHasVisibleBlocks(message.blocks, showToolActivity),
   );
@@ -398,7 +427,7 @@ export const Transcript = memo(function Transcript({
             following.current = false;
           }
         }}
-        className="rk-scroll flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-4 py-5 md:px-7 md:py-6"
+        className="rk-scroll isolate flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto scroll-pt-16 scroll-pb-7 px-4 pt-20 pb-12 md:px-[max(1.75rem,calc((100%_-_60rem)/2))] md:pt-[84px] md:pb-13"
         style={
           userBubble
             ? ({
@@ -409,16 +438,17 @@ export const Transcript = memo(function Transcript({
         }
       >
         {olderCursor != null ? (
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             disabled={loadingOlder}
             onClick={() => void loadOlder()}
             aria-label={t`Load earlier messages`}
-            className="flex items-center gap-2 self-center rounded-lg px-3 py-1.5 text-[13px] text-muted-foreground hover:bg-muted hover:text-foreground/75 disabled:opacity-50"
+            className="self-center text-muted-foreground"
           >
             {loadingOlder ? <Spinner aria-label={t`Loading…`} /> : null}
             {t`Load earlier messages`}
-          </button>
+          </Button>
         ) : null}
         {groupVoiceChats(reactionView.visibleMessages).map((item) => {
           if (item.kind === "voiceChat") {
@@ -459,7 +489,7 @@ export const Transcript = memo(function Transcript({
               ) : null}
               <div
                 data-message-id={message.id}
-                className={peerReceipt ? "relative py-0.5" : "group/message relative hover:z-20"}
+                className={peerReceipt ? "relative py-0.5" : "group/message relative hover:z-[1]"}
               >
                 <div
                   className={
@@ -477,17 +507,15 @@ export const Transcript = memo(function Transcript({
                               (block) => block.kind === "ask" || block.kind === "mcp_approval",
                             )
                           ? "relative w-full min-w-0 max-w-full"
-                          : `relative ${message.blocks.some((block) => block.kind === "app_connect") ? "w-full" : "w-fit"} min-w-0 ${
-                              message.role === "user"
-                                ? "max-w-[min(84%,calc(100%_-_8rem))] [@media(hover:none)]:max-w-[84%]"
-                                : "max-w-[min(88%,calc(100%_-_8rem))] [@media(hover:none)]:max-w-[88%]"
-                            }`
+                          : `relative ${message.blocks.some((block) => block.kind === "app_connect") ? "w-full" : "w-fit"} min-w-0 ${bubbleFrameWidth(message.role)}`
                     }
                   >
                     <MessageView
                       artifactTarget={artifactTarget}
                       message={message}
                       meId={meId}
+                      markedUnread={message.id === markedUnreadMessageId}
+                      mentions={mentionView.mentions.get(message.id)}
                       canAnswer={answerableAskIds.has(message.id)}
                       canDismiss={dismissableAskIds.has(message.id)}
                       onOpenBot={onOpenBot}
@@ -515,7 +543,7 @@ export const Transcript = memo(function Transcript({
                           ? messageById.get(message.replyToMessageId)
                           : undefined
                       }
-                      onJumpToMessage={onJumpToMessage}
+                      onJumpToMessage={jumpToMessage}
                       onRefresh={onRefresh}
                       onBotChanged={onBotChanged}
                       onAddRoutine={onAddRoutine}
@@ -523,6 +551,7 @@ export const Transcript = memo(function Transcript({
                       speaking={speakingMessageId === message.id}
                       onSpeak={() => onSpeak(message)}
                       onOpenComputer={onOpenComputer}
+                      onOpenImportSetup={onOpenImportSetup}
                       showToolActivity={showToolActivity}
                       onReply={onReply}
                       onMarkUnread={onMarkUnread}
@@ -570,19 +599,20 @@ export const Transcript = memo(function Transcript({
           }}
         />
       ) : null}
-      <button
+      <Button
         ref={jumpButtonRef}
-        type="button"
+        variant="floating"
+        size="icon-lg"
         aria-label={t`Jump to latest`}
         aria-hidden={atEnd}
         tabIndex={atEnd ? -1 : 0}
         onClick={jumpToLatest}
-        className={`absolute bottom-4 left-1/2 z-20 grid h-9 w-9 -translate-x-1/2 place-items-center rounded-full border border-border bg-muted/95 text-foreground/75 shadow-md backdrop-blur transition-[opacity,transform,background-color] duration-200 ease-[cubic-bezier(.22,1,.36,1)] hover:bg-border motion-reduce:transition-none ${
+        className={`absolute bottom-11 left-1/2 z-20 -translate-x-1/2 shadow-md transition-[opacity,transform,background-color] duration-200 ease-[cubic-bezier(.22,1,.36,1)] motion-reduce:transition-none ${
           atEnd ? "pointer-events-none translate-y-2 opacity-0" : "translate-y-0 opacity-100"
         }`}
       >
-        <ArrowDown size={17} strokeWidth={1.8} />
-      </button>
+        <ArrowDown strokeWidth={1.8} className="size-[17px]" />
+      </Button>
     </div>
   );
 });

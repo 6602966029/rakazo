@@ -27,8 +27,11 @@ describe("a run whose sender has left the space", () => {
     const tx = {
       run: {
         findUnique: vi.fn(async () => run),
+        findMany: vi.fn(async () => [run]),
         updateMany: vi.fn(async () => ({ count: 1 })),
       },
+      message: { findMany: vi.fn(async () => []) },
+      secret: { deleteMany: vi.fn(async () => ({ count: 0 })) },
       externalEffect: { deleteMany: vi.fn(async () => ({ count: 0 })) },
       attempt: { updateMany: vi.fn(async () => ({ count: 0 })) },
       task: { updateMany: vi.fn(async () => ({ count: 1 })) },

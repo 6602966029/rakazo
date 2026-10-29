@@ -2,8 +2,10 @@ import type { MessageBlock } from "@rakazo/contracts";
 import { ReplyPreviewSchema } from "@rakazo/contracts";
 import { describe, expect, it } from "vitest";
 import {
+  channelMessageSender,
   otherAuthor,
   payloadAuthor,
+  previewMessageText,
   replyAttachment,
   replyLabel,
   replyLineText,
@@ -128,5 +130,81 @@ describe("message authors", () => {
     expect(payloadAuthor({}, { author: ana })).toEqual({ author: ana });
     expect(payloadAuthor({ author: { id: "user-a" } })).toEqual({});
     expect(payloadAuthor({})).toEqual({});
+  });
+});
+
+describe("channelMessageSender", () => {
+  const channel = {
+    kind: "channel_message" as const,
+    provider: "telegram",
+    channelId: "channel",
+    fromAddress: "ada",
+    fromLabel: "Ada",
+    text: "On my way",
+  };
+
+  it("names the outside sender of a relayed message", () => {
+    expect(channelMessageSender([channel])).toBe("Ada");
+  });
+
+  it("is undefined for the user's own messages and for a blank sender", () => {
+    expect(channelMessageSender([{ kind: "text", text: "hi" }])).toBeUndefined();
+    expect(channelMessageSender([{ ...channel, fromLabel: "  " }])).toBeUndefined();
+  });
+});
+
+describe("previewMessageText", () => {
+  const labels = { photo: "Photo", attachment: "Attachment", message: "Message" };
+
+  it("joins text, reading bot Markdown as plain text", () => {
+    expect(
+      previewMessageText(
+        {
+          role: "bot",
+          blocks: [
+            { kind: "text", text: "**Hello**" },
+            { kind: "text", text: "there" },
+          ],
+        },
+        labels,
+      ),
+    ).toBe("Hello there");
+    expect(
+      previewMessageText({ role: "user", blocks: [{ kind: "text", text: "**hi**" }] }, labels),
+    ).toBe("**hi**");
+  });
+
+  it("shows a channel message's text alone, like the server preview", () => {
+    expect(
+      previewMessageText(
+        {
+          role: "user",
+          blocks: [
+            {
+              kind: "channel_message",
+              provider: "telegram",
+              channelId: "channel",
+              fromAddress: "ada",
+              fromLabel: "Ada",
+              text: "On my way",
+            },
+          ],
+        },
+        labels,
+      ),
+    ).toBe("On my way");
+  });
+
+  it("falls back to attachment labels, then a generic label", () => {
+    const image = { kind: "image", artifactId: "a", mimeType: "image/png", name: "a.png" } as const;
+    const file = { kind: "file", artifactId: "f", mimeType: "application/pdf", size: 1 } as const;
+    expect(previewMessageText({ role: "user", blocks: [image] }, labels)).toBe("Photo");
+    expect(previewMessageText({ role: "user", blocks: [{ ...file, name: "a.pdf" }] }, labels)).toBe(
+      "a.pdf",
+    );
+    expect(previewMessageText({ role: "user", blocks: [{ ...file, name: "" }] }, labels)).toBe(
+      "Attachment",
+    );
+    expect(previewMessageText({ role: "bot", blocks: [] }, labels)).toBe("Message");
   });
 });

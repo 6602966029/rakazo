@@ -1,5 +1,5 @@
 import { MenuView } from "@expo/ui/community/menu";
-import type { SpaceInviteLink, SpaceMember, SpaceMembers } from "@rakazo/contracts";
+import type { SpaceMember, SpaceMembers } from "@rakazo/contracts";
 import { accountDisplay } from "@rakazo/core";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -24,7 +24,7 @@ export default function SpaceMembersScreen() {
   useEffect(() => {
     if (!spaceId) return;
     let active = true;
-    rpc<SpaceMembers>("spaces/members/list", { spaceId })
+    rpc("spaces/members/list", { spaceId })
       .then((next) => {
         if (active) setMembers(next);
       })
@@ -40,7 +40,7 @@ export default function SpaceMembersScreen() {
     if (!spaceId || pending) return;
     setPending(true);
     try {
-      const link = await rpc<SpaceInviteLink>("spaces/invites/create", { spaceId });
+      const link = await rpc("spaces/invites/create", { spaceId });
       // iOS shares a URL as a link; Android only takes text.
       await Share.share(Platform.OS === "ios" ? { url: link.url } : { message: link.url });
     } catch (err) {
@@ -87,9 +87,7 @@ export default function SpaceMembersScreen() {
     if (!spaceId || pending) return;
     setPending(true);
     try {
-      const result = await rpc<{ ok: true; activeSpaceId: string }>("spaces/members/leave", {
-        spaceId,
-      });
+      const result = await rpc("spaces/members/leave", { spaceId });
       if (selectedSpaceId() === spaceId) await selectSpace(result.activeSpaceId);
       router.dismissAll();
       router.replace("/");

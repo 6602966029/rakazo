@@ -38,6 +38,7 @@ function runFromStartedEvent(event: ProductEvent, previous: Run | undefined): Ru
     botId: event.botId,
     threadId: event.threadId,
     taskId: previous?.taskId ?? event.runId ?? event.id,
+    userId: previous?.userId,
     status: "running",
     trigger:
       typeof trigger === "string" && runTriggers.has(trigger)
@@ -302,6 +303,7 @@ export function reduceThreadSnapshot(
       prev.activeRuns?.find((candidate) => candidate.id === event.runId) ??
       (prev.run?.id === event.runId ? prev.run : undefined);
     const run = runFromStartedEvent(event, previousRun);
+    if (!run.userId && prev.run?.id === run.id) run.userId = prev.run.userId;
     const without = (prev.activeRuns ?? (prev.run ? [prev.run] : [])).filter(
       (candidate) => candidate.id !== run.id,
     );
@@ -320,6 +322,12 @@ export function reduceThreadSnapshot(
   if (event.type === "run.waiting_input" || event.type === "computer.takeover.requested") {
     const status = event.type === "run.waiting_input" ? "waiting_input" : "waiting_takeover";
     const runId = event.runId;
+    const userId =
+      event.type === "run.waiting_input" &&
+      typeof event.payload.userId === "string" &&
+      event.payload.userId.length > 0
+        ? event.payload.userId
+        : undefined;
     const knownInRun = Boolean(runId && prev.run?.id === runId);
     const knownInActive = Boolean(
       runId && prev.activeRuns?.some((candidate) => candidate.id === runId),
@@ -327,10 +335,18 @@ export function reduceThreadSnapshot(
     // Peer bot_message runs are omitted from snapshots while busy; the first wait
     // event is how an open thread learns they need ask/takeover UI.
     const needsInsert = Boolean(runId) && !knownInRun && !knownInActive;
-    const runChanged = Boolean(knownInRun && prev.run && prev.run.status !== status);
+    const runChanged = Boolean(
+      knownInRun &&
+        prev.run &&
+        (prev.run.status !== status || (userId && prev.run.userId !== userId)),
+    );
     const activeRunChanged = Boolean(
       knownInActive &&
-        prev.activeRuns?.some((candidate) => candidate.id === runId && candidate.status !== status),
+        prev.activeRuns?.some(
+          (candidate) =>
+            candidate.id === runId &&
+            (candidate.status !== status || (userId && candidate.userId !== userId)),
+        ),
     );
     const members = updateMemberStatus(prev.members, event.botId, status);
     // Ask pauses delete progress events server-side; drop the live bubble so a missed
@@ -355,6 +371,7 @@ export function reduceThreadSnapshot(
         botId: event.botId,
         threadId: event.threadId,
         taskId: runId,
+        ...(userId ? { userId } : {}),
         status,
         trigger: "bot_message",
         routineId: null,
@@ -384,10 +401,13 @@ export function reduceThreadSnapshot(
       cursor: event.seq,
       members,
       messages,
-      run: runChanged && prev.run ? { ...prev.run, status } : prev.run,
+      run:
+        runChanged && prev.run ? { ...prev.run, status, ...(userId ? { userId } : {}) } : prev.run,
       activeRuns: activeRunChanged
         ? prev.activeRuns?.map((candidate) =>
-            candidate.id === runId ? { ...candidate, status } : candidate,
+            candidate.id === runId
+              ? { ...candidate, status, ...(userId ? { userId } : {}) }
+              : candidate,
           )
         : prev.activeRuns,
     };
@@ -682,4 +702,27 @@ function isComputerState(value: unknown): value is ComputerStatus["state"] {
 function replacedSubagent(message: ThreadMessage, agentIds: ReadonlySet<string>) {
   if (agentIds.size === 0) return false;
   return message.blocks.some((block) => block.kind === "subagent" && agentIds.has(block.agentId));
+}
+
+export function screenMissing(options: {
+  state: ComputerStatus["state"] | undefined;
+  kind: ComputerStatus["kind"] | undefined;
+  booting: boolean;
+  screenUrlLoaded: boolean;
+  embeddedUrl: string | null;
+}): boolean {
+  return (
+    options.state === "running" &&
+    options.kind !== "desktop" &&
+    !options.booting &&
+    options.screenUrlLoaded &&
+    !options.embeddedUrl
+  );
+}
+
+export function screenReadLoaded(
+  issued: ComputerStatus["state"] | undefined,
+  current: ComputerStatus["state"] | undefined,
+): boolean {
+  return issued === "running" && current === "running";
 }

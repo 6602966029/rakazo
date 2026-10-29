@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   clearSpaceSelection,
   createSpaceRpc,
+  leaveUnavailableSpace,
   rpc,
   rpcForSpace,
   selectedSpaceId,
@@ -34,52 +35,68 @@ describe("signed-out responses", () => {
   });
 });
 
-describe("an unavailable selected space", () => {
-  function stubBrowser(selected: string | null) {
-    const state = { selected };
-    const assign = vi.fn();
+describe("unavailable space", () => {
+  function browser(selected: string, spaces: string[] | null) {
+    const items = new Map([["rakazo:space-id", selected]]);
+    const reload = vi.fn();
     vi.stubGlobal("window", {
-      location: { origin: "https://example.test", pathname: "/app", assign },
       localStorage: {
-        getItem: () => state.selected,
-        setItem: vi.fn(),
-        removeItem: () => {
-          state.selected = null;
-        },
+        getItem: (key: string) => items.get(key) ?? null,
+        setItem: (key: string, value: string) => items.set(key, value),
+        removeItem: (key: string) => items.delete(key),
       },
+      location: { origin: "http://app.example", reload },
     });
-    return { state, assign };
+    const fetch = vi.fn(async (_request: Request, init?: RequestInit) => {
+      if (!spaces)
+        return Response.json({ json: { code: "UNAUTHORIZED", status: 401 } }, { status: 401 });
+      expect(new Headers(init?.headers).has("x-rakazo-space-id")).toBe(false);
+      return Response.json({
+        json: {
+          current: {
+            id: "home",
+            name: "Home",
+            bots: [],
+            groups: [],
+            externalConversations: [],
+            botSections: [],
+          },
+          spaces: spaces.map((id) => ({ id })),
+        },
+      });
+    });
+    vi.stubGlobal("fetch", fetch);
+    return { items, reload };
   }
 
-  it("drops the selection and reopens the app when the session works without it", async () => {
-    const { state, assign } = stubBrowser("space-gone");
-    const fetch = vi.fn(async (input: Request | URL, _init?: RequestInit) =>
-      input instanceof Request
-        ? Response.json({ json: { code: "UNAUTHORIZED", status: 401 } }, { status: 401 })
-        : Response.json({ json: {} }),
-    );
-    vi.stubGlobal("fetch", fetch);
-
-    await expect(rpc.me()).rejects.toMatchObject({ status: 401 });
-    await vi.waitFor(() => expect(assign).toHaveBeenCalledWith("/app"));
-    expect(state.selected).toBeNull();
-    const probe = fetch.mock.calls[1]?.[1];
-    expect(new Headers(probe?.headers).get("x-rakazo-space-id")).toBeNull();
+  it("drops a space the user is no longer in and reloads", async () => {
+    const { items, reload } = browser("space-gone", ["home"]);
+    await leaveUnavailableSpace("space-gone");
+    expect(items.has("rakazo:space-id")).toBe(false);
+    expect(reload).toHaveBeenCalledOnce();
   });
 
-  it("keeps the selection when the session itself is gone", async () => {
-    const { state, assign } = stubBrowser("space-a");
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
-        Response.json({ json: { code: "UNAUTHORIZED", status: 401 } }, { status: 401 }),
-      ),
+  it("recovers from a 401 on the shell's space-bound client", async () => {
+    const { items, reload } = browser("space-gone", ["home"]);
+    const fetch = vi.mocked(globalThis.fetch);
+    const list = fetch.getMockImplementation()!;
+    fetch.mockImplementation(async (request, init) =>
+      new Headers(init?.headers).get("x-rakazo-space-id") === "space-gone"
+        ? Response.json({ json: { code: "UNAUTHORIZED", status: 401 } }, { status: 401 })
+        : list(request, init),
     );
+    await expect(createSpaceRpc("space-gone").me()).rejects.toMatchObject({ status: 401 });
+    await vi.waitFor(() => expect(reload).toHaveBeenCalledOnce());
+    expect(items.has("rakazo:space-id")).toBe(false);
+  });
 
-    await expect(rpc.me()).rejects.toMatchObject({ status: 401 });
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(assign).not.toHaveBeenCalled();
-    expect(state.selected).toBe("space-a");
+  it("keeps a space the user still has, and keeps it when signed out", async () => {
+    for (const spaces of [["home", "space-a"], null]) {
+      const { items, reload } = browser("space-a", spaces);
+      await leaveUnavailableSpace("space-a");
+      expect(items.get("rakazo:space-id")).toBe("space-a");
+      expect(reload).not.toHaveBeenCalled();
+    }
   });
 });
 

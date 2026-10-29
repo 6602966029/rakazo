@@ -93,9 +93,8 @@ const link = new RPCLink<RpcClientContext>({
     }
     // Server exceptions are reported by the API; do not report every HTTP failure twice.
     recheckSessionOnUnauthorized(response.status);
-    if (response.status === 401 && spaceId && spaceId === selectedSpaceId()) {
-      void leaveUnavailableSpace(request.url, spaceId);
-    }
+    if (response.status === 401 && spaceId && spaceId === selectedSpaceId())
+      void leaveUnavailableSpace(spaceId);
     for (const listener of responseListeners) listener(response);
     return response;
   },
@@ -113,26 +112,23 @@ export function recheckSessionOnUnauthorized(status: number): void {
 let leavingSpace: Promise<void> | null = null;
 
 /**
- * A 401 for the selected space may mean only that space is gone (deleted, or the
- * person was removed from it). If the session still works without it, drop the
- * selection and reopen the app in a space the person still belongs to.
+ * The server answers 401 when the selected space is no longer one of the user's, for instance
+ * after they are removed from it, and every request would keep failing. Ask without a space which
+ * spaces the user has; if the selected one is not among them, reload into their default space.
  */
-function leaveUnavailableSpace(rpcUrl: string, spaceId: string): Promise<void> {
-  leavingSpace ??= fetch(new URL("/rpc/me", rpcUrl), {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ json: null }),
-    credentials: "include",
-  })
-    .then((probe) => {
-      if (!probe.ok || selectedSpaceId() !== spaceId) return;
+export function leaveUnavailableSpace(spaceId: string): Promise<void> {
+  leavingSpace ??= (async () => {
+    try {
+      const { spaces } = await rpc.spaces.list(undefined, { context: { spaceId: null } });
+      if (spaces.some((space) => space.id === spaceId) || selectedSpaceId() !== spaceId) return;
       clearSpaceSelection();
-      window.location.assign("/app");
-    })
-    .catch(() => undefined)
-    .finally(() => {
+      window.location.reload();
+    } catch {
+      // Signed out or unreachable: leave the selection for the next request to try again.
+    } finally {
       leavingSpace = null;
-    });
+    }
+  })();
   return leavingSpace;
 }
 

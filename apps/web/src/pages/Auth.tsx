@@ -6,8 +6,8 @@ import {
   signupRequiresEmailVerification,
 } from "@rakazo/core";
 import { Button, Input, InputOTP, InputOTPGroup, InputOTPSlot, Label } from "@rakazo/ui-web";
-import { useEffect, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { PasskeySignIn } from "../components/PasskeySignIn";
 import { authClient } from "../lib/auth";
 import type { AuthCapabilities } from "../lib/auth-capabilities";
@@ -25,7 +25,6 @@ export const submitClass = "mt-3 h-12 w-full rounded-xl text-base";
 
 export function AuthPage({ mode }: { mode: AuthMode }) {
   const { t } = useLingui();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const next = signInNext(searchParams.get("next"));
   // Switching between sign-in and sign-up keeps where the person was going.
@@ -39,18 +38,19 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     return authErrorText({ code }, t`Could not continue`);
   });
   const [pending, setPending] = useState(false);
+  const entering = useRef(false);
   const [resetSent, setResetSent] = useState(false);
   // Signup triggers a session refresh that remounts the anonymous auth page.
   const sent = resetSent || searchParams.get("verify") === "email";
   const [reset, setReset] = useState<AuthCapabilities | null>(null);
   const [capabilityError, setCapabilityError] = useState(false);
   const [capabilityAttempt, setCapabilityAttempt] = useState(0);
-  const [method, setMethod] = useState<"code" | "password">("code");
   const [codeSent, setCodeSent] = useState(false);
   const [code, setCode] = useState("");
   const useCode = Boolean(reset?.passwordAuth && reset.emailCode) && mode !== "forgot";
-  const codeMode = useCode && method === "code";
-  const codeStep = codeMode && codeSent;
+  // A blank password asks for an emailed code, so code-only accounts need no toggle.
+  const codeMode = useCode && !password;
+  const codeStep = useCode && codeSent;
   const passwordFieldId = mode === "in" ? "current-password" : "new-password";
   const title =
     sent || codeStep ? (
@@ -152,7 +152,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     } catch {
       setError(t`Could not reach the server`);
     } finally {
-      setPending(false);
+      if (!entering.current) setPending(false);
     }
   }
 
@@ -177,17 +177,19 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     } catch {
       setError(t`Could not reach the server`);
     } finally {
-      setPending(false);
+      if (!entering.current) setPending(false);
     }
   }
 
   function enterApp() {
     clearSpaceSelection();
-    navigate(next ?? (mode === "up" ? "/onboarding" : "/app"));
+    // The routes move a signed-in user on once the session refetch lands. Navigating
+    // first beats it, so the guards bounce through sign-in and the shell.
+    entering.current = true;
+    setPending(true);
   }
 
-  function chooseMethod(next: "code" | "password") {
-    setMethod(next);
+  function leaveCodeStep() {
     setCodeSent(false);
     setCode("");
     setError(null);
@@ -316,7 +318,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                   />
                 </div>
               )}
-              {mode !== "forgot" && !codeMode ? (
+              {mode !== "forgot" && !codeStep ? (
                 <div className="mt-4 w-full">
                   <Label htmlFor={passwordFieldId} className="text-muted-foreground">
                     <Trans>Password</Trans>
@@ -329,7 +331,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={t`Password`}
                     type="password"
-                    required
+                    required={!useCode}
                     minLength={mode === "up" ? MIN_PASSWORD_LENGTH : undefined}
                     maxLength={MAX_PASSWORD_LENGTH}
                     className={fieldClass}
@@ -359,7 +361,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                 ) : codeMode ? (
                   <Trans>Continue</Trans>
                 ) : mode === "in" ? (
-                  <Trans>Continue with email</Trans>
+                  <Trans>Sign in</Trans>
                 ) : mode === "forgot" ? (
                   <Trans>Send reset link</Trans>
                 ) : (
@@ -374,22 +376,16 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                   onError={setError}
                 />
               ) : null}
-              {useCode ? (
+              {codeStep ? (
                 <Button
                   type="button"
                   variant="link"
                   size="sm"
                   disabled={pending}
                   className="mt-3 text-muted-foreground"
-                  onClick={() => chooseMethod(codeMode && !codeStep ? "password" : "code")}
+                  onClick={leaveCodeStep}
                 >
-                  {codeStep ? (
-                    <Trans>Back</Trans>
-                  ) : codeMode ? (
-                    <Trans>Use password</Trans>
-                  ) : (
-                    <Trans>Use email code</Trans>
-                  )}
+                  <Trans>Back</Trans>
                 </Button>
               ) : null}
               {reset.sso && mode !== "forgot" && !codeStep ? (

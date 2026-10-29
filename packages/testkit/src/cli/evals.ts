@@ -8,7 +8,6 @@ import type { AgentRunRequest } from "@rakazo/adapter-kit";
 import { ModelConnectInputSchema } from "@rakazo/contracts";
 import { loadRootEnv } from "@rakazo/core/node/load-root-env";
 import type { StartedPostgreSqlContainer } from "@testcontainers/postgresql";
-import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { EVAL_CASES, HISTORY_EVAL_CASES } from "../evals/cases.js";
 import { HISTORY_FIXTURE_VERSION } from "../evals/history-fixtures.js";
 import type { DiagnosticToolObservation, HistoryDiagnostic } from "../evals/history-observer.js";
@@ -26,6 +25,8 @@ import {
 } from "../evals/silence.js";
 import type { DiagnosticWireObservation } from "../evals/wire-observer.js";
 import { diagnosticWireFetch } from "../evals/wire-observer.js";
+import { runApprovalSuite } from "./approval-eval.js";
+import { startPostgres } from "./postgres.js";
 
 async function main() {
   const { values } = parseArgs({
@@ -56,13 +57,19 @@ async function main() {
       output: { type: "string", default: "test-report/evals/report.json" },
     },
   });
+  if (values.suite === "approval")
+    return runApprovalSuite(values, {
+      codeRevision: codeRevision(),
+      workingDiffHash: workingDiffHash(),
+      readConnection,
+    });
   const suites = {
     product: { cases: EVAL_CASES, fixtureVersion: "product-v1" },
     history: { cases: HISTORY_EVAL_CASES, fixtureVersion: HISTORY_FIXTURE_VERSION },
     silence: { cases: SILENCE_EVAL_CASES, fixtureVersion: SILENCE_FIXTURE_VERSION },
   };
   if (!Object.hasOwn(suites, values.suite!))
-    throw new Error("Unknown suite; use product, history, or silence");
+    throw new Error("Unknown suite; use product, history, silence, or approval");
   const { cases, fixtureVersion } = suites[values.suite as keyof typeof suites];
   if (values["wire-diagnostics"] && values.suite !== "history")
     throw new Error("Synthetic wire diagnostics require the history suite");
@@ -411,13 +418,15 @@ async function main() {
   const dataDir = mkdtempSync(path.join(tmpdir(), "rakazo-evals-"));
   let postgres: StartedPostgreSqlContainer | undefined;
   let stopRequested = false;
+  const stop = new AbortController();
   const requestStop = () => {
     stopRequested = true;
+    stop.abort();
   };
   process.on("SIGINT", requestStop);
   process.on("SIGTERM", requestStop);
   try {
-    postgres = await new PostgreSqlContainer("postgres:18-alpine").start();
+    postgres = await startPostgres(stop.signal);
     const databaseUrl = postgres.getConnectionUri();
     Object.assign(process.env, {
       DATABASE_URL: databaseUrl,
@@ -442,6 +451,8 @@ async function main() {
       PIPEDREAM_CLIENT_SECRET: "",
       PIPEDREAM_PROJECT_ID: "",
       SMTP_URL: "",
+      EMAIL_PROVIDER: "none",
+      EMAIL_API_KEY: "",
       SLACK_BOT_TOKEN: "",
       TELEGRAM_BOT_TOKEN: "",
       WHATSAPP_ACCESS_TOKEN: "",
@@ -460,7 +471,7 @@ async function main() {
       timeout: 120_000,
     });
     // Import runtime modules only after generation; their barrel exports load Prisma.
-    const { createApp } = await import("../../../../apps/api/src/app.ts");
+    const { createApp } = await import("@rakazo/api/app");
     const { runTrial } = await import("../evals/runner.js");
     const { dispatcherFetch, PiAgentRuntime } = await import("@rakazo/adapters");
     const { EvalSandboxProvider } = await import("../evals/sandbox.js");
@@ -569,6 +580,8 @@ async function main() {
               pipedreamClientSecret: undefined,
               pipedreamProjectId: undefined,
               smtpUrl: undefined,
+              emailProvider: "none",
+              emailApiKey: undefined,
               emailFrom: undefined,
               sendblueApiKeyId: undefined,
               sendblueApiSecret: undefined,

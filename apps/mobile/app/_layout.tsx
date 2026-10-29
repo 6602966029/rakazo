@@ -19,13 +19,14 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { Dimensions, Platform, StyleSheet, View } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import Animated, { useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppErrorBoundary } from "../components/app-error-boundary";
 import { CallCard } from "../components/CallCard";
+import { chatRouteHeader } from "../components/chat-route-header";
 import { CodeCopyButton } from "../components/code-copy-button";
 import { ComputerUpdateProgress } from "../components/computer-update-progress";
 import { floatingHeaderOptions, glassHeaderOptions } from "../components/glass-title";
@@ -54,9 +55,10 @@ import {
   configureForegroundNotifications,
   resumeLiveNotifications,
 } from "../lib/live-notifications";
+import { setMobileMonitoringScreen } from "../lib/monitoring";
 import { native, useMobileTokens, useResolvedAppearance } from "../lib/native";
 import { useNotificationResponses } from "../lib/open-notification";
-import { syncOrientation } from "../lib/orientation";
+import { clearQueries } from "../lib/query";
 import {
   getCachedRemoteImagesEnabled,
   loadRemoteImagesPreference,
@@ -64,7 +66,12 @@ import {
 } from "../lib/remote-images-preference";
 import { loadResponseStreamingPreference } from "../lib/response-streaming";
 import { clearSavedChats } from "../lib/saved-chats";
-import { registerSessionDiskCache } from "../lib/session";
+import {
+  currentReadySessionGeneration,
+  registerSessionDiskCache,
+  subscribeSessionGeneration,
+} from "../lib/session";
+import { InboxBesideContext } from "../lib/side-insets";
 import {
   chooseInboxWidth,
   closesSplitPane,
@@ -79,6 +86,11 @@ import {
   trackMobileStartup,
 } from "../lib/startup";
 import { capTextScaling } from "../lib/text-scale";
+import {
+  loadTrustedLinkSites,
+  trustLinkSite,
+  useTrustedLinkSites,
+} from "../lib/trusted-link-sites";
 import { startUnsentSends } from "../lib/unsent-sends";
 import { InboxPane } from "./index";
 
@@ -86,14 +98,15 @@ import { InboxPane } from "./index";
 capTextScaling();
 configureForegroundNotifications();
 registerSessionDiskCache(clearSavedChats);
+registerSessionDiskCache(clearQueries);
 installClientUpdates();
 registerSessionDiskCache(() => void clearAppBadge());
 // Keep the splash up until the saved appearance applies, so the first frame isn't in the OS scheme.
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
-// Screens that take the whole window even when it is wide enough for the chat list beside them.
 const DIVIDER_GRAB_WIDTH = 24;
-const FULL_WINDOW_ROUTES = new Set(["/sign-in", "/server", "/image", "/computer"]);
+// Screens that take the whole window even when it is wide enough for the chat list beside them.
+const FULL_WINDOW_ROUTES = new Set(["/sign-in", "/server", "/image", "/computer", "/share"]);
 
 /** On a wide window the chat list stays on the left and the stack shows the open chat beside it. */
 function SplitFrame({ children }: { children: ReactNode }) {
@@ -106,13 +119,13 @@ function SplitFrame({ children }: { children: ReactNode }) {
   useEffect(() => {
     paneSpace.current = pathname === "/" ? null : selectedSpaceId();
   }, [routeKey]);
-  const { split, inboxHidden, inboxWidth, foldGap, foldActive, windowWidth } = useSplitView();
+  const { split, inboxShown, inboxWidth, foldGap, foldActive, windowWidth } = useSplitView();
   const tokens = useMobileTokens();
   const home = pathname === "/";
   useEffect(() => {
     if (home) setInboxHidden(false);
   }, [home]);
-  const showsInbox = split && (home || !inboxHidden) && !FULL_WINDOW_ROUTES.has(pathname);
+  const showsInbox = split && (home || inboxShown) && !FULL_WINDOW_ROUTES.has(pathname);
   // Dragging resizes the list natively; the width is kept when the finger lifts.
   const paneWidth = useSharedValue(inboxWidth);
   const dragStart = useRef(inboxWidth);
@@ -153,7 +166,9 @@ function SplitFrame({ children }: { children: ReactNode }) {
         </Animated.View>
       ) : null}
       {/* Keeps its place among the children so the navigation stack survives folding. */}
-      <View style={{ flex: 1, marginLeft: showsInbox ? foldGap : 0 }}>{children}</View>
+      <View style={{ flex: 1, marginLeft: showsInbox ? foldGap : 0 }}>
+        <InboxBesideContext.Provider value={showsInbox}>{children}</InboxBesideContext.Provider>
+      </View>
       {showsInbox && !foldActive ? (
         <GestureDetector gesture={resize}>
           {/* Drawn last and wider than the line, over both panes, so it is easy to grab. */}
@@ -209,10 +224,22 @@ function ChatContentProviders({
     () => ({ endpoint, load: (origin) => loadLinkFavicon(origin, endpoint), globe: <LinkGlobe /> }),
     [endpoint],
   );
+  const session = useSyncExternalStore(subscribeSessionGeneration, currentReadySessionGeneration);
+  const trustedSites = useTrustedLinkSites();
+  useEffect(() => {
+    void loadTrustedLinkSites().catch(() => undefined);
+  }, [endpoint, session]);
   return (
     <MarkdownLinkPromptProvider
       appOrigin={endpoint}
-      copy={{ title: t("Open external link?"), cancel: t("Cancel"), open: t("Open") }}
+      copy={{
+        title: t("Open external link?"),
+        cancel: t("Cancel"),
+        open: t("Open"),
+        alwaysOpen: (site) => t("Always open {site}", { site }),
+      }}
+      trustedSites={trustedSites}
+      trustSite={trustLinkSite}
     >
       <RemoteImagesContext.Provider value={loadRemoteImages}>
         <LinkFaviconsContext.Provider value={linkFavicons}>
@@ -227,33 +254,26 @@ function ChatContentProviders({
   );
 }
 
+export const unstable_settings = { anchor: "index" };
+
 function LayoutContent() {
-  useEffect(() => {
-    // Re-read live geometry after folding, rotation, or window resizing.
-    const subscription = Dimensions.addEventListener("change", () => {
-      void syncOrientation();
-    });
-    void syncOrientation();
-    return () => subscription.remove();
-  }, []);
   const { t } = useI18n();
   const insets = useSafeAreaInsets();
   // Beside the list a chat swaps in place, the way it does when picked from a sidebar.
-  const chatAnimation = useSplitView().split ? "none" : undefined;
+  const { split, inboxHidden, foldActive } = useSplitView();
+  const chatAnimation = split ? "none" : undefined;
   const [ready, setReady] = useState(false);
   useNotificationResponses(ready);
   const screen = analyticsScreen(usePathname());
+  useEffect(() => setMobileMonitoringScreen(screen), [screen]);
   useEffect(() => {
-    if (!ready || !screen || (Platform.OS !== "ios" && Platform.OS !== "android")) return;
+    const surface = Platform.OS;
+    if (!ready || !screen || (surface !== "ios" && surface !== "android")) return;
     let active = true;
     void loadSessionToken()
       .then((token) => {
         if (active && token)
-          return rpc(
-            "analytics/screen",
-            { screen, surface: Platform.OS },
-            { skipSpaceAuthRecovery: true },
-          );
+          return rpc("analytics/screen", { screen, surface }, { skipSpaceAuthRecovery: true });
       })
       .catch(() => undefined);
     return () => {
@@ -315,18 +335,20 @@ function LayoutContent() {
         trackMobileStartup("streaming", loadResponseStreamingPreference()),
         trackMobileStartup("images", loadRemoteImagesPreference()),
         trackMobileStartup("inbox", loadInboxWidth()),
-      ])
-        .then(() => {
-          // Notification restoration must not keep the native splash visible.
-          void loadSessionToken()
-            .then((token) =>
-              resumeLiveNotifications(currentApiBase(), token, selectedSpaceId() ?? ""),
-            )
-            .catch(() => undefined);
-        })
-        .catch(() => undefined),
+      ]).catch(() => undefined),
       trackMobileStartup("language", bootstrapI18n()).catch(() => undefined),
-    ]).finally(() => setReady(true));
+    ])
+      .then(() => {
+        // The native poller stores the locale its notification copy uses, so the
+        // restart waits for the language to load rather than saving the default.
+        // Notification restoration must not keep the native splash visible.
+        void loadSessionToken()
+          .then((token) =>
+            resumeLiveNotifications(currentApiBase(), token, selectedSpaceId() ?? ""),
+          )
+          .catch(() => undefined);
+      })
+      .finally(() => setReady(true));
   }, []);
 
   return (
@@ -339,8 +361,17 @@ function LayoutContent() {
               <View style={{ flex: 1 }}>
                 <SplitFrame>
                   <Stack
-                    screenLayout={({ navigation, children }) => (
-                      <AvatarScreenFocus navigation={navigation}>{children}</AvatarScreenFocus>
+                    screenLayout={({ navigation, options, children }) => (
+                      <AvatarScreenFocus navigation={navigation}>
+                        {/* Sheets and modals cover the window, so the chat list is not beside them. */}
+                        {options.presentation && options.presentation !== "card" ? (
+                          <InboxBesideContext.Provider value={false}>
+                            {children}
+                          </InboxBesideContext.Provider>
+                        ) : (
+                          children
+                        )}
+                      </AvatarScreenFocus>
                     )}
                     screenOptions={{
                       headerStyle: { backgroundColor: navigationTheme.colors.background },
@@ -362,7 +393,16 @@ function LayoutContent() {
                         sheetExpandsWhenScrolledToEdge: false,
                       }}
                     />
+                    <Stack.Screen name="share" options={{ headerShown: false }} />
                     <Stack.Screen name="sign-in" options={{ headerShown: false }} />
+                    <Stack.Screen
+                      name="paywall"
+                      options={{
+                        headerShown: false,
+                        presentation: "fullScreenModal",
+                        gestureEnabled: false,
+                      }}
+                    />
                     <Stack.Screen
                       name="(settings)"
                       options={{
@@ -386,18 +426,9 @@ function LayoutContent() {
                       }}
                     />
                     <Stack.Screen
-                      name="new"
-                      options={{
-                        title: t("New bot"),
-                        presentation: "modal",
-                        gestureEnabled: true,
-                        headerBackVisible: false,
-                      }}
-                    />
-                    <Stack.Screen
                       name="new-group"
                       options={{
-                        title: t("New group"),
+                        title: t("New group chat"),
                         presentation: "modal",
                         gestureEnabled: true,
                       }}
@@ -405,7 +436,7 @@ function LayoutContent() {
                     <Stack.Screen
                       name="new-space"
                       options={{
-                        title: t("New space"),
+                        title: t("New private space"),
                         presentation: "modal",
                         gestureEnabled: true,
                         headerBackVisible: false,
@@ -424,7 +455,11 @@ function LayoutContent() {
                     <Stack.Screen name="artifact" options={{ title: t("Artifact") }} />
                     <Stack.Screen
                       name="group-thread"
-                      options={{ title: t("Group"), animation: chatAnimation }}
+                      options={({ route }) => ({
+                        title: t("Group"),
+                        animation: chatAnimation,
+                        ...chatRouteHeader(route, t, { split, inboxHidden, foldActive }),
+                      })}
                     />
                     <Stack.Screen
                       name="group-settings"
@@ -438,8 +473,13 @@ function LayoutContent() {
                     <Stack.Screen name="bot-model" options={glassHeaderOptions(t("Model"))} />
                     <Stack.Screen
                       name="thread"
-                      options={{ title: t("Thread"), animation: chatAnimation }}
+                      options={({ route }) => ({
+                        title: t("Thread"),
+                        animation: chatAnimation,
+                        ...chatRouteHeader(route, t, { split, inboxHidden, foldActive }),
+                      })}
                     />
+                    <Stack.Screen name="routines" options={glassHeaderOptions(t("Routines"))} />
                     <Stack.Screen name="routine" options={glassHeaderOptions(t("Routine"))} />
                     <Stack.Screen name="computer" options={{ title: t("Computer") }} />
                     <Stack.Screen

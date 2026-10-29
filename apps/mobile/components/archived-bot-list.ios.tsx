@@ -14,12 +14,14 @@ import {
   accessibilityElement,
   accessibilityLabel,
   buttonStyle,
+  contentShape,
   disabled,
   foregroundStyle,
   frame,
   listRowInsets,
   listSectionMargins,
   listStyle,
+  shapes,
   tint,
 } from "@expo/ui/swift-ui/modifiers";
 import { PlatformColor } from "react-native";
@@ -63,11 +65,12 @@ export function ArchivedBotList({
           modifiers={swipe ? swipeTint : undefined}
           onPress={() => onRestore(bot)}
         />
-        {/* biome-ignore lint/a11y/useValidAriaRole: SwiftUI Button role, not an ARIA role. */}
         <Button
           label={t("Delete")}
           systemImage="trash"
-          role="destructive"
+          // The swipe button is red by its tint, not the destructive role: SwiftUI removes a row
+          // as soon as a destructive swipe button is tapped, even when the confirmation is cancelled.
+          role={swipe ? undefined : "destructive"}
           modifiers={swipe ? swipeDeleteTint : undefined}
           onPress={() => onDelete(bot)}
         />
@@ -118,7 +121,7 @@ export function ArchivedBotList({
           <List.ForEach>
             {bots.map((bot) => (
               <SwipeActions key={bot.id} modifiers={[disabled(pending)]}>
-                <ContextMenu>
+                <ContextMenu modifiers={[contentShape(shapes.rectangle())]}>
                   <ContextMenu.Trigger>
                     <Button onPress={() => onOpen(bot)} modifiers={[buttonStyle("plain")]}>
                       <HStack spacing={12}>
@@ -140,7 +143,7 @@ export function ArchivedBotList({
             ))}
             {groups.map((group) => (
               <SwipeActions key={`group-${group.id}`} modifiers={[disabled(pending)]}>
-                <ContextMenu>
+                <ContextMenu modifiers={[contentShape(shapes.rectangle())]}>
                   <ContextMenu.Trigger>
                     <HStack
                       spacing={12}

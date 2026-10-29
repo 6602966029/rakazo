@@ -26,9 +26,13 @@ function savedSkill(name: string, source = "user") {
 }
 
 function setup(rows: ReturnType<typeof savedSkill>[] = []) {
-  type Where = { id?: string; spaceId: string; userId: string; source?: string };
-  const matches = (row: ReturnType<typeof savedSkill>, where: Where) =>
-    Object.entries(where).every(([key, value]) => row[key as keyof typeof row] === value);
+  type Where = { id?: string; spaceId?: string; userId: string; source?: string; OR?: object[] };
+  const matches = (row: ReturnType<typeof savedSkill>, where: object): boolean =>
+    Object.entries(where).every(([key, value]) =>
+      key === "OR"
+        ? (value as object[]).some((branch) => matches(row, branch))
+        : row[key as keyof typeof row] === value,
+    );
   const agentSkill = {
     findMany: vi.fn(async ({ where }: { where: Where }) =>
       rows.filter((row) => matches(row, where)),
@@ -49,18 +53,11 @@ function setup(rows: ReturnType<typeof savedSkill>[] = []) {
       return { count: 1 };
     }),
   };
-  const prisma = {
-    agentSkill,
-    // The space lock and its membership check, for creates and renames.
-    $queryRaw: vi.fn(async () => []),
-    $transaction: vi.fn(async (fn: (tx: unknown) => unknown) => fn(prisma)),
-    spaceMember: {
-      findUnique: vi.fn(async () => ({ organizationId: "org-1", space: { deletingAt: null } })),
-    },
-  };
+  const tx = { agentSkill, $executeRaw: vi.fn(async () => 0), $queryRaw: vi.fn(async () => []) };
+  const $transaction = vi.fn(async (run: (client: typeof tx) => unknown) => run(tx));
   return {
     agentSkill,
-    service: createAgentSkillsService(prisma as unknown as PrismaClient),
+    service: createAgentSkillsService({ agentSkill, $transaction } as unknown as PrismaClient),
   };
 }
 
@@ -106,31 +103,20 @@ describe("built-in skill precedence in the API", () => {
     expect(agentSkill.deleteMany).not.toHaveBeenCalled();
   });
 
-  it("does not let another space's skills shadow the builtin", async () => {
-    const { service } = setup([{ ...savedSkill(" Interrogate "), spaceId: "other-space" }]);
-    await expect(service.get(actor, { name: "interrogate" })).resolves.toMatchObject({
-      id: "builtin:Interrogate",
-      readOnly: true,
-    });
-    await expect(service.list(actor)).resolves.toEqual([
-      expect.objectContaining({ id: "builtin:Interrogate" }),
-    ]);
-    await expect(service.get(actor, { skillId: "saved-1" })).rejects.toThrow();
-  });
-
-  it("shares a skill another member of the space saved", async () => {
-    const { service } = setup([{ ...savedSkill("Weekly report"), userId: "other-user" }]);
-    await expect(service.get(actor, { skillId: "saved-1" })).resolves.toMatchObject({
-      name: "Weekly report",
-    });
-  });
-
-  it("makes the member who edits a skill its owner", async () => {
-    const rows = [{ ...savedSkill("Weekly report"), userId: "other-user" }];
-    const { service } = setup(rows);
-    await service.update(actor, { skillId: "saved-1", body: "New steps" });
-    expect(rows[0]).toMatchObject({ userId: actor.userId });
-  });
+  it.each([{ spaceId: "other-space" }, { userId: "other-user" }])(
+    "does not let foreign skills shadow the builtin: %j",
+    async (foreignOwner) => {
+      const { service } = setup([{ ...savedSkill(" Interrogate "), ...foreignOwner }]);
+      await expect(service.get(actor, { name: "interrogate" })).resolves.toMatchObject({
+        id: "builtin:Interrogate",
+        readOnly: true,
+      });
+      await expect(service.list(actor)).resolves.toEqual([
+        expect.objectContaining({ id: "builtin:Interrogate" }),
+      ]);
+      await expect(service.get(actor, { skillId: "saved-1" })).rejects.toThrow();
+    },
+  );
 });
 
 describe("imported skill content in the API", () => {

@@ -4,6 +4,8 @@ import type { Adapter, AdapterPostableMessage, ChatInstance, WebhookOptions } fr
 import { Message, parseMarkdown } from "chat";
 import type { LarkAdapterConfig } from "./lazy-adapter.js";
 import { LarkAdapterBase } from "./lazy-adapter.js";
+import type { LarkTextPart } from "./text-parts.js";
+import { setLarkTextParts } from "./text-parts.js";
 
 interface WebhookPayload {
   encrypt?: string;
@@ -154,9 +156,9 @@ export class LarkAdapter extends LarkAdapterBase implements Adapter {
     const event = raw as LarkMessageEvent;
     const msg = event.message;
     const id = event.sender.sender_id?.open_id ?? "";
-    let text = inboundText(msg.content, msg.message_type);
-    for (const mention of msg.mentions ?? [])
-      text = text.replaceAll(mention.key, `@${mention.name}`);
+    const { text, parts } = inboundText(msg.content, msg.message_type, msg.mentions ?? []);
+    const formatted = parseMarkdown(text);
+    if (parts) setLarkTextParts(formatted, parts);
     const name = this.users.get(id) ?? id;
     return new Message({
       id: msg.message_id,
@@ -165,7 +167,7 @@ export class LarkAdapter extends LarkAdapterBase implements Adapter {
         ...(msg.thread_id ? { threadId: msg.thread_id } : {}),
       }),
       text,
-      formatted: parseMarkdown(text),
+      formatted,
       raw,
       author: {
         userId: id || "unknown",
@@ -199,28 +201,35 @@ export class LarkAdapter extends LarkAdapterBase implements Adapter {
     this.directChats.add(chatId);
     return this.encodeThreadId({ chatId });
   }
-  private content(message: AdapterPostableMessage) {
-    const text =
+  private payload(message: AdapterPostableMessage): { msgType: string; content: string } {
+    const markdown =
       typeof message === "string"
-        ? message
+        ? null
         : "markdown" in message
           ? message.markdown
-          : "raw" in message
-            ? message.raw
-            : "ast" in message
-              ? this.renderFormatted(message.ast)
-              : "";
+          : "ast" in message
+            ? this.renderFormatted(message.ast)
+            : null;
+    if (markdown) {
+      // Rich text accepts a whole Markdown body as one md block.
+      return {
+        msgType: "post",
+        content: JSON.stringify({ zh_cn: { content: [[{ tag: "md", text: markdown }]] } }),
+      };
+    }
+    const text = typeof message === "string" ? message : "raw" in message ? message.raw : "";
     if (typeof text !== "string" || !text)
       throw new Error("Lark message content is empty or unsupported");
-    return JSON.stringify({ text });
+    return { msgType: "text", content: JSON.stringify({ text }) };
   }
   async postMessage(threadId: string, message: AdapterPostableMessage) {
     const decoded = this.decodeThreadId(threadId);
     if (decoded.threadId) throw new Error("Lark group thread replies are not supported");
+    const { msgType, content } = this.payload(message);
     const result = checked(
       await this.client.im.message.create({
         params: { receive_id_type: "chat_id" },
-        data: { receive_id: decoded.chatId, msg_type: "text", content: this.content(message) },
+        data: { receive_id: decoded.chatId, msg_type: msgType, content },
       }),
     );
     const id = result.data?.message_id;
@@ -228,10 +237,11 @@ export class LarkAdapter extends LarkAdapterBase implements Adapter {
     return { id, threadId, raw: { message_id: id } };
   }
   async editMessage(threadId: string, messageId: string, message: AdapterPostableMessage) {
+    const { msgType, content } = this.payload(message);
     checked(
       await this.client.im.message.update({
         path: { message_id: messageId },
-        data: { msg_type: "text", content: this.content(message) },
+        data: { msg_type: msgType, content },
       }),
     );
     return { id: messageId, threadId, raw: { message_id: messageId } };
@@ -255,40 +265,70 @@ function forbidden() {
   return new Response("Forbidden", { status: 403 });
 }
 
-function inboundText(content: string, type: string): string {
-  if (type !== "text" && type !== "post") return "";
+function inboundText(
+  content: string,
+  type: string,
+  mentions: NonNullable<LarkMessageEvent["message"]["mentions"]>,
+): { text: string; parts?: LarkTextPart[] } {
+  const replaceMentions = (value: string) => {
+    for (const mention of mentions) value = value.replaceAll(mention.key, `@${mention.name}`);
+    return value;
+  };
+  const plain = (value: string) => ({ text: replaceMentions(value) });
+  if (type !== "text" && type !== "post") return plain("");
   try {
     const parsed = JSON.parse(content);
-    if (typeof parsed.text === "string") return parsed.text;
+    if (typeof parsed.text === "string") return plain(parsed.text);
     const posts = parsed.post ?? parsed;
     const post = Array.isArray(posts.content)
       ? posts
       : (posts.zh_cn ?? posts.en_us ?? Object.values(posts)[0]);
-    if (!post || typeof post !== "object") return "";
+    if (!post || typeof post !== "object") return plain("");
     const rich = post as {
       title?: string;
       content?: { tag: string; text?: string; href?: string; user_name?: string }[][];
     };
-    return [
-      rich.title ? `# ${rich.title}` : undefined,
-      ...(rich.content ?? []).map((row) =>
-        row
-          .map((item) =>
-            item.tag === "a"
-              ? `[${item.text ?? ""}](${item.href ?? ""})`
-              : item.tag === "at"
-                ? `@${item.user_name ?? "unknown"}`
-                : item.tag === "text"
-                  ? (item.text ?? "")
-                  : "",
-          )
-          .join(""),
-      ),
-    ]
-      .filter(Boolean)
-      .join("\n");
+    const itemText = (item: NonNullable<typeof rich.content>[number][number]) =>
+      item.tag === "a"
+        ? `[${item.text ?? ""}](${item.href ?? ""})`
+        : item.tag === "at"
+          ? `@${item.user_name ?? "unknown"}`
+          : item.tag === "text" || item.tag === "code_block"
+            ? (item.text ?? "")
+            : "";
+    if ((rich.content ?? []).some((row) => row.some((item) => item.tag === "code_block"))) {
+      const rows: LarkTextPart[][] = (rich.content ?? []).map((row) =>
+        row.map((item) => ({ text: itemText(item), literal: item.tag === "code_block" })),
+      );
+      const nonemptyRows = rows.filter((row) => row.some((part) => part.text));
+      const groups = [
+        ...(rich.title ? [[{ text: `# ${rich.title}`, literal: false }]] : []),
+        ...nonemptyRows,
+      ];
+      const parts: LarkTextPart[] = [];
+      const append = (part: LarkTextPart) => {
+        if (!part.text) return;
+        const last = parts.at(-1);
+        if (!part.literal && last && !last.literal) last.text += part.text;
+        else parts.push({ ...part });
+      };
+      groups.forEach((row, index) => {
+        if (index) append({ text: "\n", literal: false });
+        row.forEach(append);
+      });
+      for (const part of parts) if (!part.literal) part.text = replaceMentions(part.text);
+      return { text: parts.map((part) => part.text).join(""), parts };
+    }
+    return plain(
+      [
+        rich.title ? `# ${rich.title}` : undefined,
+        ...(rich.content ?? []).map((row) => row.map(itemText).join("")),
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    );
   } catch {
-    return content;
+    return plain(content);
   }
 }
 export async function createLarkAdapter(config: LarkAdapterConfig) {

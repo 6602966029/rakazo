@@ -57,7 +57,7 @@ function historyMessages(authors: boolean) {
 type RunOptions = {
   trigger?: string;
   taskPrompt?: string;
-  agentSkills?: Array<Record<string, unknown>>;
+  taughtSkills?: Array<Record<string, unknown>>;
 };
 
 async function runInSpace(space: Space, options: RunOptions = {}) {
@@ -119,6 +119,7 @@ async function runInSpace(space: Space, options: RunOptions = {}) {
     },
     attempt: {
       create: vi.fn(async () => ({ id: "attempt-1" })),
+      findMany: vi.fn(async () => []),
       update: vi.fn(),
       updateMany: vi.fn(async () => ({ count: 1 })),
     },
@@ -147,24 +148,25 @@ async function runInSpace(space: Space, options: RunOptions = {}) {
     },
     computer: { updateMany: vi.fn(async () => ({ count: 1 })) },
     connection: { findMany: vi.fn(async () => []) },
-    spaceModelPreference: { findFirst: vi.fn(async () => null) },
-    secret: { findFirst: vi.fn(async () => null) },
-    userModelCredential: { findFirst: vi.fn(async () => null) },
-    spaceBackupModel: { findMany: vi.fn(async () => []) },
+    userModelPreference: { findFirst: vi.fn(async () => null) },
+    userModelRoleChoice: { findMany: vi.fn(async () => []) },
+    secret: { findFirst: vi.fn(async () => null), findMany: vi.fn(async () => []) },
+    vaultCredential: { findMany: vi.fn(async () => []) },
+    userModelCredential: { findFirst: vi.fn(async () => null), findMany: vi.fn(async () => []) },
     deploymentSettings: {
       findUnique: vi.fn(async () => ({
         defaultModelProvider: "openrouter",
         defaultModelId: "openai/gpt-4o",
       })),
     },
-    taughtSkill: { findMany: vi.fn(async () => []) },
-    agentSecret: { findMany: vi.fn(async () => []) },
-    botSecret: { findMany: vi.fn(async () => []) },
-    agentSkill: { findMany: vi.fn(async () => options.agentSkills ?? []) },
+    chatGroup: { findMany: vi.fn(async () => []) },
+    taughtSkill: { findMany: vi.fn(async () => options.taughtSkills ?? []) },
+    agentSkill: { findMany: vi.fn(async (_args: unknown) => []) },
     scratchpadItem: { findMany: vi.fn(async () => []) },
     externalEffect: { findMany: vi.fn(async () => []) },
-    actionApprovalRule: { findMany: vi.fn(async () => []) },
-    actionAutoReviewPreference: { findUnique: vi.fn(async () => null) },
+    spaceSettingOverride: { findUnique: async () => null },
+    userActionApprovalRule: { findMany: vi.fn(async () => []) },
+    userActionAutoReviewPreference: { findUnique: vi.fn(async () => null) },
     artifact: { findMany: vi.fn(async () => []) },
   };
   const finalizeRun = vi.fn(async () => ({ continuationRunId: null }));
@@ -194,7 +196,7 @@ async function runInSpace(space: Space, options: RunOptions = {}) {
   await executor.continueRun(run.id, "worker-1");
   expect(finalizeRun).not.toHaveBeenCalledWith(expect.objectContaining({ outcome: "failed" }));
   if (!request) throw new Error("runtime was not called");
-  return { request, users };
+  return { request, users, agentSkillQuery: prisma.agentSkill.findMany };
 }
 
 function historyContent(request: AgentRunRequest, id: string) {
@@ -244,39 +246,41 @@ describe("message authors in the prompt", () => {
   });
 });
 
-describe("skills another member wrote", () => {
-  const skill = (userId: string, name: string, body: string) => ({
-    id: `skill-${name}`,
+describe("skills in a shared space", () => {
+  it("lists only the run user's own agent skills", async () => {
+    const { agentSkillQuery } = await runInSpace({ members: 2, authors: true });
+
+    expect(agentSkillQuery).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ userId: "user-b" }) }),
+    );
+  });
+
+  const taught = (userId: string, name: string, step: string) => ({
+    id: `taught-${name}`,
     userId,
     name,
-    description: `${name} steps`,
-    content: `---\nname: ${name}\ndescription: ${name} steps\n---\n\n${body}\n`,
-    source: "user",
+    goal: name,
+    status: "saved",
+    playbook: { whenToUse: name, steps: [step] },
   });
-  const agentSkills = [
-    skill("user-b", "Own steps", "Water the plants."),
-    skill("user-a", "Ana steps", "Forward the inbox."),
-  ];
-  const taskPrompt = "Run @Own steps and @Ana steps";
+  const taughtSkills = [taught("user-a", "Ana steps", "Forward the inbox.")];
+  const taskPrompt = "Run Ana steps";
 
-  it("are not followed by a run nobody started", async () => {
+  it("does not follow another member's taught skill in a run nobody started", async () => {
     const { request } = await runInSpace(
       { members: 2, authors: true },
-      { trigger: "routine", taskPrompt, agentSkills },
+      { trigger: "routine", taskPrompt, taughtSkills },
     );
 
-    expect(request.prompt).toContain("Water the plants.");
-    expect(request.prompt).toContain("@Ana steps");
     expect(request.prompt).not.toContain("Forward the inbox.");
   });
 
-  it("are followed when a person asks for them", async () => {
+  it("follows another member's taught skill when a person asks for it", async () => {
     const { request } = await runInSpace(
       { members: 2, authors: true },
-      { taskPrompt, agentSkills },
+      { taskPrompt, taughtSkills },
     );
 
-    expect(request.prompt).toContain("Water the plants.");
     expect(request.prompt).toContain("Forward the inbox.");
   });
 });

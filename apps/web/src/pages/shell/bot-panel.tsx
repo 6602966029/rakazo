@@ -2,20 +2,18 @@ import { Trans, useLingui } from "@lingui/react/macro";
 import type {
   AgentSkillCatalogEntry,
   Bot,
+  BotAvatarSet,
   ComputerMode,
-  Me,
   ModelCatalogEntry,
-  ModelCredential,
   ThinkingLevel,
-  VoiceInfo,
 } from "@rakazo/contracts";
 import {
   BOT_COMPUTER_MODES,
   BOT_DESCRIPTION_MAX_LENGTH,
   BOT_NAME_MAX_LENGTH,
-  BOT_TITLE_MAX_LENGTH,
   BUILTIN_TOOL_NAMES,
   isBuiltinToolName,
+  resolveBotAvatarSet,
 } from "@rakazo/contracts";
 import {
   chatModelChoices,
@@ -39,6 +37,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@rakazo/ui-web/components/ui/collapsible";
+import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, Download, Settings, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { Suspense, useEffect, useId, useRef, useState } from "react";
@@ -47,10 +46,9 @@ import { InstructionSettings } from "../../components/InstructionSettings";
 import { botProfilePatch } from "../../lib/bot-profile-patch";
 import { thinkingLevelLabel } from "../../lib/model-catalog";
 import { lazyComponent } from "../../lib/preload-recovery";
-import { rpc } from "../../lib/rpc";
+import { useSpaceQueries } from "../../lib/query";
 import { errorText } from "../../lib/user-error";
 import { AvatarStudioPopover } from "./avatar-studio-popover";
-import { BotCredentialsSection } from "./bot-credentials";
 import { ChatModelPicker } from "./chat-model-picker";
 
 const ScratchpadSection = lazyComponent(() =>
@@ -62,155 +60,41 @@ const KnowledgeSection = lazyComponent(() =>
 );
 
 const rowLabelClass = "text-sm text-foreground";
-const fieldLabelClass = `mt-4 block ${rowLabelClass}`;
 
-function ComputerModePicker({
+/** The advanced fields one Save sends, in the order their saved snapshot keeps them. */
+function advancedValues(bot: Bot) {
+  return [
+    bot.modelProvider && bot.modelId ? modelOptionKey(bot.modelProvider, bot.modelId) : "",
+    bot.thinkingLevel ?? "",
+    bot.computerMode,
+    bot.memoryScope,
+    bot.autoSpeak,
+    bot.voiceId ?? "",
+  ] as const;
+}
+
+export function ComputerModePicker({
   value,
   onChange,
-  teamTestId,
-  privateTestId,
-  showLabel = true,
 }: {
   value: ComputerMode;
   onChange: (value: ComputerMode) => void;
-  teamTestId?: string;
-  privateTestId?: string;
-  showLabel?: boolean;
 }) {
   return (
-    <div className={showLabel ? "mt-4" : undefined}>
-      {showLabel ? (
-        <div className="text-sm text-foreground">
-          <Trans>Computer</Trans>
-        </div>
-      ) : null}
-      <div className={`${showLabel ? "mt-2 " : ""}grid grid-cols-2 gap-2`}>
-        {BOT_COMPUTER_MODES.map((mode) => (
-          <Toggle
-            key={mode}
-            variant="outline"
-            pressed={value === mode}
-            data-testid={mode === "team" ? teamTestId : privateTestId}
-            onPressedChange={(pressed) => {
-              if (pressed) onChange(mode);
-            }}
-            className="capitalize aria-pressed:border-foreground/40 aria-pressed:text-foreground"
-          >
-            {mode === "team" ? <Trans>Team</Trans> : <Trans>Private</Trans>}
-          </Toggle>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-export function CreateBotForm({
-  onCreate,
-  onCancel,
-}: {
-  onCreate: (input: {
-    name: string;
-    title: string;
-    description: string;
-    computerMode: ComputerMode;
-  }) => Promise<void>;
-  onCancel: () => void;
-}) {
-  const { t } = useLingui();
-  const ids = useId();
-  const [name, setName] = useState("");
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [computerMode, setComputerMode] = useState<ComputerMode>("team");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function handleSubmit() {
-    if (!name.trim() || submitting) return;
-    setError(null);
-    setSubmitting(true);
-    try {
-      await onCreate({
-        name: name.trim(),
-        title: title.trim(),
-        description: description.trim(),
-        computerMode,
-      });
-    } catch (err) {
-      setError(errorText(err, t`Could not create bot`));
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <div data-testid="create-bot-form">
-      <div className="mb-4 flex items-center justify-between">
-        <span className="text-[13.5px] text-muted-foreground">
-          <Trans>New bot</Trans>
-        </span>
-        <Button variant="ghost" size="icon-sm" aria-label={t`Cancel new bot`} onClick={onCancel}>
-          <X size={16} strokeWidth={1.8} />
-        </Button>
-      </div>
-      {error ? (
-        <p
-          role="alert"
-          data-testid="create-bot-error"
-          className="mb-3 text-[13px] text-destructive"
+    <div className="grid grid-cols-2 gap-2">
+      {BOT_COMPUTER_MODES.map((mode) => (
+        <Toggle
+          key={mode}
+          variant="outline"
+          pressed={value === mode}
+          onPressedChange={(pressed) => {
+            if (pressed) onChange(mode);
+          }}
+          className="capitalize aria-pressed:border-foreground/40 aria-pressed:text-foreground"
         >
-          {error}
-        </p>
-      ) : null}
-      <label htmlFor={`${ids}-name`} className="mt-6 block text-[14px] text-muted-foreground">
-        <Trans>Name</Trans>
-        <Input
-          id={`${ids}-name`}
-          value={name}
-          maxLength={BOT_NAME_MAX_LENGTH}
-          onChange={(e) => setName(e.target.value)}
-          placeholder={t`Name this bot`}
-          className="mt-2"
-        />
-      </label>
-      <label htmlFor={`${ids}-title`} className={fieldLabelClass}>
-        <Trans>Title</Trans>
-        <Input
-          id={`${ids}-title`}
-          value={title}
-          maxLength={BOT_TITLE_MAX_LENGTH}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder={t`Describe what this bot does`}
-          className="mt-2"
-        />
-      </label>
-      <label htmlFor={`${ids}-description`} className={fieldLabelClass}>
-        <Trans>Description</Trans>
-        <Textarea
-          id={`${ids}-description`}
-          value={description}
-          maxLength={BOT_DESCRIPTION_MAX_LENGTH}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder={t`What this bot is for`}
-          rows={4}
-          className="mt-2"
-        />
-      </label>
-      <div data-testid="create-bot-computer">
-        <ComputerModePicker
-          value={computerMode}
-          onChange={setComputerMode}
-          teamTestId="create-bot-team"
-          privateTestId="create-bot-private"
-        />
-      </div>
-      <Button
-        className="mt-5"
-        disabled={!name.trim() || submitting}
-        onClick={() => void handleSubmit()}
-      >
-        {submitting ? <Trans>Creating…</Trans> : <Trans>Create</Trans>}
-      </Button>
+          {mode === "team" ? <Trans>Team</Trans> : <Trans>Private</Trans>}
+        </Toggle>
+      ))}
     </div>
   );
 }
@@ -218,7 +102,6 @@ export function CreateBotForm({
 export function BotSettings({
   bot,
   memoryProviderConfigured,
-  onSkillsChange,
   onSave,
   onExport,
   onClear,
@@ -228,14 +111,15 @@ export function BotSettings({
   bot: Bot;
   focusModel?: number;
   onOpenConnections?: () => void;
-  onSkillsChange: (skills: AgentSkillCatalogEntry[]) => void;
+  /** Unused: the skill sections read and save the shared cached skill list. */
+  onSkillsChange?: (skills: AgentSkillCatalogEntry[]) => void;
   memoryProviderConfigured: boolean;
   onSave: (patch: {
     name?: string;
-    title?: string;
     description?: string;
     instructions?: string;
     color?: string;
+    avatarSet?: BotAvatarSet;
     notifyOnFinish?: boolean;
     computerMode?: ComputerMode;
     memoryScope?: "isolated" | "shared" | null;
@@ -265,9 +149,7 @@ export function BotSettings({
     }
   }, [advancedOpen, focusModel]);
   const [name, setName] = useState(bot.name);
-  const [title, setTitle] = useState(bot.title);
   const savedNameRef = useRef(bot.name);
-  const savedTitleRef = useRef(bot.title);
   const [description, setDescription] = useState(bot.description);
   // A roster refresh can skip replacing bots while a reorder is in flight, so
   // this prop keeps the description from when the panel opened. Later saves
@@ -275,12 +157,14 @@ export function BotSettings({
   // voice change treats that stale text as an edit and overwrites instructions.
   const savedDescriptionRef = useRef(bot.description ?? "");
   const [color, setColor] = useState(bot.color);
+  const [avatarSet, setAvatarSet] = useState(() => resolveBotAvatarSet(bot.avatarSet));
   const [notifyOnFinish, setNotifyOnFinish] = useState(bot.notifyOnFinish ?? true);
   const acceptedAutomatic = useRef({
     color: bot.color,
+    avatarSet: resolveBotAvatarSet(bot.avatarSet),
     notifyOnFinish: bot.notifyOnFinish ?? true,
   });
-  const automaticRevision = useRef({ color: 0, notifyOnFinish: 0 });
+  const automaticRevision = useRef({ color: 0, avatarSet: 0, notifyOnFinish: 0 });
   const [computerMode, setComputerMode] = useState(bot.computerMode);
   const [memoryScope, setMemoryScope] = useState(bot.memoryScope);
   const [autoSpeak, setAutoSpeak] = useState(bot.autoSpeak);
@@ -294,7 +178,6 @@ export function BotSettings({
   const [fleetManagement, setFleetManagement] = useState(bot.fleetManagement);
   useEffect(() => setFleetManagement(bot.fleetManagement), [bot.fleetManagement]);
   const [voiceId, setVoiceId] = useState(bot.voiceId ?? "");
-  const [voices, setVoices] = useState<VoiceInfo[]>([]);
   const [modelKey, setModelKey] = useState(
     bot.modelProvider && bot.modelId ? modelOptionKey(bot.modelProvider, bot.modelId) : "",
   );
@@ -314,21 +197,23 @@ export function BotSettings({
     persistedDisabledToolsRef.current = next;
     if (pendingSavesRef.current === 0) setDisabledBuiltinTools(next);
   }, [bot.disabledBuiltinTools]);
-  const [credentials, setCredentials] = useState<ModelCredential[]>([]);
-  const [catalog, setCatalog] = useState<ModelCatalogEntry[]>([]);
-  const [me, setMe] = useState<Me | null>(null);
-  const [modelMetaReady, setModelMetaReady] = useState(false);
+  // Shared with the model and voice settings, so a revisit paints at once and refreshes behind.
+  const queries = useSpaceQueries();
+  const refresh = { refetchOnMount: "always" } as const;
+  const voices = useQuery({ ...queries.voice.voices.queryOptions({ input: {} }), ...refresh }).data;
+  const credentialsQuery = useQuery({ ...queries.models.credentials.queryOptions(), ...refresh });
+  const catalogQuery = useQuery({ ...queries.models.list.queryOptions(), ...refresh });
+  const meQuery = useQuery({ ...queries.me.queryOptions(), ...refresh });
+  const credentials = credentialsQuery.data ?? NO_CREDENTIALS;
+  const catalog = catalogQuery.data ?? NO_CATALOG;
+  const me = meQuery.data ?? null;
+  // A failed catalog load must not clear an existing thinkingLevel override on save.
+  const modelMetaReady =
+    credentialsQuery.data !== undefined &&
+    catalogQuery.data !== undefined &&
+    meQuery.data !== undefined;
   const [saving, setSaving] = useState(false);
-  const [savedAdvanced, setSavedAdvanced] = useState(() =>
-    JSON.stringify([
-      bot.modelProvider && bot.modelId ? modelOptionKey(bot.modelProvider, bot.modelId) : "",
-      bot.thinkingLevel ?? "",
-      bot.computerMode,
-      bot.memoryScope,
-      bot.autoSpeak,
-      bot.voiceId ?? "",
-    ]),
-  );
+  const [savedAdvanced, setSavedAdvanced] = useState(() => JSON.stringify(advancedValues(bot)));
   const advancedSnapshot = JSON.stringify([
     modelKey,
     thinkingLevel,
@@ -339,7 +224,6 @@ export function BotSettings({
   ]);
   const dirty =
     name.trim() !== savedNameRef.current.trim() ||
-    title.trim() !== savedTitleRef.current.trim() ||
     advancedSnapshot !== savedAdvanced ||
     description.trim() !== savedDescriptionRef.current;
   const [error, setError] = useState<string | null>(null);
@@ -348,34 +232,50 @@ export function BotSettings({
     (
       patchOverrides?: {
         name?: string;
-        title?: string;
         description?: string;
         color?: string;
+        avatarSet?: BotAvatarSet;
         notifyOnFinish?: boolean;
         fleetManagement?: boolean;
         crossSpaceCommunication?: boolean;
         disabledBuiltinTools?: string[];
         baseDisabledBuiltinTools?: string[];
       },
-      revisions?: { color: number; notifyOnFinish: number },
+      revisions?: { color: number; avatarSet: number; notifyOnFinish: number },
     ) => Promise<void>
   >(async () => undefined);
+  // The panel can open on a cached bot. When a newer copy arrives, every field not edited since
+  // follows it, so a later save does not send the cached values back over it. A copy that is not
+  // newer (a roster read from before a save) is ignored.
+  const shownBotRef = useRef(bot);
   useEffect(() => {
-    void rpc.voice
-      .voices({})
-      .then(setVoices)
-      .catch(() => setVoices([]));
-    void Promise.all([rpc.models.credentials(), rpc.models.list(), rpc.me()])
-      .then(([nextCredentials, nextCatalog, nextMe]) => {
-        setCredentials(nextCredentials);
-        setCatalog(nextCatalog);
-        setMe(nextMe);
-        // Only mark ready on success — a failed catalog load must not clear
-        // an existing thinkingLevel override on save.
-        setModelMetaReady(true);
-      })
-      .catch(() => undefined);
-  }, []);
+    if (bot.updatedAt <= shownBotRef.current.updatedAt) return;
+    shownBotRef.current = bot;
+    if (name.trim() === savedNameRef.current.trim()) setName(bot.name);
+    savedNameRef.current = bot.name;
+    if (description.trim() === savedDescriptionRef.current) setDescription(bot.description);
+    savedDescriptionRef.current = bot.description ?? "";
+    const accepted = acceptedAutomatic.current;
+    const nextNotify = bot.notifyOnFinish ?? true;
+    if (color === accepted.color) setColor(bot.color);
+    const nextAvatarSet = resolveBotAvatarSet(bot.avatarSet);
+    if (avatarSet === accepted.avatarSet) setAvatarSet(nextAvatarSet);
+    if (notifyOnFinish === accepted.notifyOnFinish) setNotifyOnFinish(nextNotify);
+    acceptedAutomatic.current = {
+      color: bot.color,
+      avatarSet: nextAvatarSet,
+      notifyOnFinish: nextNotify,
+    };
+    const saved = JSON.parse(savedAdvanced) as unknown[];
+    const next = advancedValues(bot);
+    if (modelKey === saved[0]) setModelKey(next[0]);
+    if (thinkingLevel === saved[1]) setThinkingLevel(next[1]);
+    if (computerMode === saved[2]) setComputerMode(next[2]);
+    if (memoryScope === saved[3]) setMemoryScope(next[3]);
+    if (autoSpeak === saved[4]) setAutoSpeak(next[4]);
+    if (voiceId === saved[5]) setVoiceId(next[5]);
+    setSavedAdvanced(JSON.stringify(next));
+  }, [bot]);
 
   const connectedOptions = connectedModelChoices(credentials, catalog);
   const storedModel = modelKey ? parseModelOptionKey(modelKey) : null;
@@ -420,16 +320,16 @@ export function BotSettings({
   async function executeSave(
     patchOverrides?: {
       name?: string;
-      title?: string;
       description?: string;
       color?: string;
+      avatarSet?: BotAvatarSet;
       notifyOnFinish?: boolean;
       fleetManagement?: boolean;
       crossSpaceCommunication?: boolean;
       disabledBuiltinTools?: string[];
       baseDisabledBuiltinTools?: string[];
     },
-    revisions?: { color: number; notifyOnFinish: number },
+    revisions?: { color: number; avatarSet: number; notifyOnFinish: number },
   ) {
     try {
       setSaving(true);
@@ -444,26 +344,28 @@ export function BotSettings({
       }
       const selected = selectedModel;
       const nextName = (patchOverrides?.name !== undefined ? patchOverrides.name : name).trim();
-      const nextTitle = (patchOverrides?.title !== undefined ? patchOverrides.title : title).trim();
       const nextDescription = (
         patchOverrides?.description !== undefined ? patchOverrides.description : description
       ).trim();
       const nextColor = patchOverrides?.color !== undefined ? patchOverrides.color : color;
+      const nextAvatarSet = patchOverrides?.avatarSet ?? avatarSet;
       const nextNotify =
         patchOverrides?.notifyOnFinish !== undefined
           ? patchOverrides.notifyOnFinish
           : notifyOnFinish;
 
       if (nextName) setName(nextName);
-      setTitle(nextTitle);
       setDescription(nextDescription);
       const patch = {
         ...(nextName && nextName !== savedNameRef.current.trim() ? { name: nextName } : {}),
-        ...(nextTitle !== savedTitleRef.current.trim() ? { title: nextTitle } : {}),
         // Keep untouched profile fields off the wire.
         ...botProfilePatch(savedDescriptionRef.current, nextDescription),
         // Unchanged color stays off the wire so a legacy named value cannot fail a name save.
         ...(nextColor !== acceptedAutomatic.current.color ? { color: nextColor } : {}),
+        ...(patchOverrides?.avatarSet !== undefined ||
+        nextAvatarSet !== acceptedAutomatic.current.avatarSet
+          ? { avatarSet: nextAvatarSet }
+          : {}),
         notifyOnFinish: nextNotify,
         computerMode,
         memoryScope,
@@ -514,9 +416,12 @@ export function BotSettings({
         persistedDisabledToolsRef.current = nextTools;
         break;
       }
-      acceptedAutomatic.current = { color: nextColor, notifyOnFinish: nextNotify };
+      acceptedAutomatic.current = {
+        color: nextColor,
+        avatarSet: nextAvatarSet,
+        notifyOnFinish: nextNotify,
+      };
       if (nextName) savedNameRef.current = nextName;
-      savedTitleRef.current = nextTitle;
       savedDescriptionRef.current = nextDescription;
       setSavedAdvanced(
         JSON.stringify([modelKey, thinkingLevel, computerMode, memoryScope, autoSpeak, voiceId]),
@@ -527,6 +432,11 @@ export function BotSettings({
         revisions?.color === automaticRevision.current.color
       )
         setColor(acceptedAutomatic.current.color);
+      if (
+        patchOverrides?.avatarSet !== undefined &&
+        revisions?.avatarSet === automaticRevision.current.avatarSet
+      )
+        setAvatarSet(acceptedAutomatic.current.avatarSet);
       if (
         patchOverrides?.notifyOnFinish !== undefined &&
         revisions?.notifyOnFinish === automaticRevision.current.notifyOnFinish
@@ -560,9 +470,9 @@ export function BotSettings({
 
   function enqueueSave(patchOverrides?: {
     name?: string;
-    title?: string;
     description?: string;
     color?: string;
+    avatarSet?: BotAvatarSet;
     notifyOnFinish?: boolean;
     fleetManagement?: boolean;
     crossSpaceCommunication?: boolean;
@@ -573,6 +483,7 @@ export function BotSettings({
     // queued work reads the latest field values, not a stale render closure.
     pendingSavesRef.current += 1;
     if (patchOverrides?.color !== undefined) automaticRevision.current.color += 1;
+    if (patchOverrides?.avatarSet !== undefined) automaticRevision.current.avatarSet += 1;
     if (patchOverrides?.notifyOnFinish !== undefined) automaticRevision.current.notifyOnFinish += 1;
     const revisions = { ...automaticRevision.current };
     const queuedPatch =
@@ -600,9 +511,14 @@ export function BotSettings({
             identity={bot.id}
             status={bot.status}
             size={76}
-            onChange={(newColor) => {
+            avatarSet={avatarSet}
+            onChange={(newColor, nextAvatarSet) => {
               setColor(newColor);
-              void enqueueSave({ color: newColor });
+              if (nextAvatarSet !== undefined) setAvatarSet(nextAvatarSet);
+              void enqueueSave({
+                color: newColor,
+                ...(nextAvatarSet !== undefined ? { avatarSet: nextAvatarSet } : {}),
+              });
             }}
           />
         </div>
@@ -618,20 +534,7 @@ export function BotSettings({
             void enqueueSave({ name: value });
           }}
         />
-        <InlineProfileField
-          label={t`Title`}
-          editLabel={t`Edit label`}
-          placeholder={t`Add a label`}
-          value={title}
-          maxLength={BOT_TITLE_MAX_LENGTH}
-          className="mt-1 text-sm text-muted-foreground"
-          onCommit={(value) => {
-            setTitle(value.trim());
-            void enqueueSave({ title: value });
-          }}
-        />
       </div>
-      <InstructionSettings key={bot.id} bot={bot} />
       <section className="mt-6">
         <h3 className="mb-2 text-xs font-medium text-muted-foreground">
           <Trans>Notifications</Trans>
@@ -664,7 +567,7 @@ export function BotSettings({
       </ErrorBoundary>
       <ErrorBoundary fallback={<SectionLoadFailed />}>
         <Suspense fallback={null}>
-          <KnowledgeSection botId={bot.id} onSkillsChange={onSkillsChange} />
+          <KnowledgeSection botId={bot.id} />
         </Suspense>
       </ErrorBoundary>
       <Collapsible
@@ -740,12 +643,8 @@ export function BotSettings({
                 ) : null}
               </div>
             </div>
-            <SettingsGroup label={t`Computer`}>
-              <ComputerModePicker
-                showLabel={false}
-                value={computerMode}
-                onChange={setComputerMode}
-              />
+            <SettingsGroup label={t`Computer`} plain>
+              <ComputerModePicker value={computerMode} onChange={setComputerMode} />
               {memoryProviderConfigured ? (
                 <div className="mt-4 text-sm text-foreground">
                   <Trans>Memory scope</Trans>
@@ -788,7 +687,7 @@ export function BotSettings({
                   onCheckedChange={(checked) => setAutoSpeak(checked)}
                 />
               </label>
-              {voices.length ? (
+              {voices?.length ? (
                 <label
                   htmlFor={`${ids}-voice`}
                   className="flex min-h-11 items-center justify-between gap-3 text-sm text-foreground"
@@ -826,14 +725,9 @@ export function BotSettings({
                 />
               </div>
               <div className="flex min-h-11 items-center justify-between gap-3 text-sm">
-                <div>
-                  <label htmlFor={`${ids}-fleet-management`} className={rowLabelClass}>
-                    <Trans>Manage the bots it creates</Trans>
-                  </label>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    <Trans>Can edit and organise bots it creates</Trans>
-                  </p>
-                </div>
+                <label htmlFor={`${ids}-fleet-management`} className={rowLabelClass}>
+                  <Trans>Manage the bots it creates</Trans>
+                </label>
                 <Switch
                   id={`${ids}-fleet-management`}
                   checked={fleetManagement}
@@ -845,25 +739,23 @@ export function BotSettings({
                 />
               </div>
             </SettingsGroup>
-            <SettingsGroup label={t`Description`}>
-              <label htmlFor={`${ids}-description`} className="block text-xs text-muted-foreground">
-                <Trans>How other bots see it</Trans>
-                <Textarea
-                  id={`${ids}-description`}
-                  aria-label={t`Description`}
-                  value={description}
-                  maxLength={BOT_DESCRIPTION_MAX_LENGTH}
-                  onChange={(e) => setDescription(e.target.value)}
-                  onBlur={() => void enqueueSave()}
-                  placeholder={t`What this bot is for`}
-                  rows={2}
-                  className="mt-2 min-h-16 resize-none field-sizing-content border-0 bg-transparent p-0 text-foreground shadow-none"
-                />
-              </label>
+            <InstructionSettings key={bot.id} bot={bot} />
+            <SettingsGroup label={t`How other bots see it`} plain>
+              <Textarea
+                id={`${ids}-description`}
+                aria-label={t`How other bots see it`}
+                value={description}
+                maxLength={BOT_DESCRIPTION_MAX_LENGTH}
+                onChange={(e) => setDescription(e.target.value)}
+                onBlur={() => void enqueueSave()}
+                placeholder={t`What this bot is for`}
+                rows={2}
+                className="min-h-16 resize-none field-sizing-content"
+              />
             </SettingsGroup>
-            <SettingsGroup label={t`Tools`}>
+            <SettingsGroup label={t`Tools`} plain>
               <section data-testid="bot-settings-tools">
-                <div className="space-y-4 [&>*]:mt-0">
+                <div className="space-y-2 [&>*]:mt-0">
                   <div>
                     <NativeSelect
                       id={`${ids}-disabled-tools`}
@@ -907,12 +799,6 @@ export function BotSettings({
                 </div>
               </section>
             </SettingsGroup>
-            <BotCredentialsSection botId={bot.id} />
-            <ErrorBoundary fallback={<SectionLoadFailed />}>
-              <Suspense fallback={null}>
-                <KnowledgeSection botId={bot.id} onSkillsChange={onSkillsChange} skillsOnly />
-              </Suspense>
-            </ErrorBoundary>
             <div className="overflow-hidden rounded-xl bg-muted/50 px-4">
               <button
                 type="button"
@@ -941,7 +827,6 @@ export function BotSettings({
           onClick={() => {
             void enqueueSave({
               name,
-              title,
               description,
               color,
               notifyOnFinish,
@@ -954,6 +839,9 @@ export function BotSettings({
     </div>
   );
 }
+
+const NO_CREDENTIALS: never[] = [];
+const NO_CATALOG: ModelCatalogEntry[] = [];
 
 function sameStringList(left: readonly string[], right: readonly string[]) {
   return left.length === right.length && left.every((entry, index) => entry === right[index]);
@@ -972,7 +860,6 @@ function InlineProfileField({
   label,
   editLabel,
   value,
-  placeholder,
   maxLength,
   className,
   onCommit,
@@ -980,7 +867,6 @@ function InlineProfileField({
   label: string;
   editLabel: string;
   value: string;
-  placeholder?: string;
   maxLength: number;
   className: string;
   onCommit: (value: string) => void;
@@ -1024,16 +910,27 @@ function InlineProfileField({
         setEditing(true);
       }}
     >
-      {value || placeholder}
+      {value}
     </button>
   );
 }
 
-function SettingsGroup({ label, children }: { label: string; children: ReactNode }) {
+/** `plain` drops the card for a section whose single control already draws its own frame. */
+function SettingsGroup({
+  label,
+  plain = false,
+  children,
+}: {
+  label: string;
+  plain?: boolean;
+  children: ReactNode;
+}) {
   return (
     <section>
       <h3 className="mb-2 text-xs font-medium text-muted-foreground">{label}</h3>
-      <div className="space-y-3 rounded-xl bg-muted/50 p-4 [&>*]:mt-0">{children}</div>
+      <div className={`space-y-3 [&>*]:mt-0 ${plain ? "" : "rounded-xl bg-muted/50 p-4"}`}>
+        {children}
+      </div>
     </section>
   );
 }

@@ -32,10 +32,10 @@ test("an owner invites someone by link and both see the space's members", async 
 
   const ownerSidebar = ownerPage.locator("aside").first();
   await ownerSidebar.getByRole("button", { name: "Actions for Home" }).click();
-  await ownerPage.getByRole("menuitem", { name: "Members" }).click();
+  await ownerPage.getByRole("menuitem", { name: "Settings" }).click();
   const ownerSettings = ownerPage.getByTestId("user-settings");
-  await expect(ownerSettings).toHaveAttribute("data-settings-section", "members");
-  await expect(ownerSettings.getByTestId("settings-space")).toContainText("Home");
+  await expect(ownerSettings).toHaveAttribute("data-settings-section", "space");
+  await expect(ownerSettings.getByRole("heading", { name: "Home", exact: true })).toBeVisible();
   await expect(ownerSettings.getByText("Owner", { exact: true })).toBeVisible();
   await expect(ownerSettings.getByRole("button", { name: "Leave space" })).toHaveCount(0);
 
@@ -64,7 +64,7 @@ test("an owner invites someone by link and both see the space's members", async 
   const inviteeSidebar = inviteePage.locator("aside").first();
   await expect(inviteeSidebar.getByText("Home", { exact: true })).toBeVisible();
   await inviteeSidebar.getByRole("button", { name: "Actions for Home" }).click();
-  await inviteePage.getByRole("menuitem", { name: "Members" }).click();
+  await inviteePage.getByRole("menuitem", { name: "Settings" }).click();
   const inviteeSettings = inviteePage.getByTestId("user-settings");
   await expect(inviteeSettings.getByText("Ada Owner")).toBeVisible();
   await expect(inviteeSettings.getByText("Bob Invitee")).toBeVisible();

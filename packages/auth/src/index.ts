@@ -1,10 +1,6 @@
 import { expo } from "@better-auth/expo";
 import { passkey } from "@better-auth/passkey";
-import type {
-  ProductAnalytics,
-  TransactionalEmail,
-  TransactionalEmailProvider,
-} from "@rakazo/adapter-kit";
+import type { ProductAnalytics, TransactionalEmailProvider } from "@rakazo/adapter-kit";
 import {
   displayName,
   emailAllowed,
@@ -27,20 +23,34 @@ import {
 import { parseSetCookieHeader } from "better-auth/cookies";
 import { emailOTP, organization } from "better-auth/plugins";
 import {
+  ACCOUNT_EXPORT_TOKEN_PREFIX,
+  consumeAccountExportToken,
+  issueAccountExportToken,
+} from "./account-export-token.js";
+import {
   accountSecurity,
   oidcProofKey,
   sessionForAuthHook,
   signedBearer,
 } from "./account-security.js";
 import { breachedPasswordCheck } from "./breached-password.js";
+import { passwordResetEmail, signInCodeEmail, verificationEmail } from "./email.js";
+import { hasRecentIdentityConfirmation, identityConfirmation } from "./identity-confirmation.js";
 import type { OidcConfig } from "./oidc.js";
 import { isCurrentOidcAccount, oidcDiscovery } from "./oidc.js";
 import { passkeyRelyingParty } from "./passkey.js";
 import type { TokenKey } from "./token-storage.js";
 import { encryptStoredOAuthTokens, openIdToken, sealIdToken } from "./token-storage.js";
 
+export { passwordResetEmail, signInCodeEmail, verificationEmail } from "./email.js";
 export type { OidcConfig } from "./oidc.js";
 export { passkeyRelyingParty } from "./passkey.js";
+export {
+  pluginSubmissionAdminEmail,
+  pluginSubmissionReceivedEmail,
+  pluginSubmissionReviewedEmail,
+} from "./plugin-submission-email.js";
+export { welcomeEmail } from "./welcome-email.js";
 
 export interface AuthEnv {
   analytics?: ProductAnalytics;
@@ -64,6 +74,7 @@ export interface AuthEnv {
   afterDeleteSession?: (session: AuthSession) => Promise<void>;
   /** Runs when a password change replaces the caller's own session instead of ending it. */
   afterReplaceSession?: (previous: AuthSession, session: AuthSession) => Promise<void>;
+  afterSignIn?: (userId: string) => Promise<void>;
 }
 
 type AuthSession = { id: string; userId: string };
@@ -118,6 +129,8 @@ export function authRateLimitOptions(nodeEnv = process.env.NODE_ENV) {
     customRules: {
       ...Object.fromEntries(CREDENTIAL_PATHS.map((path) => [path, rule])),
       "/request-account-deletion": { window: 600, max: 3 },
+      "/request-identity-code": { window: 600, max: 3 },
+      "/confirm-identity": rule,
       "/passkey/verify-authentication": rule,
       "/passkey/verify-registration": rule,
       // Sign-in pages request a challenge on load for passkey autofill.
@@ -155,7 +168,11 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
     verification: {
       storeIdentifier: {
         default: "plain",
-        overrides: { "reset-password:": "hashed", "delete-account-": "hashed" },
+        overrides: {
+          "reset-password:": "hashed",
+          "delete-account-": "hashed",
+          [ACCOUNT_EXPORT_TOKEN_PREFIX]: "hashed",
+        },
       },
     },
     rateLimit: authRateLimitOptions(),
@@ -182,7 +199,7 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
             // Keep the response timing generic. Production providers track and retry the promise,
             // while the composition root drains accepted delivery during graceful shutdown.
             void env.email
-              ?.send(passwordResetEmail(user, url))
+              ?.send(await passwordResetEmail(user, url))
               .catch((error) => env.onEmailError?.(error));
           }
         : undefined,
@@ -199,7 +216,7 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
               "callbackURL",
               new URL("/sign-in", env.webOrigin).href,
             );
-            await env.email!.send(verificationEmail(user.email, verificationUrl.href));
+            await env.email!.send(await verificationEmail(user.email, verificationUrl.href));
           }
         : undefined,
     },
@@ -263,6 +280,7 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
       signedBearer,
       expo(),
       accountSecurity(env.email, env.oidc?.name, env.oidc?.issuer, env.passwordAuth !== false),
+      identityConfirmation(env.email),
       ...(discovery ? [discovery.plugin] : []),
       ...(emailCodeSignIn
         ? [
@@ -275,7 +293,7 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
                 // Like password reset, do not wait on delivery: a refused address
                 // answers at once, so waiting would reveal which addresses are admitted.
                 void env.email
-                  ?.send(signInCodeEmail(email, otp))
+                  ?.send(await signInCodeEmail(email, otp))
                   .catch((error) => env.onEmailError?.(error));
               },
             }),
@@ -500,6 +518,7 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
             }
           },
           after: async (session, ctx) => {
+            await env.afterSignIn?.(session.userId);
             env.analytics?.capture(
               session.userId,
               { name: "signed_in" },
@@ -527,6 +546,11 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
                 identifier: oidcProofKey(session.id),
                 value: session.userId,
                 expiresAt: new Date(context.reauthExpiresAt),
+              });
+              await recordSecurityEvent({
+                type: "auth.identity.confirmed",
+                userId: session.userId,
+                metadata: { method: "sso" },
               });
             }
             const previous = replacedSession(ctx);
@@ -597,56 +621,14 @@ export function createAuth(prisma: PrismaClient, env: AuthEnv) {
     encryptStoredOAuthTokens: async () => encryptStoredOAuthTokens(prisma, await tokenKey()),
     ssoAvailability: () => discovery?.availability(),
     passkeyRpId: relyingParty?.rpID ?? null,
+    hasRecentIdentityConfirmation: async (session: { sessionId: string; userId: string }) =>
+      hasRecentIdentityConfirmation((await auth.$context).internalAdapter, session),
+    issueAccountExportToken: async (userId: string) =>
+      issueAccountExportToken((await auth.$context).internalAdapter, userId),
+    consumeAccountExportToken: async (token: string) =>
+      consumeAccountExportToken((await auth.$context).internalAdapter, token),
     disposeOidcDiscovery: () => discovery?.dispose(),
   });
-}
-
-export function verificationEmail(email: string, url: string): TransactionalEmail {
-  return {
-    to: email,
-    subject: "Verify your Rakazo email",
-    text: `Verify your email, then return to Rakazo to sign in:\n\n${url}\n\nThis link expires in one hour. If you did not register, ignore this email.`,
-    html: `<p><a href="${escapeHtml(url)}">Verify email</a>, then return to Rakazo to sign in.</p><p>This link expires in one hour. If you did not register, ignore this email.</p>`,
-  };
-}
-
-export function signInCodeEmail(email: string, code: string): TransactionalEmail {
-  return {
-    to: email,
-    subject: "Your Rakazo sign-in code",
-    text: `Enter this code to sign in to Rakazo:\n\n${code}\n\nThis code expires in ten minutes. If you did not request it, ignore this email.`,
-    html: `<p>Enter this code to sign in to Rakazo:</p><p><strong>${escapeHtml(code)}</strong></p><p>This code expires in ten minutes. If you did not request it, ignore this email.</p>`,
-  };
-}
-
-export function passwordResetEmail(
-  user: { id: string; email: string; name: string },
-  resetUrl: string,
-): TransactionalEmail {
-  const name = displayName(user.name, "there");
-  const safeName = escapeHtml(name);
-  const safeUrl = escapeHtml(resetUrl);
-  return {
-    to: user.email,
-    subject: "Reset your Rakazo password",
-    text: [
-      `Hi ${name},`,
-      "",
-      "Reset your Rakazo password using this link:",
-      resetUrl,
-      "",
-      "This link expires in one hour. If you did not request this, you can ignore this email.",
-    ].join("\n"),
-    html: `<p>Hi ${safeName},</p><p>Reset your Rakazo password:</p><p><a href="${safeUrl}">Reset password</a></p><p>This link expires in one hour. If you did not request this, you can ignore this email.</p>`,
-  };
-}
-
-function escapeHtml(value: string): string {
-  return value.replace(
-    /[&<>"']/g,
-    (character) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]!,
-  );
 }
 
 export type Auth = ReturnType<typeof createAuth>;

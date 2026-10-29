@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import type { BackgroundJobHandlers, JobPublisher } from "@rakazo/adapter-kit";
 import { runContinueJob } from "@rakazo/adapter-kit";
+import { stuckWorkStatusMessage } from "@rakazo/core";
 import type { PrismaClient } from "@rakazo/db";
 import {
   appendEvent,
@@ -17,7 +18,7 @@ import {
 import { createLogger, createTestSink, installLogger } from "@rakazo/logging";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { InMemoryRealtimeFanout } from "./realtime.js";
-import { RunJobPublisher, RunWorkerHost } from "./run-wakeup.js";
+import { RunJobPublisher, RunStarter, RunWorkerHost } from "./run-wakeup.js";
 import { GraphileJobPublisher } from "./wakeup.js";
 
 const url = process.env.DATABASE_URL;
@@ -51,7 +52,9 @@ describePostgres("direct run dispatch (PostgreSQL)", () => {
       await db.pool.end();
     }
   });
-  async function createRun(data: { status?: string; wakeAt?: Date; leaseExpiresAt?: Date } = {}) {
+  async function createRun(
+    data: { status?: string; wakeAt?: Date; leaseExpiresAt?: Date; trigger?: string } = {},
+  ) {
     const { userId, spaceId, botId, threadId } = identity;
     const task = await system.task.create({
       data: { userId, spaceId, botId, threadId, prompt: "fixture", status: "queued" },
@@ -80,14 +83,272 @@ describePostgres("direct run dispatch (PostgreSQL)", () => {
   const wait = async (assertion: () => Promise<void> | void) =>
     vi.waitFor(assertion, { timeout: 5_000, interval: 20 });
 
+  it("reports runs left unstarted, not retry backoff or waits on the bot's own earlier run", async () => {
+    const now = Date.now();
+    const computer = await system.computer.create({
+      data: {
+        spaceId: identity.spaceId,
+        userId: identity.userId,
+        scopeKey: `queue-age-${randomUUID()}`,
+        homeKey: `queue-age-${randomUUID()}`,
+        kind: "fake",
+      },
+    });
+    await system.bot.update({ where: { id: identity.botId }, data: { computerId: computer.id } });
+    const owner = await createRun({ status: "running" });
+    const retry = await createRun({ wakeAt: new Date(now - 5_000) });
+    const delayed = await createRun({ wakeAt: new Date(now - 45_000) });
+    await system.run.updateMany({
+      where: { id: { in: [retry.id, delayed.id] } },
+      data: { createdAt: new Date(now - 3_600_000) },
+    });
+    const lease = await system.computerExecutionLease.create({
+      data: {
+        computerId: computer.id,
+        botId: identity.botId,
+        runId: owner.id,
+        expiresAt: new Date(now + 60_000),
+      },
+    });
+    const sink = createTestSink();
+    installLogger(createLogger({ service: "test", sinks: [sink] }));
+    const realtime = new InMemoryRealtimeFanout();
+    const host = () => new RunWorkerHost(db.prisma, realtime, new RunStarter(realtime));
+    const waitingOnBot = host();
+    const unblocked = host();
+    try {
+      // Waiting for the bot's own earlier run is expected, not a failure to start.
+      await waitingOnBot.start({} as BackgroundJobHandlers);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      await waitingOnBot.stop();
+      expect(sink.events.some((event) => event.message === "run.queue_delayed")).toBe(false);
+
+      await system.computerExecutionLease.update({
+        where: { id: lease.id },
+        data: { expiresAt: new Date(now - 1_000) },
+      });
+      await unblocked.start({} as BackgroundJobHandlers);
+      await wait(() =>
+        expect(sink.events.some((event) => event.message === "run.queue_delayed")).toBe(true),
+      );
+      const warning = sink.events.find((event) => event.message === "run.queue_delayed")!;
+      expect(warning.level).toBe("error");
+      expect(warning["queue.delayed_runs"]).toBe(1);
+      expect(warning["queue.oldest_run_id"]).toBe(delayed.id);
+      expect(warning["queue.oldest_wait_ms"]).toBeGreaterThanOrEqual(45_000);
+      expect(warning["queue.oldest_wait_ms"]).toBeLessThan(60_000);
+    } finally {
+      await waitingOnBot.stop();
+      await unblocked.stop();
+      installLogger(createLogger({ service: "test", level: "off", sinks: [] }));
+      await system.run.updateMany({
+        where: { id: { in: [owner.id, retry.id, delayed.id] } },
+        data: { status: "cancelled" },
+      });
+      await system.computerExecutionLease.delete({ where: { id: lease.id } });
+    }
+  });
+
+  it("keeps blocked rows unchanged, scans past them, and resumes after release or expiry", async () => {
+    const computer = await system.computer.create({
+      data: {
+        spaceId: identity.spaceId,
+        userId: identity.userId,
+        scopeKey: `dispatch-busy-${randomUUID()}`,
+        homeKey: `dispatch-busy-${randomUUID()}`,
+        kind: "fake",
+      },
+    });
+    const bot = await system.bot.update({
+      where: { id: identity.botId },
+      data: { computerId: computer.id },
+    });
+    const blocked = await createRun();
+    const owner = await createRun();
+    const aged = await system.run.update({
+      where: { id: blocked.id },
+      data: { createdAt: new Date(0), updatedAt: new Date(0) },
+    });
+    const lease = await system.computerExecutionLease.create({
+      data: {
+        computerId: computer.id,
+        botId: bot.id,
+        runId: owner.id,
+        expiresAt: new Date(Date.now() + 60_000),
+      },
+    });
+    const realtime = new InMemoryRealtimeFanout();
+    const host = new RunWorkerHost(db.prisma, realtime, new RunStarter(realtime), {
+      intervalMs: 25,
+      batchSize: 1,
+    });
+    const entered: string[] = [];
+    try {
+      await host.start({
+        "run.continue": async ({ runId }) => {
+          entered.push(runId);
+          await system.run.update({ where: { id: runId }, data: { status: "completed" } });
+        },
+      } as BackgroundJobHandlers);
+      // A blocked oldest row must not starve the holder's explicit resume.
+      await wait(() => expect(entered).toContain(owner.id));
+      expect(entered).not.toContain(blocked.id);
+      expect(await system.run.findUniqueOrThrow({ where: { id: blocked.id } })).toMatchObject({
+        status: "queued",
+        leaseFence: 0,
+        startedAt: null,
+        updatedAt: aged.updatedAt,
+      });
+      await system.computerExecutionLease.update({
+        where: { id: lease.id },
+        data: { expiresAt: new Date(0) },
+      });
+      await wait(() => expect(entered).toContain(blocked.id));
+    } finally {
+      await host.stop();
+      await system.computerExecutionLease.delete({ where: { id: lease.id } });
+    }
+  });
+
+  it("ends an untaken takeover wait so chat work for its bot can start", async () => {
+    const computer = await system.computer.create({
+      data: {
+        spaceId: identity.spaceId,
+        userId: identity.userId,
+        scopeKey: `dispatch-takeover-${randomUUID()}`,
+        homeKey: `dispatch-takeover-${randomUUID()}`,
+        kind: "fake",
+      },
+    });
+    const bot = await system.bot.update({
+      where: { id: identity.botId },
+      data: { computerId: computer.id },
+    });
+    const waiting = await createRun({ status: "waiting_takeover" });
+    await system.computer.update({
+      where: { id: computer.id },
+      data: { controlRunId: waiting.id },
+    });
+    const lease = await system.computerExecutionLease.create({
+      data: {
+        computerId: computer.id,
+        botId: bot.id,
+        runId: waiting.id,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60_000),
+      },
+    });
+    const reply = await createRun();
+    const peer = await createRun({ trigger: "bot_message" });
+    const routine = await createRun({ trigger: "routine" });
+    const fanout = new InMemoryRealtimeFanout();
+    const host = new RunWorkerHost(db.prisma, fanout, new RunStarter(fanout), { intervalMs: 25 });
+    const entered: string[] = [];
+    try {
+      await host.start({
+        "run.continue": async ({ runId }) => {
+          entered.push(runId);
+          await system.run.update({ where: { id: runId }, data: { status: "completed" } });
+        },
+      } as BackgroundJobHandlers);
+      await wait(() => expect(entered).toEqual(expect.arrayContaining([reply.id, peer.id])));
+      expect(entered).not.toContain(waiting.id);
+      expect(await system.run.findUniqueOrThrow({ where: { id: waiting.id } })).toMatchObject({
+        status: "cancelled",
+        error: stuckWorkStatusMessage("waiting_takeover"),
+      });
+      expect(
+        await system.message.count({
+          where: { threadId: identity.threadId, clientNonce: `stuck-expired:${waiting.id}` },
+        }),
+      ).toBe(1);
+      expect(await system.computer.findUniqueOrThrow({ where: { id: computer.id } })).toMatchObject(
+        { controlRunId: null },
+      );
+    } finally {
+      await host.stop();
+      await system.run.updateMany({
+        where: { id: { in: [waiting.id, reply.id, peer.id, routine.id] } },
+        data: { status: "cancelled" },
+      });
+      await system.computerExecutionLease.delete({ where: { id: lease.id } });
+    }
+  });
+
+  it("leaves chat work queued behind a takeover the user is on the screen for", async () => {
+    const computer = await system.computer.create({
+      data: {
+        spaceId: identity.spaceId,
+        userId: identity.userId,
+        scopeKey: `dispatch-held-${randomUUID()}`,
+        homeKey: `dispatch-held-${randomUUID()}`,
+        kind: "fake",
+      },
+    });
+    const bot = await system.bot.update({
+      where: { id: identity.botId },
+      data: { computerId: computer.id },
+    });
+    const waiting = await createRun({ status: "waiting_takeover" });
+    await system.computer.update({
+      where: { id: computer.id },
+      data: {
+        controlHolder: "user",
+        controlBotId: bot.id,
+        controlRunId: waiting.id,
+        controlLeaseId: randomUUID(),
+        controlLeaseExpiresAt: new Date(Date.now() + 60_000),
+      },
+    });
+    const lease = await system.computerExecutionLease.create({
+      data: {
+        computerId: computer.id,
+        botId: bot.id,
+        runId: waiting.id,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60_000),
+      },
+    });
+    const reply = await createRun();
+    // Another bot's run shares the reply's scan; once it starts, that scan has decided the wait.
+    const other = await system.bot.create({
+      data: { spaceId: identity.spaceId, userId: identity.userId, name: "Other", color: "test" },
+    });
+    const sentinel = await system.run.update({
+      where: { id: (await createRun()).id },
+      data: { botId: other.id },
+    });
+    const fanout = new InMemoryRealtimeFanout();
+    const host = new RunWorkerHost(db.prisma, fanout, new RunStarter(fanout), { intervalMs: 25 });
+    const entered: string[] = [];
+    try {
+      await host.start({
+        "run.continue": async ({ runId }) => {
+          entered.push(runId);
+          await system.run.update({ where: { id: runId }, data: { status: "completed" } });
+        },
+      } as BackgroundJobHandlers);
+      await wait(() => expect(entered).toContain(sentinel.id));
+      expect(entered).not.toContain(reply.id);
+      expect(await system.run.findUniqueOrThrow({ where: { id: waiting.id } })).toMatchObject({
+        status: "waiting_takeover",
+      });
+    } finally {
+      await host.stop();
+      await system.run.updateMany({
+        where: { id: { in: [waiting.id, reply.id, sentinel.id] } },
+        data: { status: "cancelled" },
+      });
+      await system.computerExecutionLease.delete({ where: { id: lease.id } });
+    }
+  });
+
   it("recovers an unnotified commit, deduplicates competing workers and drains active runs", async () => {
     const run = await createRun();
     const realtime = new InMemoryRealtimeFanout();
     const scheduler = background();
-    const publisher = new RunJobPublisher(db.prisma, realtime, scheduler);
+    const publisher = new RunJobPublisher(db.prisma, scheduler, new RunStarter(realtime));
     const hosts = [
-      new RunWorkerHost(db.prisma, realtime, { intervalMs: 25 }),
-      new RunWorkerHost(db.prisma, realtime, { intervalMs: 25 }),
+      new RunWorkerHost(db.prisma, realtime, new RunStarter(realtime), { intervalMs: 25 }),
+      new RunWorkerHost(db.prisma, realtime, new RunStarter(realtime), { intervalMs: 25 }),
     ];
     const claims: string[] = [];
     let release!: () => void;
@@ -143,8 +404,9 @@ describePostgres("direct run dispatch (PostgreSQL)", () => {
     const waiting = await createRun({ status: "waiting_input" });
     const realtime = new InMemoryRealtimeFanout();
     vi.spyOn(realtime, "publish").mockRejectedValue(new Error("fixture notification lost"));
-    const publisher = new RunJobPublisher(db.prisma, realtime, background());
-    const host = new RunWorkerHost(db.prisma, realtime, { intervalMs: 25 });
+    const starter = new RunStarter(realtime);
+    const publisher = new RunJobPublisher(db.prisma, background(), starter);
+    const host = new RunWorkerHost(db.prisma, realtime, starter, { intervalMs: 25 });
     const entered: string[] = [];
     const handlers = {
       "run.continue": async ({ runId }) => {

@@ -57,8 +57,14 @@ describe("listSpaceGroupsForSpaces", () => {
         pinned: true,
         sectionId: null,
         members: [
-          { botId: "bot-1", name: "Triage", color: "#111", status: "idle" },
-          { botId: "bot-2", name: "Responder", color: "#222", status: "running" },
+          { botId: "bot-1", name: "Triage", color: "#111", avatarSet: "organic", status: "idle" },
+          {
+            botId: "bot-2",
+            name: "Responder",
+            color: "#222",
+            avatarSet: "organic",
+            status: "running",
+          },
         ],
         preview: "Escalation pending",
         unread: true,
@@ -215,11 +221,13 @@ describe("archiveGroup", () => {
     groupUpdate = vi.fn();
     const tx = {
       externalEffect: { deleteMany: vi.fn(async () => ({ count: 0 })) },
+      message: { findMany: vi.fn(async () => []) },
       $queryRaw: queryRaw,
       chatGroup: { findFirst, update: groupUpdate },
       run: { findMany: findManyRuns, updateMany: runUpdateMany },
       attempt: { updateMany: attemptUpdateMany },
       task: { updateMany: taskUpdateMany },
+      secret: { deleteMany: vi.fn() },
       computerExecutionLease: { findMany: leaseFindMany, updateMany: leaseUpdateMany },
       computer: { findMany: findManyComputers, updateMany: computerUpdateMany },
       event: { deleteMany: eventDeleteMany },
