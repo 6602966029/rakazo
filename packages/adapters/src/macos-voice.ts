@@ -16,7 +16,7 @@ import type {
 import { MAX_SPEAK_CHARS, MAX_SYNTHESIZED_AUDIO_BYTES } from "./voice-http.js";
 
 export const MACOS_VOICE_PROVIDER_ID = "macos";
-export const SAY_BIN = "/usr/bin/say";
+const SAY_BIN = "/usr/bin/say";
 
 export const MACOS_VOICE_CATALOG_ENTRY = {
   id: MACOS_VOICE_PROVIDER_ID,
@@ -65,7 +65,7 @@ export function parseSayVoices(output: string): VoiceInfo[] {
 
 /** `say` reads `[[…]]` as embedded commands; replies are spoken as plain text. */
 function plainSpeech(text: string): string {
-  return text.replace(/\[\[/g, "[ [");
+  return text.replace(/\[(?=\[)/g, "[ ");
 }
 
 type VoiceCache = { current?: { at: number; voices: Promise<VoiceInfo[]> } };

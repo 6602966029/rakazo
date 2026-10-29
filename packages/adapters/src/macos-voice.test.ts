@@ -93,6 +93,17 @@ describe("MacOsVoiceProvider", () => {
     expect(existsSync(tempDir)).toBe(false);
   });
 
+  it.each([2, 3, 4, 5, 6, 7])("neutralises commands after %i opening brackets", async (count) => {
+    const { run, provider } = fakeSay();
+    await provider.synthesize(
+      { text: `${"[".repeat(count)}volm 0]]`, voiceId: "Albert", apiKey: "macos" },
+      ctx,
+    );
+    const input = run.mock.calls[1]?.[1].input;
+    expect(input).toBe(`${"[ ".repeat(count - 1)}[volm 0]]`);
+    expect(input).not.toContain("[[");
+  });
+
   it("refuses a voice that is not installed without running say", async () => {
     const { run, provider } = fakeSay();
     await expect(
