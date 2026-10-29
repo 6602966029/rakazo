@@ -17,6 +17,35 @@ function envelope(event: unknown, attachment = false) {
 }
 
 describe("native error collector privacy boundary", () => {
+  it("keeps only recognized mobile platforms for distinguishing startup failures", () => {
+    for (const platform of ["ios", "android"])
+      expect(sanitizeNativeEvent({ tags: { "mobile.platform": platform } }, "mobile").tags).toEqual(
+        { surface: "mobile", "mobile.platform": platform },
+      );
+    for (const platform of ["private-device", "https://private.example.com"])
+      expect(sanitizeNativeEvent({ tags: { "mobile.platform": platform } }, "mobile").tags).toEqual(
+        { surface: "mobile" },
+      );
+    expect(sanitizeNativeEvent({ tags: { "mobile.platform": "ios" } }, "desktop").tags).toEqual({
+      surface: "desktop",
+    });
+  });
+
+  it("keeps replayed startup failures anonymous", () => {
+    const event = sanitizeNativeEvent(
+      {
+        platform: "javascript",
+        user: { id: "a".repeat(64) },
+        tags: { "startup.previous_launch": "true", operation: "mobile.startup" },
+      },
+      "mobile",
+    );
+    expect(event).toMatchObject({
+      user: { ip_address: null },
+      tags: { "startup.previous_launch": "true", operation: "mobile.startup", surface: "mobile" },
+    });
+  });
+
   it("filters native events before forwarding and strips binary attachments, contexts and identity", async () => {
     const bytes = envelope(
       {

@@ -10,8 +10,13 @@ export const createMenuItems = [
     sfSymbol: "person.crop.circle.badge.plus",
     materialIcon: "person_add",
   },
-  { id: "group", label: "New group", sfSymbol: "person.2", materialIcon: "group" },
-  { id: "space", label: "New space", sfSymbol: "square.grid.2x2", materialIcon: "grid_view" },
+  { id: "group", label: "New group chat", sfSymbol: "person.2", materialIcon: "group" },
+  {
+    id: "space",
+    label: "New private space",
+    sfSymbol: "square.grid.2x2",
+    materialIcon: "grid_view",
+  },
 ] as const;
 
 export function createMenuActions(t: (text: string) => string, platform: string): MenuAction[] {
