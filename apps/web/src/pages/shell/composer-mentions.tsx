@@ -1,7 +1,7 @@
 import { t } from "@lingui/core/macro";
 import type { ComposerMention, ComposerMentionBinding, SlashActionId } from "@rakazo/core";
 import { composerMentionSegments, mentionChipKey } from "@rakazo/core";
-import { BotAvatar } from "@rakazo/ui-web";
+import { BotAvatar, resolvePersonaColorDef } from "@rakazo/ui-web";
 import { Clock, Puzzle, X } from "lucide-react";
 import type { ComponentProps, ReactNode, Ref } from "react";
 import { Fragment } from "react";
@@ -99,6 +99,11 @@ export function ComposerMentionHighlights({
             data-testid="mention-chip"
             data-mention-kind={mention.kind}
             className="rounded-full bg-accent ring-1 ring-accent box-decoration-clone"
+            style={
+              mention.kind === "bot" && mention.color
+                ? { color: resolvePersonaColorDef(mention.id, mention.color).light }
+                : undefined
+            }
           >
             <span className="relative text-transparent">
               @

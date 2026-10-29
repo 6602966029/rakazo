@@ -17,6 +17,7 @@ import {
   composerSelectedMentions,
   mentionChipKey,
   resolveComposerMentionEdit,
+  resolvePersonaColorDef,
   SLASH_ACTIONS,
   serializeComposerPrompt,
   truncateSlashDescription,
@@ -91,6 +92,13 @@ export function ThreadComposer({
   onSlashAction,
 }: ThreadComposerProps) {
   const tokens = useMobileTokens();
+  const mentionStyle = (mention: ComposerMention) => ({
+    backgroundColor: tokens.muted,
+    color:
+      mention.kind === "bot" && mention.color
+        ? resolvePersonaColorDef(mention.id, mention.color).light
+        : undefined,
+  });
   const { fontScale } = useWindowDimensions();
   // The input text stops growing at MAX_FONT_SCALE, so its height limits stop there too.
   const textScale = Math.min(fontScale, MAX_FONT_SCALE);
@@ -588,7 +596,7 @@ export function ThreadComposer({
                 {composerMentionSegments(draft, mentionBindings).map((segment, index) => (
                   <Text
                     key={index}
-                    style={segment.binding ? { backgroundColor: tokens.muted } : undefined}
+                    style={segment.binding ? mentionStyle(segment.binding.mention) : undefined}
                   >
                     {segment.text}
                   </Text>

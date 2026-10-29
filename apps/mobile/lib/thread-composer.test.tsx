@@ -109,6 +109,9 @@ vi.mock("react-native", () => {
         "data-mentions": JSON.stringify(
           segments.filter((segment) => (segment.props as { style?: object }).style).map(nativeText),
         ),
+        "data-mention-colors": JSON.stringify(
+          segments.map((segment) => (segment.props as { style?: { color?: string } }).style?.color),
+        ),
         readOnly: true,
         "data-style": JSON.stringify(style),
         "data-scroll-enabled": scrollEnabled,
@@ -244,6 +247,14 @@ describe("thread composer isolation", () => {
     expect(JSON.parse(field().dataset.mentions!)).toEqual(["@Helper"]);
     expect(container.querySelector('[data-testid="mention-chip"]')).toBeNull();
     expect(container.querySelector('button[aria-label="Remove mention {name}"]')).toBeNull();
+  });
+
+  it("colors a bot mention with the bot's identity color", () => {
+    render({ composerMentionTargets: [{ ...bot, color: "#3366FF" }] });
+    type("ask @He");
+    press("@{name}");
+    type("ask @Helper now");
+    expect(JSON.parse(field().dataset.mentionColors!)).toEqual([null, "#3366FF", null]);
   });
 
   it("keeps inserted text when backspacing into a mention afterwards", () => {
