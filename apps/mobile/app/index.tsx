@@ -54,6 +54,7 @@ import {
 import { mobileTokens, resolveMobileAppearance } from "../lib/appearance";
 import { AvatarViewportScope, createAvatarViewport } from "../lib/avatar-life";
 import { isPaywallShown } from "../lib/billing";
+import type { CreateAction } from "../lib/create-chooser";
 import { createInboxBot } from "../lib/create-inbox-bot";
 import { useHeaderHeightIfAny } from "../lib/floating-header";
 import { useForegroundPoll } from "../lib/foreground-poll";
@@ -642,7 +643,7 @@ function Home({ embedded, onSelectSpace, onShareSelect }: InboxPaneProps & { emb
   }, [openChat, refreshBots, t]);
 
   const runCreateAction = useCallback(
-    (action: "bot" | "group" | "space") => {
+    (action: CreateAction) => {
       if (spaceActionRef.current.busy || spaceActionRef.current.recoveryId) return;
       if (action === "bot") void createQuickBot();
       else if (action === "group") router.push("/new-group");
