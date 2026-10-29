@@ -1,4 +1,5 @@
 export const DE_MESSAGES: Record<string, string> = {
+  "How other bots see it": "So sehen andere Bots ihn",
   "Share to": "Teilen mit",
   "{count} files": "{count} Dateien",
   "could not read": "konnte nicht gelesen werden",
@@ -47,9 +48,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Permissions: "Berechtigungen",
   "Open work": "Offene Aufgaben",
   "When it finishes or needs input": "Wenn der Bot fertig ist oder Eingaben benötigt",
-  "Edit label": "Label bearbeiten",
   "Edit name": "Namen bearbeiten",
-  "Add a label": "Label hinzufügen",
   "Pick a chat": "Wähle einen Chat",
   "Add an AI model to keep chatting": "Füge ein KI-Modell hinzu, um weiterzuchatten",
   "Not Now": "Jetzt nicht",
@@ -299,6 +298,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Tap to open": "Zum Öffnen tippen",
   "Could not open message": "Nachricht konnte nicht geöffnet werden",
   "Could not send answer": "Antwort konnte nicht gesendet werden",
+  "Save to Vault": "Im Tresor speichern",
   "Could not speak": "Vorlesen fehlgeschlagen",
   "Could not update reaction": "Reaktion konnte nicht aktualisiert werden",
   Created: "Erstellt",
@@ -335,6 +335,7 @@ export const DE_MESSAGES: Record<string, string> = {
   "Return to inbox": "Zurück zur Übersicht",
   Running: "Läuft",
   Saved: "Gespeichert",
+  Sent: "Gesendet",
   Send: "Senden",
   "Send answer": "Antwort senden",
   "Sending…": "Wird gesendet…",
@@ -942,6 +943,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Disabled: "Deaktiviert",
   "OAuth connected": "OAuth verbunden",
   "OAuth expired": "OAuth abgelaufen",
+  "Needs an OAuth client ID": "Benötigt eine OAuth-Client-ID",
   "Credential saved": "Zugangsdaten gespeichert",
   "No auth": "Keine Authentifizierung",
   "The bot couldn't reply because its provider's daily limit was reached.":
@@ -979,6 +981,8 @@ export const DE_MESSAGES: Record<string, string> = {
     "Beim Starten ist etwas schiefgelaufen. Versuche es in einem Moment erneut.",
   "Your voice provider is out of credit.": "Dein Stimmanbieter hat kein Guthaben mehr.",
   "Your voice provider key was rejected.": "Der Schlüssel deines Stimmanbieters wurde abgelehnt.",
+  "This app needs its own sign-in setup to connect.":
+    "Diese App braucht eine eigene Anmeldeeinrichtung, um sich zu verbinden.",
   Billing: "Abrechnung",
   "Could not load billing": "Abrechnung konnte nicht geladen werden",
   "Could not update billing": "Abrechnung konnte nicht aktualisiert werden",
@@ -1207,4 +1211,10 @@ export const DE_MESSAGES: Record<string, string> = {
   "Could not load skill": "Skill konnte nicht geladen werden",
   "Could not save skill": "Skill konnte nicht gespeichert werden",
   "Could not delete skill": "Skill konnte nicht gelöscht werden",
+  "Invite friends": "Freunde einladen",
+  "Get a free month for each friend who starts a trial.":
+    "Erhalte einen Gratismonat für jeden Freund, der eine Testphase startet.",
+  "1 free month earned": "1 Gratismonat verdient",
+  "{count} free months earned": "{count} Gratismonate verdient",
+  "Submit a plugin": "Plugin einreichen",
 };

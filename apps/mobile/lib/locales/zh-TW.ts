@@ -1,4 +1,5 @@
 export const ZH_TW_MESSAGES: Record<string, string> = {
+  "How other bots see it": "其他機器人如何瞭解它",
   "Share to": "分享到",
   "{count} files": "{count} 個檔案",
   "could not read": "無法讀取",
@@ -35,9 +36,7 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   Permissions: "權限",
   "Open work": "待辦事項",
   "When it finishes or needs input": "完成或需要輸入時",
-  "Edit label": "編輯標籤",
   "Edit name": "編輯名稱",
-  "Add a label": "新增標籤",
   "Pick a chat": "選擇聊天",
   "Add an AI model to keep chatting": "新增一個 AI 模型以繼續聊天",
   "Not Now": "暫不",
@@ -193,6 +192,7 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   expired: "已過期",
 
   Saved: "已儲存",
+  Sent: "已傳送",
   " (unread)": "（未讀）",
   Appearance: "外觀",
   Dark: "深色",
@@ -394,6 +394,7 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   "Could not save the server URL": "無法儲存伺服器網址",
   "Could not send reset email": "無法傳送重設郵件",
   "Could not send answer": "無法傳送回答",
+  "Save to Vault": "儲存到保險庫",
   "Could not share file": "無法分享檔案",
   "Could not sign out": "無法登出",
   "Could not speak": "無法朗讀",
@@ -925,6 +926,7 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   Disabled: "已停用",
   "OAuth connected": "OAuth 已連線",
   "OAuth expired": "OAuth 已過期",
+  "Needs an OAuth client ID": "需要 OAuth 用戶端 ID",
   "Credential saved": "憑證已儲存",
   "No auth": "無驗證",
   "The bot couldn't reply because its provider's daily limit was reached.":
@@ -962,6 +964,7 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
     "啟動時出了點問題。請稍後重試。",
   "Your voice provider is out of credit.": "你的語音供應商額度已用完。",
   "Your voice provider key was rejected.": "你的語音供應商拒絕了該金鑰。",
+  "This app needs its own sign-in setup to connect.": "此應用程式需要單獨設定登入才能連線。",
   Billing: "帳務",
   "Could not load billing": "無法載入帳務資訊",
   "Could not update billing": "無法更新帳務資訊",
@@ -1215,4 +1218,10 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   "Could not load skill": "無法載入技能",
   "Could not save skill": "無法儲存技能",
   "Could not delete skill": "無法刪除技能",
+  "Invite friends": "邀請朋友",
+  "Get a free month for each friend who starts a trial.":
+    "每有一位朋友開始試用，你就能獲得一個月免費。",
+  "1 free month earned": "已獲得 1 個月免費",
+  "{count} free months earned": "已獲得 {count} 個月免費",
+  "Submit a plugin": "提交外掛程式",
 };

@@ -1,4 +1,5 @@
 export const NL_MESSAGES: Record<string, string> = {
+  "How other bots see it": "Hoe andere bots deze zien",
   "Share to": "Delen met",
   "{count} files": "{count} bestanden",
   "could not read": "kon niet worden gelezen",
@@ -44,9 +45,7 @@ export const NL_MESSAGES: Record<string, string> = {
   Permissions: "Machtigingen",
   "Open work": "Open taken",
   "When it finishes or needs input": "Als de bot klaar is of invoer nodig heeft",
-  "Edit label": "Label bewerken",
   "Edit name": "Naam bewerken",
-  "Add a label": "Label toevoegen",
   "Pick a chat": "Kies een chat",
   "Add an AI model to keep chatting": "Voeg een AI-model toe om verder te chatten",
   "Not Now": "Niet nu",
@@ -294,6 +293,7 @@ export const NL_MESSAGES: Record<string, string> = {
   "Tap to open": "Tik om te openen",
   "Could not open message": "Bericht openen mislukt",
   "Could not send answer": "Antwoord verzenden mislukt",
+  "Save to Vault": "Opslaan in kluis",
   "Could not speak": "Spreken mislukt",
   "Could not update reaction": "Reactie bijwerken mislukt",
   Created: "Aangemaakt",
@@ -330,6 +330,7 @@ export const NL_MESSAGES: Record<string, string> = {
   "Return to inbox": "Terug naar postvak IN",
   Running: "Draait",
   Saved: "Opgeslagen",
+  Sent: "Verzonden",
   Send: "Verzenden",
   "Send answer": "Antwoord verzenden",
   "Sending…": "Bezig met verzenden…",
@@ -934,6 +935,7 @@ export const NL_MESSAGES: Record<string, string> = {
   Disabled: "Uitgeschakeld",
   "OAuth connected": "OAuth verbonden",
   "OAuth expired": "OAuth verlopen",
+  "Needs an OAuth client ID": "OAuth-client-ID nodig",
   "Credential saved": "Inloggegevens opgeslagen",
   "No auth": "Geen authenticatie",
   "The bot couldn't reply because its provider's daily limit was reached.":
@@ -971,6 +973,8 @@ export const NL_MESSAGES: Record<string, string> = {
     "Er ging iets mis tijdens het opstarten. Probeer het over een moment opnieuw.",
   "Your voice provider is out of credit.": "Je spraakaanbieder heeft geen tegoed meer.",
   "Your voice provider key was rejected.": "Je spraakaanbieder heeft de sleutel geweigerd.",
+  "This app needs its own sign-in setup to connect.":
+    "Deze app heeft een eigen aanmeldconfiguratie nodig om te verbinden.",
   Billing: "Facturering",
   "Could not load billing": "Kan facturering niet laden",
   "Could not update billing": "Kan facturering niet bijwerken",
@@ -1199,4 +1203,10 @@ export const NL_MESSAGES: Record<string, string> = {
   "Could not load skill": "Kan skill niet laden",
   "Could not save skill": "Kan skill niet opslaan",
   "Could not delete skill": "Kan skill niet verwijderen",
+  "Invite friends": "Vrienden uitnodigen",
+  "Get a free month for each friend who starts a trial.":
+    "Krijg een gratis maand voor elke vriend die een proefperiode start.",
+  "1 free month earned": "1 gratis maand verdiend",
+  "{count} free months earned": "{count} gratis maanden verdiend",
+  "Submit a plugin": "Plugin indienen",
 };

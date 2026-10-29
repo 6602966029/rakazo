@@ -1,6 +1,5 @@
 import { ORPCError } from "@orpc/server";
 import {
-  deploymentAutoReviewDefault,
   effectiveModelRole,
   hasHostedModelCredits,
   isAutoReviewCheckerConfigured,
@@ -109,6 +108,10 @@ export function accountRoutes(ctx: RouterContext) {
       portal: authed.billing.portal.handler(async ({ context, input }) =>
         requireBilling(deps).portal(context.actor, input?.client),
       ),
+      claimReferral: authed.billing.claimReferral.handler(async ({ context, input }) => {
+        await requireBilling(deps).claimReferral(context.actor, input.code);
+        return { ok: true as const };
+      }),
     },
     preferences: {
       update: authed.preferences.update.handler(async ({ context, input }): Promise<Me> => {
@@ -225,7 +228,7 @@ export function accountRoutes(ctx: RouterContext) {
             input.mode
               ? approvalPreferenceFromMode(input.mode)
               : { enabled: input.enabled, skipApprovals: input.skipApprovals },
-            { enabled: deploymentAutoReviewDefault(process.env), skipApprovals: false },
+            { enabled: true, skipApprovals: false },
             input.scope,
           ),
         );
@@ -369,7 +372,7 @@ async function loadAutoReviewSettings(deps: RouterDeps, actor: Actor, scope?: Se
     findAutoReviewPreference(deps.prisma, actor, scope),
   ]);
   const stored = {
-    enabled: preference?.enabled ?? deploymentAutoReviewDefault(process.env),
+    enabled: preference?.enabled ?? true,
     skipApprovals: preference?.skipApprovals ?? false,
   };
   const settings = { ...stored, mode: approvalModeFromPreference(stored) };
