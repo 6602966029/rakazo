@@ -78,7 +78,7 @@ describeWithDatabase("API authorization and resource isolation", () => {
     rmSync(dataDir, { recursive: true, force: true });
   });
 
-  it("batches routine mentions with the same user, space and archive isolation as per-bot reads", async () => {
+  it("batches routine mentions with the same space and archive isolation as per-bot reads", async () => {
     const owner = await signup(app, `routine-mentions-owner-${stamp}@rakazo.test`, "Owner");
     const peer = await signup(app, `routine-mentions-peer-${stamp}@rakazo.test`, "Peer");
     const ownerActor = await rpc<Actor>(app, owner, "me");
@@ -109,10 +109,8 @@ describeWithDatabase("API authorization and resource isolation", () => {
     }
     await rpc(app, owner, "bots/archive", { botId: archived.id }, space.id);
     const botIds = [own.id, other.id, archived.id, cross.id, "missing-bot"];
+    // Members of one space share its bots and routines; archived and other-space bots stay out.
     const ownRows = await rpc<unknown[]>(app, owner, "routines/list", { botId: own.id }, space.id);
-    expect(await rpc(app, owner, "routines/listForMentions", { botIds }, space.id)).toEqual([
-      { botId: own.id, routines: ownRows },
-    ]);
     const peerRows = await rpc<unknown[]>(
       app,
       peer,
@@ -120,9 +118,12 @@ describeWithDatabase("API authorization and resource isolation", () => {
       { botId: other.id },
       space.id,
     );
-    expect(await rpc(app, peer, "routines/listForMentions", { botIds }, space.id)).toEqual([
+    const shared = [
+      { botId: own.id, routines: ownRows },
       { botId: other.id, routines: peerRows },
-    ]);
+    ];
+    expect(await rpc(app, owner, "routines/listForMentions", { botIds }, space.id)).toEqual(shared);
+    expect(await rpc(app, peer, "routines/listForMentions", { botIds }, space.id)).toEqual(shared);
     const crossRows = await rpc<unknown[]>(
       app,
       owner,
