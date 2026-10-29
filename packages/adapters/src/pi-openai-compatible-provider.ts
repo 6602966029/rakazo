@@ -396,7 +396,7 @@ export type OpenAiCompatibleModelsResponse = {
 /** Shared suffix: /models probe is optional when the user already knows a model id. */
 const OPENAI_COMPAT_PROBE_HAND_FILL_HINT = "You can still Connect with an explicit model id.";
 
-/** 从模型列表中提取有效 ID；合法 JSON 也可能为 null，应返回可操作的格式错误。 */
+/** Extracts model ids; valid JSON can still be null or lack a list, which gets the actionable missing-list error. */
 function probeModelIds(
   body: OpenAiCompatibleModelsResponse,
   opts?: { catalogProbe?: boolean },
