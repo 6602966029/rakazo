@@ -89,7 +89,7 @@ jobs:
         id: platforms
         env:
           # Windows ships unsigned until Azure Artifact Signing is configured.
-          WINDOWS_SIGNING: ${{ secrets.DESKTOP_WIN_AZURE_CLIENT_SECRET != '' }}
+          WINDOWS_SIGNING: ${{ secrets.DESKTOP_WIN_AZURE_CLIENT_ID != '' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -102,6 +102,11 @@ jobs:
     needs: validate
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
+    # Azure trusts GitHub OIDC tokens only from this environment, so Windows signing needs no stored secret.
+    environment: desktop-release
+    permissions:
+      contents: read
+      id-token: write
     strategy:
       fail-fast: false
       matrix:
@@ -275,8 +280,6 @@ jobs:
         shell: bash
         env:
           AZURE_TENANT_ID: ${{ secrets.DESKTOP_WIN_AZURE_TENANT_ID }}
-          AZURE_CLIENT_ID: ${{ secrets.DESKTOP_WIN_AZURE_CLIENT_ID }}
-          AZURE_CLIENT_SECRET: ${{ secrets.DESKTOP_WIN_AZURE_CLIENT_SECRET }}
           SIGNING_ENDPOINT: ${{ vars.DESKTOP_WIN_SIGNING_ENDPOINT }}
           SIGNING_ACCOUNT: ${{ vars.DESKTOP_WIN_SIGNING_ACCOUNT }}
           SIGNING_PROFILE: ${{ vars.DESKTOP_WIN_SIGNING_PROFILE }}
@@ -284,20 +287,21 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$AZURE_TENANT_ID"
-          test -n "$AZURE_CLIENT_ID"
-          test -n "$AZURE_CLIENT_SECRET"
           test -n "$SIGNING_ENDPOINT"
           test -n "$SIGNING_ACCOUNT"
           test -n "$SIGNING_PROFILE"
           test -n "$SIGNING_PUBLISHER"
+      - name: Log in to Azure for Windows signing
+        if: runner.os == 'Windows' && needs.validate.outputs.windows_signed == 'true'
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.DESKTOP_WIN_AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.DESKTOP_WIN_AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
       - name: Package signed x64 Windows app
         if: runner.os == 'Windows' && needs.validate.outputs.windows_signed == 'true'
         shell: bash
         env:
-          # Read by the TrustedSigning PowerShell module that electron-builder invokes.
-          AZURE_TENANT_ID: ${{ secrets.DESKTOP_WIN_AZURE_TENANT_ID }}
-          AZURE_CLIENT_ID: ${{ secrets.DESKTOP_WIN_AZURE_CLIENT_ID }}
-          AZURE_CLIENT_SECRET: ${{ secrets.DESKTOP_WIN_AZURE_CLIENT_SECRET }}
           SIGNING_ENDPOINT: ${{ vars.DESKTOP_WIN_SIGNING_ENDPOINT }}
           SIGNING_ACCOUNT: ${{ vars.DESKTOP_WIN_SIGNING_ACCOUNT }}
           SIGNING_PROFILE: ${{ vars.DESKTOP_WIN_SIGNING_PROFILE }}
@@ -345,6 +349,8 @@ jobs:
             if ($signature.Status -ne "Valid") {
               throw "$($executable.Name) signature is $($signature.Status)."
             }
+            # Artifact Signing certificates last days; only a timestamp keeps the signature valid after that.
+            if (-not $signature.TimeStamperCertificate) { throw "$($executable.Name) is not timestamped." }
             if ($signature.SignerCertificate.GetNameInfo("SimpleName", $false) -ne $env:SIGNING_PUBLISHER) {
               throw "$($executable.Name) is not signed by the configured publisher."
             }

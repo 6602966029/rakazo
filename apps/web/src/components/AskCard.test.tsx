@@ -50,7 +50,11 @@ const secretCard: AskBlock = {
 async function render(
   block: AskBlock,
   onDismiss: () => Promise<void> = async () => undefined,
-  onAnswer: (text: string, fields?: LoginFieldInput[]) => Promise<void> = async () => undefined,
+  onAnswer: (
+    text: string,
+    fields?: LoginFieldInput[],
+    remember?: false,
+  ) => Promise<void> = async () => undefined,
 ) {
   await act(async () =>
     root.render(
@@ -461,46 +465,75 @@ it("keeps a connector code card open to others in the chat, without Dismiss", as
   expect(button("Dismiss")).toBeUndefined();
 });
 
-it("offers import on the unanswered first-run focus card only", async () => {
-  const focus = {
-    kind: "choice" as const,
-    question: "What do you want me on first?",
-    options: [{ id: "inbox", letter: "A", label: "Inbox & email" }],
-  };
-  const onImportAgent = vi.fn();
-  const link = () =>
-    [...container.querySelectorAll("button")].find(
-      (item) => item.textContent === "Import an agent",
-    );
-  await act(async () =>
-    root.render(
-      <ChoiceCard
-        botId="bot"
-        block={focus}
-        onBotChanged={async () => {}}
-        onImportAgent={onImportAgent}
-      />,
-    ),
+function saveToVault() {
+  return container.querySelector<HTMLElement>('[role="switch"]:not([aria-describedby])');
+}
+
+it("saves a login by default, with Save to Vault on and named by its label", async () => {
+  const onAnswer = vi.fn(async () => undefined);
+  await render(loginCard, undefined, onAnswer);
+  const toggle = saveToVault()!;
+  expect(toggle.getAttribute("aria-checked")).toBe("true");
+  const label = toggle.getAttribute("aria-labelledby")!;
+  expect(container.querySelector(`[id="${label}"]`)?.textContent).toBe("Save to Vault");
+  await type("ID number", "fake-id-123");
+  await type("Phone number", "+1 555 0100");
+  await type("PIN", "1234");
+  await act(async () => button("Save")!.click());
+
+  // Nothing extra is sent, so the answer is saved as it always was.
+  expect(onAnswer).toHaveBeenCalledWith("", [
+    { label: "ID number", value: "fake-id-123", hidden: false },
+    { label: "Phone number", value: "+1 555 0100", hidden: false },
+    { label: "PIN", value: "1234", hidden: true },
+  ]);
+  expect(container.textContent).toContain("Saved");
+});
+
+it("sends a login for this run only when Save to Vault is off, and reads Sent", async () => {
+  const onAnswer = vi.fn(async () => undefined);
+  await render(loginCard, undefined, onAnswer);
+  await type("ID number", "fake-id-123");
+  await act(async () => saveToVault()!.click());
+  expect(saveToVault()!.getAttribute("aria-checked")).toBe("false");
+  // Turning it off keeps what was typed and says the login is only sent on.
+  expect(loginInput("ID number").value).toBe("fake-id-123");
+  expect(button("Save")).toBeUndefined();
+  await type("Phone number", "+1 555 0100");
+  await type("PIN", "1234");
+  await act(async () => button("Continue")!.click());
+
+  expect(onAnswer).toHaveBeenCalledWith(
+    "",
+    [
+      { label: "ID number", value: "fake-id-123", hidden: false },
+      { label: "Phone number", value: "+1 555 0100", hidden: false },
+      { label: "PIN", value: "1234", hidden: true },
+    ],
+    false,
   );
-  await act(async () => link()!.click());
-  expect(onImportAgent).toHaveBeenCalledTimes(1);
-  // Not once the question is answered, and never on another choice card.
-  for (const block of [
-    { ...focus, answerId: "inbox" },
-    { ...focus, question: "Which city?" },
-  ]) {
-    await act(async () =>
-      root.render(
-        <ChoiceCard
-          botId="bot"
-          block={block}
-          onBotChanged={async () => {}}
-          onImportAgent={onImportAgent}
-        />,
-      ),
-    );
-    expect(link()).toBeUndefined();
-  }
+  expect(container.textContent).toContain("Sent");
+  expect(container.textContent).not.toContain("Saved");
+});
+
+it("reads Sent on a login card answered without saving it, after a reload", async () => {
+  await render({ ...loginCard, status: "answered", answer: "", remembered: false });
+  expect(container.textContent).toContain("Sent");
+  await render({ ...loginCard, status: "answered", answer: "" });
+  expect(container.textContent).toContain("Saved");
+});
+
+it("offers Save to Vault only on login cards", async () => {
+  await render(secretCard);
+  expect(container.querySelector('[role="switch"]')).toBeNull();
+  await render({ kind: "ask", text: "Code", input: "secret", purpose: "otp", status: "pending" });
+  expect(container.querySelector('[role="switch"]')).toBeNull();
+  await render({
+    ...secretCard,
+    credential: { name: "deploy_key", origin: "", auth: { type: "command" } },
+  } as AskBlock);
+  expect(container.querySelector('[role="switch"]')).toBeNull();
+  expect(container.textContent).not.toContain("Save to Vault");
 });
 
 it("quotes an edited reply and marks a sent draft", async () => {
@@ -514,7 +547,7 @@ it("quotes an edited reply and marks a sent draft", async () => {
   expect(container.textContent).toContain("Sent");
 });
 
-it("quotes a typed answer under the options it did not match", async () => {
+it("dims the options a typed answer did not match", async () => {
   await render({
     kind: "ask",
     text: "Which city?",
@@ -525,7 +558,8 @@ it("quotes a typed answer under the options it did not match", async () => {
       { id: "seoul", label: "Seoul" },
     ],
   });
-  expect(container.querySelector('[data-testid="ask-answer"]')?.textContent).toBe("Paris");
+  expect(container.querySelector('[data-testid="ask-answer"]')).toBeNull();
+  expect(container.textContent).not.toContain("Paris");
   expect(container.querySelector("[aria-pressed]")).toBeNull();
 
   await render({

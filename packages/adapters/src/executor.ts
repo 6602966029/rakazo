@@ -1,5 +1,10 @@
 import type { AgentRunRequest, SemanticMemoryProvider } from "@rakazo/adapter-kit";
-import { DEFAULT_CONTEXT_STRATEGY, runContinueJob } from "@rakazo/adapter-kit";
+import {
+  DEFAULT_CONTEXT_STRATEGY,
+  runContinueJob,
+  SandboxUnavailableError,
+  SandboxUnresponsiveError,
+} from "@rakazo/adapter-kit";
 import type { MessageBlock, ModelRoleChoice, RunStatus } from "@rakazo/contracts";
 import { disabledBuiltinToolSet } from "@rakazo/contracts";
 import {
@@ -47,6 +52,7 @@ import {
   commandCredentialRedactions,
   loadBotCommandEnvironment,
   loadLoginPasswordRedactions,
+  loadRunLoginRedactions,
 } from "./bot-secrets.js";
 import { createBrowserProvider } from "./browser-provider-factory.js";
 import { agentConnectionTools, builtinAgentTools } from "./builtin-tools.js";
@@ -132,7 +138,9 @@ import {
   RUN_SETUP_FAILURE_LIMIT,
   renewRunLease,
   requeueComputerRun,
+  requeueRunAfterShutdown,
   setupFailureStreak,
+  startNextWaitingRun,
   writeComputerRunRequeue,
 } from "./run-lifecycle.js";
 import {
@@ -207,6 +215,9 @@ export function createRunExecutor(deps: ExecutorDeps) {
     retryRoutineRun: retryRoutineRun.bind(undefined, deps),
 
     async continueRun(runId: string, workerId: string, onRunStarted?: () => void) {
+      // A stopping process must not claim work it cannot finish. The row stays
+      // queued or expired for a worker that is still running.
+      if (deps.shutdownSignal?.aborted) return;
       const run = await deps.prisma.run.findUnique({ where: { id: runId } });
       if (!run) return;
       // Logs and security events raised by this run's tools name its account and space.
@@ -314,7 +325,25 @@ export function createRunExecutor(deps: ExecutorDeps) {
         }
       } catch (error) {
         if (!(error instanceof ComputerBusyError)) throw error;
-        await requeueComputerRun(deps, runId, workerId, fence, resumeCheckpoint, heldForTakeover);
+        // Maintenance or suspension sends no release, so only a held lease waits for one.
+        const heldByAnotherRun = await deps.prisma.computerExecutionLease.findFirst({
+          where: {
+            computerId: leaseTarget.computerId,
+            botId: run.botId,
+            runId: { not: runId },
+            expiresAt: { gt: new Date() },
+          },
+          select: { id: true },
+        });
+        await requeueComputerRun(
+          deps,
+          runId,
+          workerId,
+          fence,
+          resumeCheckpoint,
+          heldForTakeover,
+          Boolean(heldByAnotherRun),
+        );
         return;
       }
       let attempt: { id: string };
@@ -416,6 +445,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           initialBotCommandEnvironment,
           savedLoginPasswordRedactions,
           purchaseRedactions,
+          runLoginRedactions,
         ] = await Promise.all([
           deps.prisma.bot.findUniqueOrThrow({
             where: { id: run.botId },
@@ -453,6 +483,7 @@ export function createRunExecutor(deps: ExecutorDeps) {
           loadBotCommandEnvironment(deps.prisma, deps.secretStore, run),
           loadLoginPasswordRedactions(deps.prisma, deps.secretStore, run),
           deps.paymentWallet ? loadPurchaseRedactions(deps, run) : [],
+          loadRunLoginRedactions(deps.prisma, deps.secretStore, run, run.id),
         ]);
         const historySearchBeforeSeq =
           contextStrategy !== "current" && run.sourceMessageId
@@ -469,7 +500,11 @@ export function createRunExecutor(deps: ExecutorDeps) {
         runSecrets.push(...commandCredentialRedactions(initialBotCommandEnvironment));
         // A login filled in an earlier run may still be on its page, and anything this run reads
         // or is given may contain it, so every run hides its saved passwords before the model runs.
-        runSecrets.push(...savedLoginPasswordRedactions, ...purchaseRedactions);
+        runSecrets.push(
+          ...savedLoginPasswordRedactions,
+          ...purchaseRedactions,
+          ...runLoginRedactions,
+        );
         const agentEnvironmentInstruction = formatAgentEnvironmentInstruction(
           initialBotCommandEnvironment,
         );
@@ -1363,6 +1398,15 @@ export function createRunExecutor(deps: ExecutorDeps) {
         );
         // Provider kind and model id only: custom endpoints are identified by kind, never host.
         const activeModel = { "model.provider": runModelProvider, "model.id": runModelId };
+        // Shutdown must not finalize the attempt. The finally block queues the run
+        // when this worker still owns it.
+        const interruptedByShutdown = async () => {
+          if (!deps.shutdownSignal?.aborted) return false;
+          if (!ctx.state.terminalCheckpointComplete) {
+            await ctx.computer.checkpoint.flush().catch(() => undefined);
+          }
+          return true;
+        };
 
         try {
           if (checkpointLoadError) throw checkpointLoadError;
@@ -1562,21 +1606,35 @@ export function createRunExecutor(deps: ExecutorDeps) {
             context,
           );
           if (await consumeRunEvents(ctx, runtimeEvents)) return;
+          if (await interruptedByShutdown()) return;
           await completeRun(ctx);
         } catch (caughtError) {
+          if (await interruptedByShutdown()) return;
           await failRun(ctx, caughtError, {
             ownCredential: resolved.ownCredential,
             active: activeModel,
           });
         }
       } catch (setupError) {
+        // An abort while stopping is not a setup failure, and must not spend the
+        // retry budget that eventually fails the run.
+        if (deps.shutdownSignal?.aborted) return;
         const computerBusy = setupError instanceof ComputerBusyError;
         const retryForever = computerBusy || isTooManyDatabaseConnections(setupError);
         const setupMessage = redactSecrets(userRunError(setupError), runSecrets);
         const reportedSetupError = sanitizedError(setupError, (text) =>
           redactSecrets(text, runSecrets),
         );
-        if (!computerBusy) getLogger().error("run setup failed", reportedSetupError);
+        // An outage at the computer provider is retried like any setup failure, but is not a
+        // Rakazo bug to report.
+        if (
+          setupError instanceof SandboxUnavailableError ||
+          setupError instanceof SandboxUnresponsiveError
+        ) {
+          getLogger().warn("run setup failed", { error: reportedSetupError });
+        } else if (!computerBusy) {
+          getLogger().error("run setup failed", reportedSetupError);
+        }
         // The job reconciler re-enqueues a queued run whose job ran out of attempts, so a
         // setup that fails every time would retry forever. End the run instead.
         if (
@@ -1643,6 +1701,19 @@ export function createRunExecutor(deps: ExecutorDeps) {
               .catch(() => undefined);
           }
           await releaseComputerExecutionLease(deps.prisma, computerLease).catch(() => undefined);
+          // A stopping process requeues this run instead, which must keep its turn.
+          if (!deps.shutdownSignal?.aborted) {
+            await startNextWaitingRun(deps, run.botId, runId).catch((error) =>
+              getLogger().error("start next waiting run", error),
+            );
+          }
+        }
+        if (deps.shutdownSignal?.aborted) {
+          // A renewal still in flight must not treat this release as a lost lease.
+          lease.completed = true;
+          await requeueRunAfterShutdown(deps, runId, workerId, fence).catch((error) =>
+            getLogger().error("shutdown run requeue", error),
+          );
         }
         await deps.prisma.attempt
           .updateMany({

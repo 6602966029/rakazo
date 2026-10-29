@@ -80,6 +80,7 @@ export type SettingsGeneralProps = {
   timezone?: string | null;
   onTimezoneChange?: (timezone: string) => Promise<void>;
   onAccountImported?: () => Promise<void>;
+  onImportAgent?: () => void;
 };
 
 export function GeneralSettingsPanels({
@@ -89,6 +90,7 @@ export function GeneralSettingsPanels({
   timezone = null,
   onTimezoneChange,
   onAccountImported,
+  onImportAgent,
 }: SettingsGeneralProps) {
   const { t } = useLingui();
   const account = accountDisplay({ name, email }, t`You`);
@@ -469,7 +471,7 @@ export function GeneralSettingsPanels({
         </SettingsGroup>
       ) : null}
 
-      <AccountDataSettings onImported={onAccountImported} />
+      <AccountDataSettings onImported={onAccountImported} onImportAgent={onImportAgent} />
 
       <AccountAccess onSecurity={setAccountSecurity} />
     </div>

@@ -226,6 +226,7 @@ export const RU_MESSAGES: Record<string, string> = {
   cancelled: "отменено",
   expired: "истёк срок",
   Saved: "Сохранено",
+  Sent: "Отправлено",
   " (unread)": " (непрочитано)",
   Appearance: "Внешний вид",
   Dark: "Тёмная",
@@ -430,6 +431,7 @@ export const RU_MESSAGES: Record<string, string> = {
   "Could not save the server URL": "Не удалось сохранить URL-адрес сервера.",
   "Could not send reset email": "Не удалось отправить электронное письмо для сброса",
   "Could not send answer": "Не удалось отправить ответ",
+  "Save to Vault": "Сохранить в хранилище",
   "Could not share file": "Не удалось поделиться файлом",
   "Could not sign out": "Не удалось выйти",
   "Could not speak": "Не удалось озвучить",
@@ -972,6 +974,7 @@ export const RU_MESSAGES: Record<string, string> = {
   Disabled: "Отключено",
   "OAuth connected": "OAuth подключён",
   "OAuth expired": "Срок действия OAuth истёк",
+  "Needs an OAuth client ID": "Нужен идентификатор клиента OAuth",
   "Credential saved": "Учётные данные сохранены",
   "No auth": "Без авторизации",
   "The bot couldn't reply because its provider's daily limit was reached.":
@@ -1009,6 +1012,8 @@ export const RU_MESSAGES: Record<string, string> = {
     "При запуске что-то пошло не так. Попробуйте ещё раз чуть позже.",
   "Your voice provider is out of credit.": "У вашего голосового провайдера закончились кредиты.",
   "Your voice provider key was rejected.": "Ваш голосовой провайдер отклонил ключ.",
+  "This app needs its own sign-in setup to connect.":
+    "Для подключения этому приложению нужна собственная настройка входа.",
   Billing: "Оплата",
   "Could not load billing": "Не удалось загрузить данные об оплате",
   "Could not update billing": "Не удалось обновить оплату",
@@ -1237,4 +1242,10 @@ export const RU_MESSAGES: Record<string, string> = {
   "Could not load skill": "Не удалось загрузить навык",
   "Could not save skill": "Не удалось сохранить навык",
   "Could not delete skill": "Не удалось удалить навык",
+  "Invite friends": "Пригласить друзей",
+  "Get a free month for each friend who starts a trial.":
+    "Получайте бесплатный месяц за каждого друга, который начнёт пробный период.",
+  "1 free month earned": "Получен 1 бесплатный месяц",
+  "{count} free months earned": "Бесплатных месяцев получено: {count}",
+  "Submit a plugin": "Предложить плагин",
 };

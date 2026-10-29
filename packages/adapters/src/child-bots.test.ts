@@ -381,7 +381,6 @@ describe("destroyBot", () => {
     const createDeletion = vi.fn();
     const deleteBot = vi.fn();
     const removeArtifact = vi.fn();
-    const within = vi.fn();
     const transaction = vi.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
       callback({
         $queryRaw: vi.fn().mockResolvedValue([]),
@@ -416,11 +415,10 @@ describe("destroyBot", () => {
         archivedAt: null,
       },
       context,
-      { deleteMemories: false, within },
+      { deleteMemories: false },
     );
 
     expect(transaction).toHaveBeenCalledOnce();
-    expect(within).not.toHaveBeenCalled();
     expect(createDeletion).not.toHaveBeenCalled();
     expect(deleteBot).not.toHaveBeenCalled();
     expect(removeArtifact).not.toHaveBeenCalled();
@@ -482,7 +480,12 @@ describe("destroyBot", () => {
     );
 
     expect(deleteSecrets).toHaveBeenCalledWith({
-      where: { OR: [{ userId: "user-1", spaceId: "workspace-1", kind: "run-secret:run-1" }] },
+      where: {
+        OR: [
+          { userId: "user-1", spaceId: "workspace-1", kind: "run-secret:run-1" },
+          { userId: "user-1", spaceId: "workspace-1", kind: { startsWith: "run-login:run-1:" } },
+        ],
+      },
     });
   });
 
@@ -2041,7 +2044,12 @@ describe("archiveBot", () => {
     expect(groupCleanup.chatGroupMember.deleteMany).not.toHaveBeenCalled();
     // The archived bot's cancelled run never reads a waiting one-time answer.
     expect(deleteSecrets).toHaveBeenCalledWith({
-      where: { OR: [{ userId: "user-1", spaceId: "workspace-1", kind: "run-secret:run-1" }] },
+      where: {
+        OR: [
+          { userId: "user-1", spaceId: "workspace-1", kind: "run-secret:run-1" },
+          { userId: "user-1", spaceId: "workspace-1", kind: { startsWith: "run-login:run-1:" } },
+        ],
+      },
     });
     expect(cancel).toHaveBeenCalledWith("run:run-1");
   });

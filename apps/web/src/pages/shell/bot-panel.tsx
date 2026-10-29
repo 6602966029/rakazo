@@ -48,7 +48,6 @@ import { thinkingLevelLabel } from "../../lib/model-catalog";
 import { lazyComponent } from "../../lib/preload-recovery";
 import { useSpaceQueries } from "../../lib/query";
 import { errorText } from "../../lib/user-error";
-import { AgentImportUndo } from "./agent-import-undo";
 import { AvatarStudioPopover } from "./avatar-studio-popover";
 import { ChatModelPicker } from "./chat-model-picker";
 
@@ -106,7 +105,6 @@ export function BotSettings({
   onSave,
   onExport,
   onClear,
-  onUndoImport,
   focusModel = 0,
   onOpenConnections,
 }: {
@@ -136,8 +134,6 @@ export function BotSettings({
   }) => Promise<void>;
   onExport: () => Promise<void>;
   onClear: () => void;
-  /** Shown for bots that came from an agent import. */
-  onUndoImport?: () => void;
 }) {
   const { t } = useLingui();
   const ids = useId();
@@ -819,7 +815,6 @@ export function BotSettings({
               >
                 <Trans>Clear conversation</Trans>
               </button>
-              {onUndoImport ? <AgentImportUndo botId={bot.id} onUndone={onUndoImport} /> : null}
             </div>
           </div>
         </CollapsibleContent>

@@ -264,8 +264,21 @@ export interface ConnectorTool {
   inputSchema: Record<string, unknown>;
   /** Declared effect. `false` forces approval; `true` never relaxes the name-based gate. */
   readOnly?: boolean;
+  /** Set when the tool runs other actions named in its arguments; see ToolBatch. */
+  batch?: ToolBatch;
   /** In-process routing metadata. It is never exposed to the model. */
   route?: ConnectorRoute;
+}
+
+/**
+ * Where a batch tool's arguments name the actions it runs: `args[items][i][action]`, each with
+ * its own arguments at `args[items][i][arguments]`. Approval rules and the read/write check judge
+ * those actions, never the batch tool, so allowing one action cannot allow the rest.
+ */
+export interface ToolBatch {
+  items: string;
+  action: string;
+  arguments: string;
 }
 
 export interface ConnectorRoute {
@@ -977,6 +990,8 @@ export interface WebSearchHit {
 export interface WebFetchRequest {
   url: string;
   maxChars?: number;
+  /** Characters of page text to skip, to read on after a truncated fetch. */
+  offset?: number;
   signal?: AbortSignal;
 }
 
@@ -1246,6 +1261,8 @@ export interface BillingSubscriptionSnapshot {
   endedAt: Date | null;
   /** The flat own-key plan, which grants access without credits. */
   byokPlan?: boolean;
+  /** Stable identity of the subscription's card across customers, when the provider has one. */
+  cardFingerprint?: string;
 }
 
 export interface BillingCheckoutRequest {

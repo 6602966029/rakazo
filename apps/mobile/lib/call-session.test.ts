@@ -2,6 +2,7 @@ import { AiConsentBlocked, callIdFromClientNonce, INTERIM_BARGE_IN_MS } from "@r
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CallClip, CallDeps, CallEnded, DictationHandlers } from "./call-session";
 import {
+  ExpectedTurnFailure,
   endCall,
   getSnapshot,
   setCallProviderTranscribe,
@@ -12,6 +13,7 @@ import {
 import type { SpeechRecognizer } from "./dictation";
 import { ENDPOINT_SILENCE_MS, setSpeechRecognizer, stop as stopDictation } from "./dictation";
 import { activateUiLocale, getActiveUiLocale } from "./i18n";
+import { reportMobileError } from "./monitoring";
 import type { UiLocale } from "./ui-locale";
 
 vi.mock("./monitoring", () => ({ reportMobileError: vi.fn() }));
@@ -147,6 +149,27 @@ describe("mobile call session", () => {
       expect.stringMatching(/^call:/),
     );
     expect(getSnapshot()).toMatchObject({ phase: "thinking", heard: "how is the deploy going" });
+  });
+
+  it("reports a failed turn unless the caption already explains it", async () => {
+    vi.mocked(reportMobileError).mockClear();
+    const fake = fakes();
+    const unexpected = new Error("send crashed");
+    fake.send.mockRejectedValueOnce(unexpected);
+    fake.deps.transcribe = vi
+      .fn<CallDeps["transcribe"]>()
+      .mockRejectedValueOnce(new ExpectedTurnFailure("Could not transcribe that."))
+      .mockImplementation(async (clip) => clip.base64);
+    startCall({ botId: "bot-1", botName: "Ada" }, fake.deps);
+    await flush();
+    fake.say("hello");
+    await flush();
+    expect(fake.deps.transcribe).toHaveBeenCalledTimes(1);
+    expect(reportMobileError).not.toHaveBeenCalled();
+
+    fake.say("hello again");
+    await flush();
+    expect(reportMobileError).toHaveBeenCalledWith(unexpected, "voice.turn");
   });
 
   it("mutes after a consent refusal instead of reopening the microphone or resending", async () => {

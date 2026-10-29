@@ -100,7 +100,6 @@ x-app-environment: &app-environment
   RAKAZO_OPENAI_COMPATIBLE_VISION_MODELS:
   RAKAZO_OPENAI_COMPAT_ALLOW_PUBLIC:
   RAKAZO_OPENAI_COMPAT_PRIVATE_HOSTS:
-  RAKAZO_AUTO_REVIEW:
   RAKAZO_AUTO_REVIEW_PROVIDER:
   RAKAZO_AUTO_REVIEW_MODEL:
   RAKAZO_AUTO_REVIEW_MIN_CONFIDENCE:
@@ -402,8 +401,9 @@ services:
       - no-new-privileges:true
     cap_drop:
       - ALL
-    pids_limit: 256
-    mem_limit: 1536m
+    # Chat runs execute in the API that receives them, so it gets the worker's headroom.
+    pids_limit: 512
+    mem_limit: ${RAKAZO_API_MEMORY_LIMIT:-2g}
     environment:
       <<: *app-environment
       # Sign-in, sessions, billing and inbound webhooks: API only.
@@ -450,6 +450,7 @@ services:
       SPACE_TEARDOWN_TIMEOUT_MS:
       RAKAZO_MIN_CLIENT_BUILD:
       RAKAZO_NAV_LINKS:
+      RAKAZO_ADMIN_EMAILS:
       VOICE_SUMMARY_MIN_CHARS:
     expose:
       - "3100"
@@ -494,6 +495,8 @@ services:
       timeout: 5s
       retries: 3
       start_period: 2m
+      # Probe every second while starting, so a deploy hands runs over as soon as it can.
+      start_interval: 1s
     init: true
     logging: *logging
     security_opt:
@@ -501,7 +504,7 @@ services:
     cap_drop:
       - ALL
     pids_limit: 512
-    mem_limit: 2g
+    mem_limit: ${RAKAZO_WORKER_MEMORY_LIMIT:-2g}
     environment:
       <<: *app-environment
       GRAPHILE_WORKER_CONCURRENCY:
