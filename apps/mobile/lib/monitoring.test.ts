@@ -450,6 +450,19 @@ describe("mobile monitoring", () => {
     expect(sdk.captureException).not.toHaveBeenCalled();
   });
 
+  it("tags the open screen, including one opened before reporting started", async () => {
+    const monitor = await import("./monitoring");
+    monitor.setMobileMonitoringScreen("chat");
+    await monitor.configureMobileMonitoring(
+      "https://app.example.com",
+      {},
+      response({ dsn: "https://key@errors.example.com/8" }),
+    );
+    expect(sdk.setTag).toHaveBeenCalledWith("screen", "chat");
+    monitor.setMobileMonitoringScreen("computer");
+    expect(sdk.setTag).toHaveBeenLastCalledWith("screen", "computer");
+  });
+
   it("stays optional, reports caught startup errors, and strips private data", async () => {
     const monitor = await import("./monitoring");
     const error = new Error("startup");
