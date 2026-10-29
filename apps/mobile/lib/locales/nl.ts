@@ -323,7 +323,6 @@ export const NL_MESSAGES: Record<string, string> = {
   "Photo library": "Fotobibliotheek",
   "Pull request": "Pull request",
   React: "Reageren",
-  "Remove mention {name}": "Vermelding {name} verwijderen",
   "Remove skill {name}": "Skill {name} verwijderen",
   Reply: "Beantwoorden",
   "Replying to": "Antwoordt op",

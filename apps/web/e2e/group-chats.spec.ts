@@ -148,6 +148,7 @@ test("create group from + and see two bots in one transcript", async ({ page }, 
   await composer.pressSequentially("turn the sources into a draft. @Res");
   await page.getByRole("option", { name: "@Researcher", exact: true }).click();
   await expect(page.getByTestId("mention-chip").filter({ hasText: "Researcher" })).toBeVisible();
+  await captureScreenshot(page, testInfo, "group-inline-mentions");
   await composer.fill(`${await composer.inputValue()}gather sources.`);
   await composer.press("Enter");
 

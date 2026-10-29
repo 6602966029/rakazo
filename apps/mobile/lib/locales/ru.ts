@@ -612,7 +612,6 @@ export const RU_MESSAGES: Record<string, string> = {
   "Recovering…": "Восстановление…",
   Release: "Освободить управление",
   "Remove {name}": "Удалить {name}",
-  "Remove mention {name}": "Удалить упоминание {name}",
   "Remove skill {name}": "Удалить навык {name}",
   "Remove thumbs-up": "Убрать отметку «Нравится»",
   "Replies and completed work": "Ответы и выполненная работа",
