@@ -62,7 +62,7 @@ import {
   parseNpxLaunch,
 } from "./mcp-package-installer.js";
 import type { McpServerHealthUpdate } from "./mcp-server-health.js";
-import { recordMcpServerHealth } from "./mcp-server-health.js";
+import { needsMcpOAuthClient, recordMcpServerHealth } from "./mcp-server-health.js";
 import { McpSession, mcpStdioRefusal } from "./mcp-transport.js";
 import type { RemoteTransportDependencies } from "./remote-mcp.js";
 import { ConnectorRedirectError } from "./remote-mcp.js";
@@ -160,11 +160,7 @@ function expectedFailure(error: unknown, depth = 0): ExpectedFailure | undefined
     return "unreachable";
   // The authorization server refused our client or grant, or cannot register a client at
   // all; the user signs in again or enters a pre-registered client.
-  if (
-    error instanceof OAuthError ||
-    error.message === "Incompatible auth server: does not support dynamic client registration"
-  )
-    return "reconnect";
+  if (error instanceof OAuthError || needsMcpOAuthClient(error)) return "reconnect";
   const code = (error as { code?: unknown }).code;
   if (code === "ENOTFOUND") return "reconnect";
   if (typeof code === "string" && UNREACHABLE_CODES.has(code)) return "unreachable";
@@ -995,11 +991,24 @@ export class McpConnector implements ConnectorProvider {
     let material: OAuthMaterial | undefined;
     // What the process was handed; its stderr can echo any of it.
     try {
-      const secret = server.secretId
+      let secret = server.secretId
         ? await this.prisma.secret.findFirst({
             where: { id: server.secretId, ...itemSecretIn(context) },
           })
         : null;
+      if (server.secretId && !secret) {
+        // OAuth refresh replaces the secret without updating this run's server snapshot.
+        const current = await this.prisma.mcpServer.findFirst({
+          where: { id: server.id, revision: server.revision, ...availableInSpace(context) },
+          select: { secretId: true },
+        });
+        if (current?.secretId) {
+          secret = await this.prisma.secret.findFirst({
+            where: { id: current.secretId, ...itemSecretIn(context) },
+          });
+        }
+        if (!secret) throw new Error("MCP server secret is unavailable; retry");
+      }
       let ref = secret?.ciphertext;
       let recordId = secret?.id;
       if (secret) onRef(secret.ciphertext, secret.id);

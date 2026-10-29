@@ -943,6 +943,7 @@ export const DE_MESSAGES: Record<string, string> = {
   Disabled: "Deaktiviert",
   "OAuth connected": "OAuth verbunden",
   "OAuth expired": "OAuth abgelaufen",
+  "Needs an OAuth client ID": "Benötigt eine OAuth-Client-ID",
   "Credential saved": "Zugangsdaten gespeichert",
   "No auth": "Keine Authentifizierung",
   "The bot couldn't reply because its provider's daily limit was reached.":

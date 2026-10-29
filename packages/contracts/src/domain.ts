@@ -8,6 +8,7 @@ import {
   isCloudflareAiGatewayProvider,
   isCloudflareModelProvider,
 } from "./cloudflare-ai-gateway.js";
+import { MCP_OAUTH_CLIENT_REQUIRED } from "./connector-errors.js";
 import { ThreadMessageSchema } from "./events.js";
 import { Id, MemoryScope, RunStatus, SandboxKind } from "./ids.js";
 import {
@@ -1030,6 +1031,8 @@ export const McpServerHealthSchema = z.object({
   status: z.enum(["unknown", "installing", "ok", "error"]),
   /** Redacted, human-readable failure reason (stderr tail included for stdio). */
   message: z.string().nullable(),
+  /** A failure the user fixes in the server's settings, so clients can say how. */
+  code: z.enum([MCP_OAUTH_CLIENT_REQUIRED]).nullable().optional(),
   toolCount: z.number().int().nonnegative().nullable(),
   checkedAt: z.string().nullable(),
 });

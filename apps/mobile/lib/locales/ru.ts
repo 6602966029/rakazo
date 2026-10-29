@@ -974,6 +974,7 @@ export const RU_MESSAGES: Record<string, string> = {
   Disabled: "Отключено",
   "OAuth connected": "OAuth подключён",
   "OAuth expired": "Срок действия OAuth истёк",
+  "Needs an OAuth client ID": "Нужен идентификатор клиента OAuth",
   "Credential saved": "Учётные данные сохранены",
   "No auth": "Без авторизации",
   "The bot couldn't reply because its provider's daily limit was reached.":

@@ -160,7 +160,7 @@ describe("server image publish workflow", () => {
   });
 
   it("lets only the newest waiting main revision replace a queued one, never a running one", () => {
-    const locks = ["checks", "test-integration", "publish-server-image"].map(
+    const locks = ["checks", "test-integration-shard", "publish-server-image"].map(
       (name) => ci.jobs[name]?.concurrency,
     );
     expect(new Set(locks.map((lock) => lock?.group)).size).toBe(locks.length);
@@ -171,7 +171,7 @@ describe("server image publish workflow", () => {
     }
     // Release prerequisites start with their run, so they reach these locks in push order and an
     // older revision cannot replace a newer one that is already waiting.
-    for (const name of ["checks", "test-integration", "publish-server-image"]) {
+    for (const name of ["checks", "test-integration-shard", "publish-server-image"]) {
       expect(ci.jobs[name]?.needs, name).toBeUndefined();
     }
   });
