@@ -4741,11 +4741,6 @@ msgstr ""
 msgid "Remove header"
 msgstr "हेडर हटाएँ"
 
-#. placeholder {0}: mention.name
-#: src/pages/shell/composer.tsx
-msgid "Remove mention {0}"
-msgstr "उल्लेख {0} हटाएं"
-
 #: src/pages/RoutineEditor.tsx
 msgid "Remove message trigger"
 msgstr ""

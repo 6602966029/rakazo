@@ -571,7 +571,6 @@ export const ZH_TW_MESSAGES: Record<string, string> = {
   "Recovering…": "正在復原…",
   Release: "釋放控制",
   "Remove {name}": "移除 {name}",
-  "Remove mention {name}": "移除提及 {name}",
   "Remove skill {name}": "移除技能 {name}",
   "Replies and completed work": "回覆和已完成的工作",
   Reply: "回覆",

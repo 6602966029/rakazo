@@ -4741,11 +4741,6 @@ msgstr ""
 msgid "Remove header"
 msgstr "헤더 삭제"
 
-#. placeholder {0}: mention.name
-#: src/pages/shell/composer.tsx
-msgid "Remove mention {0}"
-msgstr "{0} 멘션 삭제"
-
 #: src/pages/RoutineEditor.tsx
 msgid "Remove message trigger"
 msgstr ""

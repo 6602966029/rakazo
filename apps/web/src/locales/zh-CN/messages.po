@@ -4741,11 +4741,6 @@ msgstr "移除 Git 事件"
 msgid "Remove header"
 msgstr "移除请求头"
 
-#. placeholder {0}: mention.name
-#: src/pages/shell/composer.tsx
-msgid "Remove mention {0}"
-msgstr "移除提及 {0}"
-
 #: src/pages/RoutineEditor.tsx
 msgid "Remove message trigger"
 msgstr "移除消息触发器"

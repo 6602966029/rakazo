@@ -311,7 +311,6 @@ export const JA_MESSAGES: Record<string, string> = {
   "Photo library": "フォトライブラリ",
   "Pull request": "プルリクエスト",
   React: "リアクション",
-  "Remove mention {name}": "メンション{name}を削除",
   "Remove skill {name}": "スキル{name}を削除",
   Reply: "返信",
   "Replying to": "返信先",
