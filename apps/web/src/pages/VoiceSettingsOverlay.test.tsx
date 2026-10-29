@@ -801,3 +801,59 @@ it("connects a keyless provider without asking for a key", async () => {
     vi.unstubAllGlobals();
   }
 });
+
+it.each(["account", "space"] as const)(
+  "activates a connected keyless provider with one voice in %s settings",
+  async (scope) => {
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    voice.catalog.mockResolvedValue([
+      { id: "fish-audio", name: "Fish Audio", description: "", transcribe: true },
+      { id: "macos", name: "macOS", description: "", transcribe: false, keyless: true },
+    ]);
+    voice.credentials.mockResolvedValue([
+      fish,
+      { ...eleven, id: "cred-macos", provider: "macos", voiceId: "Albert", transcribe: false },
+    ]);
+    voice.status.mockResolvedValue({ ready: true, provider: "fish-audio", voiceId: "voice-1" });
+    voice.voices.mockResolvedValue([{ id: "Albert", label: "Albert" }]);
+    const saved = { ready: true, provider: "macos", voiceId: "Albert" };
+    voice.setVoice.mockClear().mockResolvedValue(saved);
+    const client = new QueryClient();
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    try {
+      await act(async () => {
+        root.render(
+          withQueries(
+            <VoiceSettingsOverlay embedded scope={scope} onClose={() => undefined} />,
+            client,
+          ),
+        );
+      });
+      const select = [...container.querySelectorAll("select")].find((select) =>
+        [...select.options].some((option) => option.value === "macos"),
+      );
+      expect(select).toBeTruthy();
+      await act(async () => {
+        select!.value = "macos";
+        select!.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      expect(voice.setVoice).toHaveBeenCalledExactlyOnceWith({
+        scope,
+        provider: "macos",
+        voiceId: "Albert",
+      });
+      expect(container.textContent).not.toContain("API key");
+      expect(container.textContent).not.toContain("Replace key");
+      expect(
+        [...container.querySelectorAll("select")].find((select) => select.value === "Albert"),
+      ).toBeTruthy();
+    } finally {
+      await act(async () => root.unmount());
+      container.remove();
+      client.clear();
+      vi.unstubAllGlobals();
+    }
+  },
+);

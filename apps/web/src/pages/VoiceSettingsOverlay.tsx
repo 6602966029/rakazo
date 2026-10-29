@@ -176,11 +176,33 @@ export function VoiceSettingsOverlay({
     await showProvider(selected, nextCredentials, keepForm && selected === current);
   }
 
-  function chooseProvider(nextProvider: string) {
+  async function chooseProvider(nextProvider: string) {
     setApiKey("");
     setError(null);
     setNotice(null);
-    void showProvider(nextProvider, credentials).catch((err: unknown) =>
+    const cred = credentials.find((entry) => entry.provider === nextProvider);
+    if (
+      catalog.find((entry) => entry.id === nextProvider)?.keyless &&
+      cred?.voiceId &&
+      status?.provider !== nextProvider
+    ) {
+      markPending("voice");
+      try {
+        const saved = await rpc.voice.setVoice({
+          scope,
+          voiceId: cred.voiceId,
+          provider: nextProvider,
+        });
+        setStatus(saved);
+        queryClient.setQueryData(queries.voice.status.queryKey(scoped), saved);
+      } catch (err) {
+        setError(errorText(err, t`Could not save that voice`));
+        return;
+      } finally {
+        markPending(null);
+      }
+    }
+    await showProvider(nextProvider, credentials).catch((err: unknown) =>
       setError(errorText(err, t`Could not load voice settings`)),
     );
   }
@@ -339,7 +361,7 @@ export function VoiceSettingsOverlay({
             className="w-full"
             value={provider}
             disabled={busy}
-            onChange={(event) => chooseProvider(event.target.value)}
+            onChange={(event) => void chooseProvider(event.target.value)}
           >
             {catalog.map((entry) => {
               const connected = credentials.some((cred) => cred.provider === entry.id);
