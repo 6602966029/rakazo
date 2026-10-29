@@ -204,7 +204,8 @@ export function VoiceSettingsOverlay({
   const selfHosted = selected?.id === OPENAI_COMPATIBLE_PROVIDER_ID;
   // Connections are managed from the account; a Space can still connect one it lacks.
   const managesConnection = scope === "account" || !credential;
-  const canConnect = selfHosted ? Boolean(baseUrl.trim()) : apiKey.trim().length >= 8;
+  const keyless = Boolean(selected?.keyless);
+  const canConnect = keyless || (selfHosted ? Boolean(baseUrl.trim()) : apiKey.trim().length >= 8);
 
   async function connectKey() {
     if (!selected || !canConnect) return;
@@ -388,25 +389,27 @@ export function VoiceSettingsOverlay({
                   />
                 </Field>
               ) : null}
-              <Field className="mt-5">
-                <FieldLabel htmlFor={apiKeyId}>
-                  <Trans>API key</Trans>
-                </FieldLabel>
-                <Input
-                  id={apiKeyId}
-                  type="password"
-                  autoComplete="new-password"
-                  value={apiKey}
-                  onChange={(event) => setApiKey(event.target.value)}
-                  placeholder={
-                    selfHosted
-                      ? t`Optional`
-                      : credential
-                        ? t`Paste a replacement key`
-                        : t`Paste your API key`
-                  }
-                />
-              </Field>
+              {keyless ? null : (
+                <Field className="mt-5">
+                  <FieldLabel htmlFor={apiKeyId}>
+                    <Trans>API key</Trans>
+                  </FieldLabel>
+                  <Input
+                    id={apiKeyId}
+                    type="password"
+                    autoComplete="new-password"
+                    value={apiKey}
+                    onChange={(event) => setApiKey(event.target.value)}
+                    placeholder={
+                      selfHosted
+                        ? t`Optional`
+                        : credential
+                          ? t`Paste a replacement key`
+                          : t`Paste your API key`
+                    }
+                  />
+                </Field>
+              )}
               {selfHosted ? (
                 <>
                   <Field className="mt-5">
@@ -445,22 +448,24 @@ export function VoiceSettingsOverlay({
                   </Field>
                 </>
               ) : null}
-              <Button
-                type="button"
-                className="mt-3"
-                disabled={busy || !canConnect}
-                onClick={() => void connectKey()}
-              >
-                {pending === "connect" ? (
-                  <Trans>Connecting…</Trans>
-                ) : credential && selfHosted ? (
-                  <Trans>Reconnect</Trans>
-                ) : credential ? (
-                  <Trans>Replace key</Trans>
-                ) : (
-                  <Trans>Connect</Trans>
-                )}
-              </Button>
+              {keyless && credential ? null : (
+                <Button
+                  type="button"
+                  className="mt-3"
+                  disabled={busy || !canConnect}
+                  onClick={() => void connectKey()}
+                >
+                  {pending === "connect" ? (
+                    <Trans>Connecting…</Trans>
+                  ) : credential && selfHosted ? (
+                    <Trans>Reconnect</Trans>
+                  ) : credential ? (
+                    <Trans>Replace key</Trans>
+                  ) : (
+                    <Trans>Connect</Trans>
+                  )}
+                </Button>
+              )}
               {credential ? (
                 <Button
                   type="button"

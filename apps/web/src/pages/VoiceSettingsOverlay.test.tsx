@@ -762,3 +762,42 @@ it("saves a typed self-hosted voice on blur without dropping other unsaved edits
     vi.unstubAllGlobals();
   }
 });
+
+it("connects a keyless provider without asking for a key", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  voice.catalog.mockResolvedValue([
+    { id: "macos", name: "macOS", description: "", transcribe: false, keyless: true },
+  ]);
+  voice.credentials.mockResolvedValue([]);
+  voice.status.mockResolvedValue({
+    configured: false,
+    ready: false,
+    transcribe: false,
+    provider: null,
+    voiceId: "",
+  });
+  voice.connect.mockClear().mockResolvedValue(undefined);
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  try {
+    await act(async () => {
+      root.render(
+        withQueries(<VoiceSettingsOverlay embedded scope="account" onClose={() => undefined} />),
+      );
+    });
+    expect(container.textContent).not.toContain("API key");
+    const connect = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Connect",
+    );
+    expect(connect?.disabled).toBe(false);
+    await act(async () => connect!.click());
+    expect(voice.connect).toHaveBeenCalledWith(
+      expect.objectContaining({ provider: "macos", apiKey: "" }),
+    );
+  } finally {
+    await act(async () => root.unmount());
+    container.remove();
+    vi.unstubAllGlobals();
+  }
+});

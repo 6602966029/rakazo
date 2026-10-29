@@ -168,6 +168,10 @@ export function voiceCredentialPlaintext(input: {
   previousPlaintext?: string;
   allowPrivateEndpoint?: boolean;
 }): string {
+  if (voiceCatalogEntry(input.provider)?.keyless) {
+    // The credential row is what selects the provider; it has no key to keep.
+    return input.provider;
+  }
   if (input.provider !== OPENAI_COMPATIBLE_VOICE_PROVIDER_ID) {
     if (input.plaintext.trim().length < 8) {
       throw new ORPCError("BAD_REQUEST", { message: "Enter an API key." });

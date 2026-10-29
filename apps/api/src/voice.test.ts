@@ -723,6 +723,11 @@ describe("voiceCredentialPlaintext", () => {
     );
   });
 
+  it("ignores any pasted key for a keyless provider", () => {
+    expect(voiceCredentialPlaintext({ provider: "macos", plaintext: "" })).toBe("macos");
+    expect(voiceCredentialPlaintext({ provider: "macos", plaintext: "sk-test-key" })).toBe("macos");
+  });
+
   it("stores a self-hosted server's address and models without a key", () => {
     const plaintext = voiceCredentialPlaintext({
       provider: "openai-compatible",
