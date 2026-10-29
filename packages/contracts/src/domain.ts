@@ -1382,6 +1382,11 @@ export const ModelCredentialSchema = z.object({
   enabledModelIds: z.array(z.string()).optional(),
   /** Stored secret kind. Absent when the secret could not be read. */
   authKind: z.enum(["api_key", "oauth", "openai_compatible"]).optional(),
+  /**
+   * The subscription sign-in was rejected. The stored tokens are gone and the
+   * owner has to sign in again. Model choices on this connection are kept.
+   */
+  reconnectRequired: z.boolean().optional(),
 });
 export type ModelCredential = z.infer<typeof ModelCredentialSchema>;
 

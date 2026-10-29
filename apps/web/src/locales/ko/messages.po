@@ -5335,6 +5335,7 @@ msgstr "로그인"
 #: src/lib/passkeys.ts
 #: src/lib/user-error.ts
 #: src/pages/model-settings/connection-controls.tsx
+#: src/pages/model-settings/providers-section.tsx
 msgid "Sign in again"
 msgstr "다시 로그인"
 
