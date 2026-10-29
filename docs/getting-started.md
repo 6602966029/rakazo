@@ -18,3 +18,7 @@ Bots work in the apps you already use: Gmail, Slack, Notion, GitHub, and
 
 Ask for a routine, such as "every weekday at 8am, summarize my inbox". The bot runs it on its own
 computer and reports back in the same chat.
+
+## Bring an agent you already have
+
+Coming from OpenClaw, Hermes or another assistant? [Import it](./import-an-agent.md) as a new bot.

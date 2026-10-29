@@ -42,7 +42,7 @@ role, keep [restricted computer egress](#restricted-computer-egress) on so bot c
 cannot read the role's credentials from the metadata endpoint.
 Approvals have three modes in **Settings → Approvals**: Never ask runs every action, Auto lets an
 approval model pass actions that fit the request, and Ask asks before any change. A space starts
-in Ask, or in Auto when `RAKAZO_AUTO_REVIEW=1` is set and an approval model is available. Each
+in Auto, which asks like Ask until an approval model is available. Each
 person can allow or block single tools and sites in every mode, and a space can customize its
 approvals apart from the account.
 
@@ -99,6 +99,14 @@ Docker computer topology:
 
 Set any of them to `0`, `none` or `unlimited` to remove that ceiling. A malformed value fails the
 supervisor at startup naming the variable, rather than surfacing later as a failed bot.
+
+### API and worker memory
+
+Chat runs execute in the API container that receives the message, and routines and other
+background runs execute in the worker, so both hold live agent turns. In the production Compose
+file, `RAKAZO_API_MEMORY_LIMIT` and `RAKAZO_WORKER_MEMORY_LIMIT` cap them (Compose sizes such as
+`2g` or `3072m`, default `2g` each). Raise them on a larger host. Deploys briefly run the old and
+new container of each side by side, so leave room for both.
 
 ### Restricted computer egress
 
@@ -166,6 +174,37 @@ The ruleset requires Linux Docker Engine with the iptables backend; Docker Deskt
 Docker, and `firewall-backend: nftables` are unsupported. The
 `SANDBOX_SCREEN_NETWORK=internal` topology shares one network instead of per-bot bridges,
 so the mode does not apply there.
+
+Where Docker Engine runs in a Linux VM, as with OrbStack on macOS, the rules belong in the VM,
+which `sudo` on the host cannot reach. Apply them from a container on the VM's host network
+instead, and keep it running: the VM does not persist the rules, so a loop puts them back after
+a restart. The installer does not download the script on macOS. From the directory that holds
+the stack's `.env`:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/elie222/rakazo/main/infra/compose/restrict-computer-egress.sh
+```
+
+Save the following as `egress.yml` beside that script and start it with
+`docker compose -f egress.yml up -d`. The name keeps it in its own Compose project:
+
+```yaml
+name: rakazo-computer-egress
+services:
+  computer-egress:
+    image: alpine:3
+    network_mode: host
+    cap_add: [NET_ADMIN, NET_RAW]
+    restart: unless-stopped
+    volumes:
+      - ./restrict-computer-egress.sh:/restrict-computer-egress.sh:ro
+    command: >-
+      sh -c "apk add --no-cache bash iptables ip6tables &&
+      while true; do bash /restrict-computer-egress.sh --apply; sleep 60; done"
+```
+
+Then change `SANDBOX_COMPUTER_EGRESS` from `open` to `restricted` in `.env` and recreate the
+supervisor. Docker Desktop has not been tested this way.
 
 ## Docker Compose (single machine)
 
@@ -1567,8 +1606,8 @@ checkout tracks, so a fork pulls what its own CI published. If the pull fails or
 the host instead; set `RAKAZO_DEPLOY_IMAGE=` (empty) to always build. This repository's images are public, so the
 host needs no registry login; for a private fork package, `docker login ghcr.io` as root with a
 token that can only read packages. The deploy
-starts each new API and web container beside the running one and stops the old one only once the
-new one is healthy, so a deploy does not take the site offline, then waits for
+starts each new API, web and worker container beside the running one and stops the old one only
+once the new one is healthy, so a deploy does not take the site offline or pause chat, then waits for
 `https://$RAKAZO_HOST/health` and rolls back on failure by restoring the image the previous
 containers ran. Old and new API containers serve together
 for a few seconds after migrations run, so a migration must keep working with the previous

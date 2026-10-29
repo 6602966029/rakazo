@@ -45,6 +45,11 @@ import { encryptStoredOAuthTokens, openIdToken, sealIdToken } from "./token-stor
 export { passwordResetEmail, signInCodeEmail, verificationEmail } from "./email.js";
 export type { OidcConfig } from "./oidc.js";
 export { passkeyRelyingParty } from "./passkey.js";
+export {
+  pluginSubmissionAdminEmail,
+  pluginSubmissionReceivedEmail,
+  pluginSubmissionReviewedEmail,
+} from "./plugin-submission-email.js";
 export { welcomeEmail } from "./welcome-email.js";
 
 export interface AuthEnv {

@@ -83,7 +83,6 @@ function mapBot(
     name: string;
     description: string;
     instructions: string;
-    selfUpdateInstructions?: boolean;
     instructionHistory?: unknown;
     color: string;
     avatarSet?: string;
@@ -126,7 +125,6 @@ function mapBot(
     title: "",
     description: bot.description,
     instructions: bot.instructions,
-    selfUpdateInstructions: bot.selfUpdateInstructions ?? false,
     instructionHistory: InstructionVersionSchema.array().parse(bot.instructionHistory ?? []),
     color: bot.color,
     avatarSet: resolveBotAvatarSet(bot.avatarSet),

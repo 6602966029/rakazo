@@ -54,6 +54,9 @@ const ArtifactsPage = lazyComponent(() =>
   import("./pages/Artifacts").then((module) => module.ArtifactsPage),
 );
 const BoardPage = lazyComponent(() => import("./pages/Board").then((module) => module.BoardPage));
+const AdminPluginsPage = lazyComponent(() =>
+  import("./pages/AdminPluginsPage").then((module) => module.AdminPluginsPage),
+);
 const NavLinkPage = lazyComponent(() =>
   import("./pages/NavLinkPage").then((module) => module.NavLinkPage),
 );
@@ -100,7 +103,9 @@ function SessionApp() {
   const next = searchParams.get("next") ?? "";
   // A connector sign-in started on another device lands here signed out; finish it after sign-in.
   const signInDestination =
-    next === "/integrations/setup" || next.startsWith(`${MCP_OAUTH_CALLBACK_PATH}?`)
+    next === "/integrations/setup" ||
+    next === "/admin/plugins" ||
+    next.startsWith(`${MCP_OAUTH_CALLBACK_PATH}?`)
       ? next
       : "/app";
   const ticketBoardEnabled = useSyncExternalStore(
@@ -210,6 +215,16 @@ function SessionApp() {
                     <IntegrationSetupPage />
                   ) : (
                     <Navigate to="/sign-in?next=/integrations/setup" replace />
+                  )
+                }
+              />
+              <Route
+                path="/admin/plugins"
+                element={
+                  user ? (
+                    <AdminPluginsPage />
+                  ) : (
+                    <Navigate to="/sign-in?next=/admin/plugins" replace />
                   )
                 }
               />
