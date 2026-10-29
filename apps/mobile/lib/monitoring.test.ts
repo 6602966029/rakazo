@@ -461,6 +461,8 @@ describe("mobile monitoring", () => {
     expect(sdk.setTag).toHaveBeenCalledWith("screen", "chat");
     monitor.setMobileMonitoringScreen("computer");
     expect(sdk.setTag).toHaveBeenLastCalledWith("screen", "computer");
+    monitor.setMobileMonitoringScreen(undefined);
+    expect(sdk.setTag).toHaveBeenLastCalledWith("screen", "other");
   });
 
   it("stays optional, reports caught startup errors, and strips private data", async () => {
